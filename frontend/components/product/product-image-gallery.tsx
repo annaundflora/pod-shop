@@ -16,7 +16,10 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
 
   if (images.length === 0) {
     return (
-      <div className="aspect-square bg-surface-elevated rounded-xl flex items-center justify-center text-text-secondary">
+      <div
+        className="aspect-square bg-[var(--color-surface-elevated)] rounded-[var(--radius-card,0.75rem)] flex items-center justify-center text-text-secondary"
+        style={{ boxShadow: 'var(--shadow-card)' }}
+      >
         Kein Bild vorhanden
       </div>
     )
@@ -45,7 +48,8 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
     <div>
       {/* Hauptbild mit Touch-Swipe-Unterstuetzung (Mobile) */}
       <div
-        className="relative aspect-square rounded-xl overflow-hidden bg-surface-elevated"
+        className="relative aspect-square rounded-[var(--radius-card,0.75rem)] overflow-hidden bg-[var(--color-surface-elevated)] transition-shadow duration-300 hover:[box-shadow:var(--shadow-card-hover)]"
+        style={{ boxShadow: 'var(--shadow-card)' }}
         role="region"
         aria-label="Produktbilder"
         onTouchStart={handleTouchStart}
@@ -78,9 +82,9 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
                 aria-label={`Bild ${index + 1}`}
                 onClick={() => setActiveIndex(index)}
                 className={[
-                  'w-2 h-2 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-primary',
+                  'w-2.5 h-2.5 rounded-full transition-all focus-visible:ring-2 focus-visible:ring-primary',
                   index === activeIndex
-                    ? 'bg-text-primary'
+                    ? 'bg-primary scale-110'
                     : 'bg-border hover:bg-text-secondary',
                 ].join(' ')}
               />
@@ -89,7 +93,7 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
 
           {/* Desktop: Thumbnail-Reihe */}
           <div
-            className="hidden lg:flex gap-2 mt-3"
+            className="hidden lg:flex gap-3 mt-4"
             role="tablist"
             aria-label="Bilder-Navigation"
           >
@@ -101,15 +105,17 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
                 aria-label={image.altText || `Bild ${index + 1}`}
                 onClick={() => setActiveIndex(index)}
                 className={[
-                  'relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors focus-visible:ring-2 focus-visible:ring-primary',
-                  index === activeIndex ? 'border-text-primary' : 'border-border hover:border-text-secondary',
+                  'relative w-18 h-18 rounded-[var(--radius-button,0.5rem)] overflow-hidden border-2 transition-all focus-visible:ring-2 focus-visible:ring-primary',
+                  index === activeIndex
+                    ? 'border-primary shadow-md scale-105'
+                    : 'border-border hover:border-text-secondary hover:shadow-sm',
                 ].join(' ')}
               >
                 <Image
                   src={image.sourceUrl}
                   alt={image.altText || `${productName} – Thumbnail ${index + 1}`}
                   fill
-                  sizes="64px"
+                  sizes="72px"
                   className="object-cover"
                 />
               </button>

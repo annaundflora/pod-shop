@@ -4,6 +4,7 @@ import { getClient } from '@/lib/apollo/server-client'
 import { GET_PRODUCT_CATEGORIES } from '@/lib/graphql/queries'
 import { MobileMenu } from './mobile-menu'
 import { CartIcon } from './cart-icon'
+import { ThemeSwitcher } from './theme-switcher'
 import type { ProductCategory } from '@/lib/graphql/types'
 
 export async function Header() {
@@ -51,8 +52,11 @@ export async function Header() {
           ))}
         </nav>
 
-        {/* Warenkorb-Icon mit dynamischem Badge-Counter */}
-        <CartIcon />
+        {/* Theme-Switcher + Warenkorb-Icon */}
+        <div className="flex items-center gap-3">
+          <ThemeSwitcher />
+          <CartIcon />
+        </div>
       </div>
     </header>
   )

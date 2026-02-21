@@ -76,7 +76,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       <main id="main-content">
         {/* Mobile: Stack. Desktop: 2-Spalten Grid */}
-        <div className="lg:grid lg:grid-cols-2 lg:gap-12">
+        <div className="lg:grid lg:grid-cols-2 lg:gap-16">
           {/* Bild-Galerie */}
           <ProductImageGallery
             images={allImages}
@@ -84,17 +84,19 @@ export default async function ProductPage({ params }: ProductPageProps) {
           />
 
           {/* Produkt-Infos */}
-          <div className="mt-6 lg:mt-0">
-            <h1 className="text-2xl font-bold tracking-tight text-text-primary">
+          <div className="mt-8 lg:mt-0">
+            <h1 className="text-3xl font-bold tracking-tight text-text-primary">
               {product.name}
             </h1>
 
-            <p className="mt-2 text-2xl font-semibold text-text-primary">
-              {product.price}
-            </p>
+            <div className="mt-4 flex items-baseline gap-3">
+              <p className="text-3xl font-bold text-[var(--color-accent,var(--color-primary))]">
+                {product.price}
+              </p>
+            </div>
             <p className="mt-1 text-sm text-text-secondary">inkl. Versandkosten</p>
 
-            <hr className="my-6 border-border" />
+            <hr className="my-8 border-border" />
 
             {/* Variant-Selector als Client Component */}
             <ProductVariantSelector
@@ -106,14 +108,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
         {/* Beschreibung */}
         {product.description && (
-          <div className="mt-10">
-            <hr className="mb-6 border-border" />
-            <h2 className="text-lg font-semibold mb-3">Beschreibung</h2>
+          <section
+            className="mt-12 p-6 bg-[var(--color-surface-elevated)] rounded-[var(--radius-card,0.75rem)]"
+            style={{ boxShadow: 'var(--shadow-card)' }}
+          >
+            <h2 className="text-lg font-semibold mb-4 text-text-primary">Beschreibung</h2>
             <div
               className="prose prose-sm text-text-secondary max-w-none"
               dangerouslySetInnerHTML={{ __html: product.description }}
             />
-          </div>
+          </section>
         )}
       </main>
     </>

@@ -30,6 +30,14 @@ add_action('template_redirect', static function (): void {
         return;
     }
 
+    // Rechtliche Seiten: direkt von WordPress rendern
+    $legal_slugs = ['/impressum', '/agb', '/datenschutz', '/widerruf'];
+    foreach ($legal_slugs as $slug) {
+        if (str_starts_with($request_uri, $slug)) {
+            return;
+        }
+    }
+
     // WooCommerce-Checkout und Zahlungsseiten: nicht umleiten (Mollie-Callbacks etc.)
     $wc_paths = ['/checkout', '/order-pay', '/order-received', '/wc-api/'];
     foreach ($wc_paths as $wc_path) {

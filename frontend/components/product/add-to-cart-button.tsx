@@ -60,12 +60,12 @@ export function AddToCartButton({
       aria-disabled={isDisabled}
       aria-live="polite"
       className={[
-        'w-full py-3 px-6 font-medium rounded-lg transition-colors',
+        'w-full py-3.5 px-8 font-semibold text-base rounded-[var(--radius-button,0.5rem)] transition-all duration-200',
         'focus-visible:ring-2 focus-visible:ring-offset-2',
         'disabled:cursor-not-allowed',
         isSuccess
-          ? 'bg-green-600 text-white focus-visible:ring-green-500'
-          : 'bg-primary text-white hover:bg-primary-hover focus-visible:ring-primary disabled:opacity-50',
+          ? 'bg-green-600 text-white focus-visible:ring-green-500 scale-[0.98]'
+          : 'bg-primary text-white hover:bg-primary-hover hover:shadow-lg focus-visible:ring-primary disabled:opacity-50',
       ].join(' ')}
       style={{ touchAction: 'manipulation', minHeight: '2.75rem' }}
     >

@@ -102,20 +102,18 @@ export function MobileMenu({ categories }: MobileMenuProps) {
               <p className="px-4 text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
                 Info
               </p>
-              <Link
-                href="/impressum"
-                onClick={() => setIsOpen(false)}
+              <a
+                href={`${process.env.NEXT_PUBLIC_WP_URL ?? 'http://localhost:8080'}/impressum`}
                 className="block px-4 py-3 text-text-secondary hover:bg-surface-elevated hover:text-text-primary transition-colors focus-visible:ring-2 focus-visible:ring-primary min-h-[44px] flex items-center"
               >
                 Impressum
-              </Link>
-              <Link
-                href="/datenschutz"
-                onClick={() => setIsOpen(false)}
+              </a>
+              <a
+                href={`${process.env.NEXT_PUBLIC_WP_URL ?? 'http://localhost:8080'}/datenschutz`}
                 className="block px-4 py-3 text-text-secondary hover:bg-surface-elevated hover:text-text-primary transition-colors focus-visible:ring-2 focus-visible:ring-primary min-h-[44px] flex items-center"
               >
                 Datenschutz
-              </Link>
+              </a>
               <a
                 href={getAccountUrl()}
                 className="block px-4 py-3 text-text-secondary hover:bg-surface-elevated hover:text-text-primary transition-colors focus-visible:ring-2 focus-visible:ring-primary min-h-[44px] flex items-center"

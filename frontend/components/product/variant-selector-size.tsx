@@ -32,11 +32,11 @@ export function VariantSelectorSize({
               aria-disabled={!available}
               disabled={!available}
               className={[
-                'min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg border text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
+                'min-h-[44px] min-w-[44px] px-4 py-2 rounded-[var(--radius-button,0.5rem)] border text-sm font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
                 isSelected
-                  ? 'bg-text-primary text-surface border-text-primary'
+                  ? 'bg-primary text-white border-primary shadow-md'
                   : available
-                    ? 'bg-surface text-text-primary border-border hover:border-text-primary'
+                    ? 'bg-surface text-text-primary border-border hover:border-primary hover:shadow-sm'
                     : 'bg-surface-elevated text-text-secondary border-border opacity-50 cursor-not-allowed',
               ].join(' ')}
             >

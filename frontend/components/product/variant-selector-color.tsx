@@ -36,9 +36,9 @@ export function VariantSelectorColor({
               aria-disabled={!available}
               disabled={!available}
               className={[
-                'relative w-9 h-9 rounded-full border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-                isSelected ? 'ring-2 ring-text-primary ring-offset-2' : '',
-                !available ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-110',
+                'relative w-10 h-10 rounded-full border-2 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+                isSelected ? 'ring-2 ring-primary ring-offset-2 scale-110 shadow-md' : '',
+                !available ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-110 hover:shadow-sm',
                 hexCode ? 'border-border' : 'border-border',
               ].join(' ')}
               style={hexCode ? { backgroundColor: hexCode } : undefined}
