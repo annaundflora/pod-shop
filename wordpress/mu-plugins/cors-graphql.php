@@ -29,6 +29,7 @@ add_filter('graphql_response_headers_to_send', static function (array $headers):
         $headers['Access-Control-Allow-Origin']      = $origin;
         $headers['Access-Control-Allow-Credentials'] = 'true';
         $headers['Access-Control-Allow-Headers']     = 'Authorization, Content-Type, woocommerce-session';
+        $headers['Access-Control-Expose-Headers']    = 'woocommerce-session';
         $headers['Access-Control-Allow-Methods']     = 'POST, GET, OPTIONS';
         $headers['Vary']                             = 'Origin';
     }
@@ -65,6 +66,7 @@ add_action('init', static function (): void {
     header("Access-Control-Allow-Origin: $origin");
     header('Access-Control-Allow-Credentials: true');
     header('Access-Control-Allow-Headers: Authorization, Content-Type, woocommerce-session');
+    header('Access-Control-Expose-Headers: woocommerce-session');
     header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
     header('Access-Control-Max-Age: 86400');
     header('Vary: Origin');

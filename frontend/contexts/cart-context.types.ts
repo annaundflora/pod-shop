@@ -21,8 +21,13 @@ export interface CartState {
   error: string | null
 }
 
+export interface ProductAttributeInput {
+  attributeName: string
+  attributeValue: string
+}
+
 export interface CartContextValue extends CartState {
-  addToCart: (productId: number, variationId: number | null, quantity?: number) => Promise<void>
+  addToCart: (productId: number, variationId: number | null, quantity?: number, variationAttributes?: ProductAttributeInput[]) => Promise<void>
   updateQuantity: (key: string, quantity: number) => Promise<void>
   removeItem: (key: string) => Promise<void>
   clearError: () => void

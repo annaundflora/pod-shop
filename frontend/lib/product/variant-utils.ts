@@ -1,11 +1,16 @@
 import type { ProductVariation, VariantOptions } from '../graphql/types'
 
+// Bekannte WooCommerce-Attribut-Slugs für Größe und Farbe
+const SIZE_ATTR_NAMES = ['pa_size', 'pa_groesse', 'size', 'größe', 'groesse']
+const COLOR_ATTR_NAMES = ['pa_color', 'pa_farbe', 'color', 'farbe']
+
 // Bekannte Farben → Hex-Codes (erweiterbar)
 const COLOR_HEX_MAP: Record<string, string> = {
   schwarz: '#000000',
   black: '#000000',
   weiß: '#FFFFFF',
   weiss: '#FFFFFF',
+  weis: '#FFFFFF',
   white: '#FFFFFF',
   grau: '#808080',
   gray: '#808080',
@@ -34,13 +39,13 @@ export function extractVariantOptions(variations: ProductVariation[]): VariantOp
       const attrName = attr.name.toLowerCase()
       const attrValue = attr.value
 
-      if (attrName === 'pa_size' || attrName === 'size' || attrName === 'größe') {
+      if (SIZE_ATTR_NAMES.includes(attrName)) {
         // Verfügbar wenn mindestens eine Variation mit dieser Größe IN_STOCK ist
         const existing = sizeMap.get(attrValue)
         sizeMap.set(attrValue, existing === true ? true : isAvailable)
       }
 
-      if (attrName === 'pa_color' || attrName === 'color' || attrName === 'farbe') {
+      if (COLOR_ATTR_NAMES.includes(attrName)) {
         const existing = colorMap.get(attrValue)
         colorMap.set(attrValue, existing === true ? true : isAvailable)
       }
@@ -62,34 +67,30 @@ export function extractVariantOptions(variations: ProductVariation[]): VariantOp
 }
 
 /**
- * Findet die passende Variation basierend auf ausgewählter Größe und Farbe.
- * Gibt null zurück wenn keine passende Variation gefunden.
+ * Findet die passende Variation basierend auf ausgewählter Größe und/oder Farbe.
+ * Wenn eine Variation ein Attribut besitzt, muss es ausgewählt sein und matchen.
+ * Gibt null zurück wenn keine Auswahl getroffen wurde oder keine Variation passt.
  */
 export function findVariation(
   variations: ProductVariation[],
   selectedSize: string | null,
   selectedColor: string | null
 ): ProductVariation | null {
-  if (!selectedSize || !selectedColor) return null
+  if (!selectedSize && !selectedColor) return null
 
   return (
     variations.find((variation) => {
       const attrs = variation.attributes.nodes
-      const hasSize = attrs.some(
-        (a) =>
-          (a.name.toLowerCase() === 'pa_size' ||
-            a.name.toLowerCase() === 'size' ||
-            a.name.toLowerCase() === 'größe') &&
-          a.value === selectedSize
-      )
-      const hasColor = attrs.some(
-        (a) =>
-          (a.name.toLowerCase() === 'pa_color' ||
-            a.name.toLowerCase() === 'color' ||
-            a.name.toLowerCase() === 'farbe') &&
-          a.value === selectedColor
-      )
-      return hasSize && hasColor
+
+      const sizeAttr = attrs.find((a) => SIZE_ATTR_NAMES.includes(a.name.toLowerCase()))
+      const colorAttr = attrs.find((a) => COLOR_ATTR_NAMES.includes(a.name.toLowerCase()))
+
+      // Wenn die Variation ein Größen-Attribut hat, muss es ausgewählt sein und matchen
+      if (sizeAttr && sizeAttr.value !== selectedSize) return false
+      // Wenn die Variation ein Farb-Attribut hat, muss es ausgewählt sein und matchen
+      if (colorAttr && colorAttr.value !== selectedColor) return false
+
+      return true
     }) ?? null
   )
 }

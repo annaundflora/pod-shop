@@ -31,7 +31,13 @@ export function ProductVariantSelector({ product, variantOptions }: ProductVaria
     (variantOptions.sizes.length === 0 && variantOptions.colors.length === 0)
 
   const handleAddToCart = async (productId: number, variationId: number | null) => {
-    await addToCart(productId, variationId, 1)
+    // Variation Attribute aus der gematchten Variation extrahieren und mitschicken.
+    // WooGraphQL benoetigt diese bei Variable Products um die Variante eindeutig zuzuordnen.
+    const variationAttributes = matchedVariation?.attributes.nodes.map((attr) => ({
+      attributeName: attr.name,
+      attributeValue: attr.value,
+    }))
+    await addToCart(productId, variationId, 1, variationAttributes)
   }
 
   return (

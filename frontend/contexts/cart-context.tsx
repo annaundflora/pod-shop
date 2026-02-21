@@ -10,7 +10,7 @@ import {
 } from '@/lib/graphql/cart-mutations'
 import { fireAddToCart } from '@/lib/tracking/pinterest-tag'
 import { generateEventId, storeLastEventId } from '@/lib/tracking/event-id'
-import type { CartItem, CartState, CartContextValue } from './cart-context.types'
+import type { CartItem, CartState, CartContextValue, ProductAttributeInput } from './cart-context.types'
 
 const CART_BACKUP_KEY = 'pod-cart-backup'
 
@@ -104,12 +104,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [updateQuantityMutation] = useMutation<{ updateCartItemQuantities: { cart: unknown } }>(UPDATE_CART_ITEM_QUANTITIES)
   const [removeItemMutation] = useMutation<{ removeItemsFromCart: { cart: unknown } }>(REMOVE_ITEMS_FROM_CART)
 
-  const addToCart = useCallback(async (productId: number, variationId: number | null, quantity = 1) => {
+  const addToCart = useCallback(async (productId: number, variationId: number | null, quantity = 1, variationAttributes?: ProductAttributeInput[]) => {
     setIsLoading(true)
     setError(null)
     try {
       const { data } = await addToCartMutation({
-        variables: { productId, variationId, quantity },
+        variables: {
+          productId,
+          variationId,
+          quantity,
+          ...(variationAttributes && variationAttributes.length > 0 ? { variation: variationAttributes } : {}),
+        },
       })
       if (data?.addToCart?.cart) {
         const mapped = mapCartResponse(data.addToCart.cart)

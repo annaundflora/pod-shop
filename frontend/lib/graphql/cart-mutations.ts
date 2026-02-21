@@ -45,12 +45,13 @@ export const CART_FIELDS = gql`
 
 export const ADD_TO_CART = gql`
   ${CART_FIELDS}
-  mutation AddToCart($productId: Int!, $variationId: Int, $quantity: Int) {
+  mutation AddToCart($productId: Int!, $variationId: Int, $quantity: Int, $variation: [ProductAttributeInput]) {
     addToCart(
       input: {
         productId: $productId
         variationId: $variationId
         quantity: $quantity
+        variation: $variation
       }
     ) {
       cart {

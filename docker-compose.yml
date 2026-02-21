@@ -41,6 +41,7 @@ services:
       - ./wordpress/themes:/var/www/html/wp-content/themes
       - ./wordpress/uploads:/var/www/html/wp-content/uploads
       - ./wordpress/mu-plugins:/var/www/html/wp-content/mu-plugins
+      - ./wordpress/php/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro
     networks:
       - pod-shop
     healthcheck:
