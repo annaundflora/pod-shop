@@ -1,0 +1,13 @@
+{
+    "redefinable-internals": [
+        "sleep",
+        "error_log",
+        "json_encode",
+        "json_decode",
+        "json_last_error",
+        "rawurlencode",
+        "hash_equals",
+        "defined",
+        "sprintf"
+    ]
+}
