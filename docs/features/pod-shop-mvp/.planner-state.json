@@ -1,0 +1,23 @@
+{
+  "spec_path": "docs/features/pod-shop-mvp",
+  "status": "completed",
+  "phase": "completed",
+  "started_at": "2026-02-21T00:00:00Z",
+  "completed_at": "2026-02-21T00:00:00Z",
+  "total_slices": 7,
+  "current_slice_index": 7,
+  "slices": [
+    { "number": 1, "name": "infrastruktur", "slug": "infrastruktur", "status": "approved", "retries": 1 },
+    { "number": 2, "name": "produktkatalog-frontend", "slug": "produktkatalog-frontend", "status": "approved", "retries": 1 },
+    { "number": 3, "name": "warenkorb-checkout-redirect", "slug": "warenkorb-checkout-redirect", "status": "approved", "retries": 1 },
+    { "number": 4, "name": "rechtliches-rechnungen", "slug": "rechtliches-rechnungen", "status": "approved", "retries": 1 },
+    { "number": 5, "name": "pod-anbindung-spreadconnect", "slug": "pod-anbindung-spreadconnect", "status": "approved", "retries": 1 },
+    { "number": 6, "name": "pinterest-tracking", "slug": "pinterest-tracking", "status": "approved", "retries": 1 },
+    { "number": 7, "name": "user-accounts", "slug": "user-accounts", "status": "approved", "retries": 1 }
+  ],
+  "approved_slices": [1, 2, 3, 4, 5, 6, 7],
+  "failed_slices": [],
+  "gate3_retries": 0,
+  "last_action": "Gate 3 APPROVED - Ready for Orchestration",
+  "last_updated": "2026-02-21T00:00:00Z"
+}

@@ -233,9 +233,11 @@ describe('AC-10: Footer contains 4 legal links pointing to WooCommerce WordPress
     const footerPath = path.resolve(__dirname, '../../../components/layout/footer.tsx')
     const footerContent = fs.readFileSync(footerPath, 'utf-8')
 
-    // Assert
+    // Assert - footer shows "Mein Konto" label
     expect(footerContent).toContain('Mein Konto')
-    expect(footerContent).toContain('/mein-konto')
+    // Assert - href is resolved via getAccountUrl() which returns ${WP_URL}/mein-konto at runtime
+    // Using getAccountUrl() is preferable to a hardcoded string because it respects NEXT_PUBLIC_WP_URL
+    expect(footerContent).toContain('getAccountUrl')
   })
 
   it('AC-10: Footer uses semantic nav element with aria-label for accessibility', () => {

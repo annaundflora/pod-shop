@@ -1,0 +1,9 @@
+```markdown
+---
+description: "Implement-Command mit Sub-Agent-Orchestration. Führt Pläne aus mit Quality Gates: Coding Standards Guardian, Spec Scope Keeper, Test Writer."
+---
+
+# Feature Implementation Command
+
+Implementiere den Plan: **$ARGUMENTS**
+```

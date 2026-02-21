@@ -1,0 +1,42 @@
+{
+  "spec_path": "docs/features/pod-shop-mvp",
+  "feature_name": "pod-shop-mvp",
+  "status": "completed",
+  "current_state": "feature_complete",
+  "current_slice_id": null,
+  "retry_count": 0,
+  "failed_stage": null,
+  "completed_at": "2026-02-21T00:00:00Z",
+  "waves": [
+    { "wave": 1, "slices": ["slice-01-infrastruktur"] },
+    { "wave": 2, "slices": ["slice-02-produktkatalog-frontend"] },
+    { "wave": 3, "slices": ["slice-03-warenkorb-checkout-redirect"] },
+    { "wave": 4, "slices": ["slice-04-rechtliches-rechnungen", "slice-05-pod-anbindung-spreadconnect"] },
+    { "wave": 5, "slices": ["slice-06-pinterest-tracking", "slice-07-user-accounts"] }
+  ],
+  "completed_slices": [
+    "slice-01-infrastruktur",
+    "slice-02-produktkatalog-frontend",
+    "slice-03-warenkorb-checkout-redirect",
+    "slice-04-rechtliches-rechnungen",
+    "slice-05-pod-anbindung-spreadconnect",
+    "slice-06-pinterest-tracking",
+    "slice-07-user-accounts"
+  ],
+  "final_validation": {
+    "overall_status": "passed",
+    "vitest": { "total": 151, "passed": 151, "failed": 0 },
+    "phpunit_spreadconnect": { "total": 13, "passed": 12, "incomplete": 1, "exit_code": 0 },
+    "phpunit_pinterest": { "total": 15, "passed": 15, "failed": 0 },
+    "typecheck": "passed"
+  },
+  "evidence_files": [
+    ".claude/evidence/pod-shop-mvp/slice-01-infrastruktur.json",
+    ".claude/evidence/pod-shop-mvp/slice-02-produktkatalog-frontend.json",
+    ".claude/evidence/pod-shop-mvp/slice-03-warenkorb-checkout-redirect.json",
+    ".claude/evidence/pod-shop-mvp/slice-04-rechtliches-rechnungen.json",
+    ".claude/evidence/pod-shop-mvp/slice-05-pod-anbindung-spreadconnect.json",
+    ".claude/evidence/pod-shop-mvp/slice-06-pinterest-tracking.json",
+    ".claude/evidence/pod-shop-mvp/slice-07-user-accounts.json"
+  ]
+}

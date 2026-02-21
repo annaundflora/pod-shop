@@ -1,0 +1,55 @@
+# Environment variables - never commit secrets
+.env
+.env.local
+
+# WordPress uploads (user-generated content)
+wordpress/uploads/
+
+# Third-party WordPress plugins (installed automatically via wpcli in Docker)
+wordpress/plugins/woocommerce/
+wordpress/plugins/wp-graphql/
+wordpress/plugins/wp-graphql-woocommerce/
+wordpress/plugins/mollie-payments-for-woocommerce/
+wordpress/plugins/akismet/
+wordpress/plugins/hello.php
+wordpress/plugins/index.php
+wordpress/themes/
+
+# PHP Composer vendor directories (installed via composer install)
+vendor/
+wordpress/plugins/spreadconnect-pod/vendor/
+wordpress/plugins/pinterest-capi/vendor/
+
+# PHP test caches
+.phpunit.result.cache
+.phpunit.cache/
+wordpress/plugins/pinterest-capi/.phpunit.result.cache
+wordpress/plugins/spreadconnect-pod/.phpunit.cache/
+
+# Node modules
+node_modules/
+frontend/node_modules/
+
+# Next.js build output
+frontend/.next/
+frontend/out/
+frontend/tsconfig.tsbuildinfo
+
+# Vitest coverage
+frontend/coverage/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# WordPress cache
+wordpress/cache/
+
+# Claude Code project settings (local only)
+.claude/settings.local.json

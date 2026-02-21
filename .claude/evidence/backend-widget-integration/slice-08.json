@@ -1,0 +1,68 @@
+{
+  "feature": "backend-widget-integration",
+  "slice": "08-error-handling",
+  "timestamp": "2026-02-15T12:40:00Z",
+  "status": "completed",
+  "implementation": {
+    "status": "completed",
+    "files_changed": [
+      "widget/src/lib/error-utils.ts",
+      "widget/src/components/chat/ErrorDisplay.tsx",
+      "widget/src/components/screens/ChatScreen.tsx",
+      "widget/src/main.tsx",
+      "widget/src/components/chat/ChatComposer.tsx"
+    ],
+    "commit_hash": "29bbfe6ded8ef127dc770b822aab404182134982",
+    "notes": "Error handling system implemented with ErrorDisplay component, error classification, retry/restart logic, and 409 auto-redirect."
+  },
+  "tests": {
+    "status": "completed",
+    "test_files": ["widget/tests/slices/backend-widget-integration/slice-08-error-handling.test.ts"],
+    "test_count": {
+      "unit": 16,
+      "integration": 0,
+      "acceptance": 8
+    },
+    "ac_coverage": {
+      "total": 8,
+      "covered": 8,
+      "missing": []
+    },
+    "commit_hash": "7e2c3d7"
+  },
+  "validation": {
+    "overall_status": "passed",
+    "stages": {
+      "tests": {
+        "status": "passed",
+        "exit_code": 0,
+        "test_count": 24,
+        "duration_ms": 357
+      },
+      "previous_tests": {
+        "status": "passed",
+        "exit_code": 0,
+        "test_count": 107
+      },
+      "lint": {
+        "status": "skipped",
+        "exit_code": 0
+      },
+      "typecheck": {
+        "status": "passed",
+        "exit_code": 0
+      }
+    },
+    "failed_stage": null,
+    "error_output": null
+  },
+  "retries": 1,
+  "retry_details": {
+    "retry_1": {
+      "failed_stage": "typecheck",
+      "root_cause": "Incorrect @assistant-ui/react ThreadRuntime API usage",
+      "fix_applied": "Updated ChatScreen.tsx to use correct API: getState() for messages, startRun({ parentId }) with config object, proper error status check",
+      "files_modified": ["widget/src/components/screens/ChatScreen.tsx"]
+    }
+  }
+}

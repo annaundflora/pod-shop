@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  /* Farben – semantisch benannt */
+  --color-primary: oklch(0.45 0.2 270);
+  --color-primary-hover: oklch(0.38 0.2 270);
+  --color-surface: var(--color-white);
+  --color-surface-elevated: oklch(0.98 0 0);
+  --color-text-primary: oklch(0.15 0 0);
+  --color-text-secondary: oklch(0.45 0 0);
+  --color-border: oklch(0.88 0 0);
+
+  /* Touch-Targets: mindestens 44px (Pinterest-Traffic ist mobile) */
+  --min-touch-target: 2.75rem;
+
+  /* Spacing – ergänzt Tailwind-Standard */
+  --spacing-18: 4.5rem;
+
+  /* Cookie Consent Banner Slide-Up Animation */
+  --animate-slide-up: slide-up 0.25s ease-out;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* prefers-reduced-motion: Animation deaktivieren */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes slide-up {
+    from { transform: translateY(0); opacity: 1; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+}
+
+@layer base {
+  body {
+    @apply antialiased text-text-primary bg-surface;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    text-wrap: balance;
+    @apply font-semibold tracking-tight;
+  }
+
+  /* Touch-Targets für Mobile-first (Pinterest-Traffic) */
+  button, a {
+    touch-action: manipulation;
+  }
+}

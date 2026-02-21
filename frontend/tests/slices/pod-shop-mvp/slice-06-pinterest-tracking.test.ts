@@ -50,7 +50,7 @@ beforeEach(() => {
   localStorage.clear()
   vi.clearAllMocks()
   // pintrk reset
-  delete (window as Record<string, unknown>).pintrk
+  delete (window as unknown as Record<string, unknown>).pintrk
   Object.defineProperty(window, 'location', {
     value: { href: '' },
     writable: true,
@@ -108,7 +108,7 @@ describe('Slice 06: Pinterest Tracking -- Consent Gate', () => {
      * THEN wird pintrk NICHT aufgerufen
      */
     // Arrange -- kein Consent, pintrk Mock vorhanden
-    ;(window as Record<string, unknown>).pintrk = mockPintrk
+    ;(window as unknown as Record<string, unknown>).pintrk = mockPintrk
     // Act
     firePageVisit({ event_id: 'test-id' })
     // Assert -- pintrk NICHT aufgerufen
@@ -137,7 +137,7 @@ describe('Slice 06: Pinterest Tracking -- Consent Gate', () => {
      */
     // Arrange
     localStorage.setItem('cookie-consent', 'rejected')
-    ;(window as Record<string, unknown>).pintrk = mockPintrk
+    ;(window as unknown as Record<string, unknown>).pintrk = mockPintrk
     // Act
     fireAddToCart({
       event_id: 'test-id',
@@ -158,7 +158,7 @@ describe('Slice 06: Pinterest Tracking -- Consent Gate', () => {
      */
     // Arrange
     localStorage.setItem('cookie-consent', 'rejected')
-    ;(window as Record<string, unknown>).pintrk = mockPintrk
+    ;(window as unknown as Record<string, unknown>).pintrk = mockPintrk
     // Act
     fireViewCategory({ event_id: 'test-id', category_name: 'T-Shirts' })
     // Assert
@@ -180,7 +180,7 @@ describe('Slice 06: Pinterest Tracking -- isTagLoaded', () => {
 
   it('should return true when pintrk is a function on window', () => {
     // Arrange
-    ;(window as Record<string, unknown>).pintrk = mockPintrk
+    ;(window as unknown as Record<string, unknown>).pintrk = mockPintrk
     // Act
     const result = isTagLoaded()
     // Assert
@@ -194,7 +194,7 @@ describe('Slice 06: Pinterest Tracking -- isTagLoaded', () => {
 describe('Slice 06: Pinterest Tracking -- Event Firing', () => {
   beforeEach(() => {
     localStorage.setItem('cookie-consent', 'accepted')
-    ;(window as Record<string, unknown>).pintrk = mockPintrk
+    ;(window as unknown as Record<string, unknown>).pintrk = mockPintrk
   })
 
   it('AC-3: should fire page_visit event via pintrk("page") with event_id', () => {
@@ -462,7 +462,7 @@ describe('Slice 06: Pinterest Tracking -- initPinterestTag', () => {
      */
     // Arrange
     localStorage.setItem('cookie-consent', 'accepted')
-    ;(window as Record<string, unknown>).pintrk = mockPintrk
+    ;(window as unknown as Record<string, unknown>).pintrk = mockPintrk
     // Act
     initPinterestTag()
     // Assert -- should still be the mock, not overwritten
