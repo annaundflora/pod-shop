@@ -171,6 +171,19 @@
 
 ---
 
+## Migration Map (wenn Scope bestehenden Code ändert)
+
+> Nur ausfüllen wenn der Scope eine Migration/Refactoring bestehender Dateien enthält.
+> PFLICHT wenn Scope-Tabelle Wörter wie "Migration", "migrieren", "umstellen", "refactoren" enthält.
+> Für JEDE Datei die sich ändert: Was ist der aktuelle Zustand, was wird der Zielzustand.
+> Granularität: DATEIEN, nicht Verzeichnisse. Jede betroffene Datei = eine Zeile.
+
+| Existing File | Current Pattern | Target Pattern | Specific Changes |
+|---|---|---|---|
+| {path/to/file} | {What exists today} | {What it becomes} | {Concrete change description} |
+
+---
+
 ## Constraints & Integrations
 
 ### Constraints

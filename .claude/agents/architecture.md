@@ -144,6 +144,7 @@ Wenn Recherche:
 | Server Logic | Alle Services mit Responsibilities, Inputs, Outputs, Side Effects |
 | Security | Auth/Authorization, Data Protection, Input Validation, Rate Limiting |
 | Architecture Layers | Routes, Services, Repos, Jobs mit Responsibilities |
+| Migration Map | Wenn Scope Migration/Refactoring enthält: Jede betroffene Datei mit Current → Target Pattern |
 | Constraints & Integrations | Technische Lösungen für Discovery-Constraints |
 | Quality Attributes (NFRs) | Technical approaches für Discovery-NFRs |
 | Risks & Assumptions | Technical mitigation für Discovery-Risks |
@@ -161,6 +162,9 @@ Agent geht APIs/Schema/Services/Layers gedanklich durch und erkennt Lücken.
 | Risk ohne Mitigation | "Was ist unsere technische Mitigation für Risk X?" |
 | Integration unklar | "Welche API/SDK nutzen wir für Integration X?" |
 | UI Component ohne Integration Point | "Wo wird Component X eingebunden? (Welche Page/Route?)" |
+| Scope enthält Migration aber keine Migration Map | "Der Scope erwähnt eine Migration/Refactoring. Welche Dateien sind betroffen und was ist das Ziel-Pattern für jede?" |
+| Migration Map hat Verzeichnisse statt Dateien | "Die Migration Map referenziert Verzeichnis {X}/ — welche konkreten Dateien darin sind betroffen?" |
+| Migration Map Anzahl weicht von Discovery ab | "Discovery sagt N Dateien, Migration Map hat M Zeilen — welche fehlen?" |
 
 ### Codebase als Referenz
 
@@ -359,6 +363,7 @@ Q&A Log wird während der Session gesammelt und bei jedem Write mit aktualisiert
 | Server Logic | ✅/❌ | |
 | Security | ✅/❌ | |
 | Architecture Layers | ✅/❌ | |
+| Migration Map | ✅/❌/N/A | PFLICHT wenn Scope Migration enthält, sonst N/A |
 | Constraints & Integrations | ✅/❌ | |
 | Quality Attributes (NFRs) | ✅/❌ | |
 | Risks & Assumptions | ✅/❌ | |

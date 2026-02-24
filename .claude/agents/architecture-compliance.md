@@ -52,6 +52,22 @@ Für jedes Feature in Discovery:
 - [ ] Gibt es DB Schema Änderungen?
 - [ ] Sind Business Rules dokumentiert?
 
+### Phase 2b: Migration Completeness Check
+
+> Nur ausführen wenn Scope Migration/Refactoring enthält (Trigger-Wörter: "Migration", "migrieren", "umstellen", "refactoren", "MIGRATED").
+
+- [ ] Hat die Architecture eine "Migration Map" Section?
+- [ ] Enthält die Migration Map DATEIEN (nicht nur Verzeichnisse)?
+- [ ] Stimmt die Anzahl der Zeilen mit der Discovery-Angabe überein? (Discovery: "N Dateien" → Migration Map: N Zeilen)
+- [ ] Hat jede Zeile ein konkretes "Target Pattern" (nicht nur "use ui/ primitives")?
+- [ ] Ist das Target Pattern spezifisch genug dass der Slice-Writer daraus einen Test ableiten kann?
+
+**BLOCKING wenn:**
+- Scope enthält Migration aber keine Migration Map Section
+- Migration Map hat Verzeichnisse statt Dateien
+- Migration Map hat weniger Zeilen als Discovery-Angabe
+- Target Pattern ist zu vage (nur Kommentar oder Verzeichnis-Referenz, kein konkretes Ziel)
+
 ### Phase 3: Constraint Mapping Check
 
 Für jeden UI-Constraint in Discovery/Wireframes:
@@ -216,11 +232,33 @@ Für JEDE Library, Plugin und Plattform in Architecture (Stack Choices + Integra
 
 ---
 
+## E) Migration Completeness (wenn anwendbar)
+
+> Nur ausfüllen wenn Scope Migration/Refactoring enthält. Sonst "N/A — kein Migration-Scope" eintragen.
+
+### Quantitäts-Check
+
+| Discovery Claim | Architecture Coverage | Status |
+|---|---|---|
+| [z.B. "18 Components migrieren"] | Migration Map: [N] Zeilen | ✅ wenn N >= Claim, ❌ wenn N < Claim |
+
+### Qualitäts-Check
+
+| File in Migration Map | Current Pattern | Target Pattern | Specific enough for test? | Status |
+|---|---|---|---|---|
+| [file path] | [current] | [target] | Yes/No | ✅/❌ |
+
+**"Specific enough for test"** = Kann der Slice-Writer aus dem Target Pattern einen konkreten Test ableiten?
+- ✅ `<Button> from ui/button` → Test: `expect(content).toContain("from '@/components/ui/button'")`
+- ❌ `use ui/ primitives` → Welches Primitive? Nicht testbar.
+
+---
+
 ## Blocking Issues
 
 ### Issue N: [Title]
 
-**Category:** Feature/Constraint/Data Type/Dependency
+**Category:** Feature/Constraint/Data Type/Dependency/Migration
 **Severity:** ❌ Blocking
 
 **Architecture says:**
@@ -271,6 +309,10 @@ Für JEDE Library, Plugin und Plattform in Architecture (Stack Choices + Integra
 - Dependency-File (package.json, requirements.txt) hat ungepinnte Version
 - Architecture dokumentiert nur einen Stack obwohl Feature mehrere nutzt
 - **Greenfield: Dokumentierte Version ist nicht die aktuell stabile** (via WebSearch verifiziert)
+- Scope enthält Migration aber Architecture hat keine Migration Map Section
+- Migration Map hat Verzeichnisse statt Dateien (Granularität zu grob)
+- Migration Map hat weniger Zeilen als Discovery-Angabe (Dateien fehlen)
+- Migration Map Target Pattern ist nicht testbar (zu vage)
 
 ### AUTO-FIX (🔧) - Kann automatisch ergänzt werden
 
@@ -284,6 +326,7 @@ Wenn Evidenz aus Codebase/APIs klar ist:
 - Datentyp mit Evidence validiert
 - External API vollständig dokumentiert
 - Alle Constraints aus Discovery/Wireframes berücksichtigt
+- Migration Map vollständig (wenn anwendbar): Alle Dateien, spezifische Target Patterns
 
 ## Kommunikation
 
