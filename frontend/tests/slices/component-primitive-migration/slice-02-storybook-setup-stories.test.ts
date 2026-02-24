@@ -5,9 +5,10 @@
  * These tests validate file existence, file content, and structural correctness
  * of Storybook configuration and story files — no browser or DOM rendering.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
+import { execSync } from 'child_process'
 
 const FRONTEND_ROOT = path.resolve(__dirname, '../../../')
 const STORYBOOK_DIR = path.join(FRONTEND_ROOT, '.storybook')
@@ -160,6 +161,18 @@ describe('AC-2: Button story with 6 variants and 4 sizes via Controls', () => {
 // THEN werden die Theme Tokens aus generated-theme.css korrekt angewendet
 // ===========================================================================
 describe('AC-3: Theme Tokens applied via CSS imports in preview.ts', () => {
+  beforeAll(() => {
+    // Ensure generated-theme.css exists regardless of test execution order.
+    // Other test suites (frontend-theming/slice-01) delete this file in their
+    // afterEach hooks and only restore it in afterAll. When Vitest runs files
+    // in parallel the file may be absent when this suite executes.
+    const themeCssPath = path.join(FRONTEND_ROOT, 'app', 'generated-theme.css')
+    if (!fs.existsSync(themeCssPath)) {
+      const scriptPath = path.join(FRONTEND_ROOT, 'scripts', 'generate-theme.mjs')
+      execSync(`node ${scriptPath}`, { cwd: FRONTEND_ROOT })
+    }
+  })
+
   it('should import globals.css in preview.ts', () => {
     const content = readFile('.storybook/preview.ts')
     expect(content).toContain('globals.css')
