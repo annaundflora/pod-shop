@@ -2,6 +2,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Card } from '@/components/ui/card'
 import type { BlockComponentProps } from '@/lib/blocks/types'
 import type { ProductCategory } from '@/lib/graphql/types'
 
@@ -26,30 +27,35 @@ export function CategoryShowcaseBlock({ data }: BlockComponentProps<CategoryShow
       </h2>
       <div className="flex flex-col gap-3">
         {categories.map((category) => (
-          <Link
+          <Card
             key={category.id}
-            href={`/kategorie/${category.slug}`}
-            className="flex items-center gap-4 p-4 rounded-xl border border-border bg-surface-elevated hover:bg-surface-elevated transition-colors focus-visible:ring-2 focus-visible:ring-primary"
-            style={{ touchAction: 'manipulation' } as React.CSSProperties}
+            variant="interactive"
+            asChild
           >
-            {category.image && (
-              <div className="relative w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden">
-                <Image
-                  src={category.image.sourceUrl}
-                  alt={category.image.altText || category.name}
-                  fill
-                  className="object-cover"
-                  sizes="48px"
-                />
-              </div>
-            )}
-            <span className="font-medium text-text-primary flex-1 min-w-0 truncate">
-              {category.name}
-            </span>
-            <span aria-hidden="true" className="text-text-secondary flex-shrink-0">
-              →
-            </span>
-          </Link>
+            <Link
+              href={`/kategorie/${category.slug}`}
+              className="flex items-center gap-4 p-4"
+              style={{ touchAction: 'manipulation' } as React.CSSProperties}
+            >
+              {category.image && (
+                <div className="relative w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden">
+                  <Image
+                    src={category.image.sourceUrl}
+                    alt={category.image.altText || category.name}
+                    fill
+                    className="object-cover"
+                    sizes="48px"
+                  />
+                </div>
+              )}
+              <span className="font-medium text-text-primary flex-1 min-w-0 truncate">
+                {category.name}
+              </span>
+              <span aria-hidden="true" className="text-text-secondary flex-shrink-0">
+                →
+              </span>
+            </Link>
+          </Card>
         ))}
       </div>
     </section>

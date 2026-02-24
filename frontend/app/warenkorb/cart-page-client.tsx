@@ -4,6 +4,7 @@ import { useCart } from '@/contexts/cart-context'
 import { CartItemRow } from '@/components/cart/cart-item-row'
 import { CartSummary } from '@/components/cart/cart-summary'
 import { EmptyCart } from '@/components/cart/empty-cart'
+import { Button } from '@/components/ui/button'
 
 export function CartPageClient() {
   const { cartItems, isLoading, error, clearError } = useCart()
@@ -26,13 +27,15 @@ export function CartPageClient() {
           className="mb-4 p-3 [background-color:color-mix(in_oklch,var(--color-error)_10%,transparent)] border border-error text-error rounded-lg text-sm flex items-center justify-between"
         >
           <span>{error}</span>
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={clearError}
             aria-label="Fehlermeldung schliessen"
-            className="ml-2 text-error hover:text-error focus-visible:ring-2 focus-visible:ring-error rounded opacity-80 hover:opacity-100"
+            className="ml-2 text-error hover:text-error opacity-80 hover:opacity-100"
           >
             &#10005;
-          </button>
+          </Button>
         </div>
       )}
 

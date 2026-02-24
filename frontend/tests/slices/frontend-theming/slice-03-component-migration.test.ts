@@ -252,9 +252,10 @@ describe('Shadow-Token Migration: keine hardcoded shadow-md/shadow-xl mehr', () 
     expect(content).not.toContain('hover:shadow-md')
   })
 
-  it('product-card.tsx: nutzt shadow-card-hover Token', () => {
-    const content = readFile('components/product/product-card.tsx')
-    expect(content).toContain('shadow-card-hover')
+  it('product-card.tsx: nutzt shadow-card-hover Token (via Card variant="interactive" in card.tsx)', () => {
+    // Nach Migration zu Card variant="interactive" liegt shadow-card-hover in card.tsx CVA definition
+    const cardContent = readFile('components/ui/card.tsx')
+    expect(cardContent).toContain('shadow-card-hover')
   })
 })
 

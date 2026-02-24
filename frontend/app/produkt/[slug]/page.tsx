@@ -5,6 +5,7 @@ import { ProductImageGallery } from '@/components/product/product-image-gallery'
 import { ProductVariantSelector } from './product-variant-selector'
 import { generateProductJsonLd } from '@/lib/seo/json-ld'
 import { extractVariantOptions } from '@/lib/product/variant-utils'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import type { ProductDetailData } from '@/lib/graphql/types'
 
 export const revalidate = 60
@@ -108,16 +109,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
         {/* Beschreibung */}
         {product.description && (
-          <section
-            className="mt-12 p-6 bg-[var(--color-surface-elevated)] rounded-[var(--radius-card,0.75rem)]"
-            style={{ boxShadow: 'var(--shadow-card)' }}
-          >
-            <h2 className="text-lg font-semibold mb-4 text-text-primary">Beschreibung</h2>
-            <div
-              className="prose prose-sm text-text-secondary max-w-none"
-              dangerouslySetInnerHTML={{ __html: product.description }}
-            />
-          </section>
+          <Card className="mt-12">
+            <CardHeader>
+              <CardTitle>Beschreibung</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div
+                className="prose prose-sm text-text-secondary max-w-none"
+                dangerouslySetInnerHTML={{ __html: product.description }}
+              />
+            </CardContent>
+          </Card>
         )}
       </main>
     </>

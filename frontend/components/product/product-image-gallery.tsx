@@ -3,6 +3,8 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import type { ProductImage } from '@/lib/graphql/types'
 
 interface ProductImageGalleryProps {
@@ -68,7 +70,7 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
       {/* Dots (Mobile) / Thumbnails (Desktop) */}
       {images.length > 1 && (
         <>
-          {/* Mobile: Dot-Navigation */}
+          {/* Mobile: Dot-Navigation — bleibt native button (Out of Scope) */}
           <div
             className="flex lg:hidden justify-center gap-2 mt-3"
             role="tablist"
@@ -98,18 +100,20 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
             aria-label="Bilder-Navigation"
           >
             {images.map((image, index) => (
-              <button
+              <Button
                 key={index}
+                variant="ghost"
+                size="icon"
                 role="tab"
                 aria-selected={index === activeIndex}
                 aria-label={image.altText || `Bild ${index + 1}`}
                 onClick={() => setActiveIndex(index)}
-                className={[
-                  'relative w-18 h-18 rounded-[var(--radius-button,0.5rem)] overflow-hidden border-2 transition-all focus-visible:ring-2 focus-visible:ring-primary',
+                className={cn(
+                  'relative w-18 h-18 rounded-[var(--radius-button,0.5rem)] overflow-hidden border-2 transition-all',
                   index === activeIndex
                     ? 'border-primary shadow-[var(--shadow-card)] scale-105'
-                    : 'border-border hover:border-text-secondary hover:shadow-[var(--shadow-card)]',
-                ].join(' ')}
+                    : 'border-border hover:border-text-secondary hover:shadow-[var(--shadow-card)]'
+                )}
               >
                 <Image
                   src={image.sourceUrl}
@@ -118,7 +122,7 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
                   sizes="72px"
                   className="object-cover"
                 />
-              </button>
+              </Button>
             ))}
           </div>
         </>

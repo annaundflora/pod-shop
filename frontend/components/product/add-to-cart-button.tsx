@@ -2,6 +2,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 interface AddToCartButtonProps {
   productId: number
@@ -53,21 +55,16 @@ export function AddToCartButton({
   }
 
   return (
-    <button
+    <Button
       type="button"
       onClick={handleClick}
       disabled={isDisabled}
-      aria-disabled={isDisabled}
+      isLoading={isLoading && !isSuccess}
       aria-live="polite"
-      className={[
-        'w-full py-3.5 px-8 font-semibold text-base rounded-[var(--radius-button,0.5rem)] transition-all duration-200',
-        'focus-visible:ring-2 focus-visible:ring-offset-2',
-        'disabled:cursor-not-allowed',
-        isSuccess
-          ? 'bg-success text-white focus-visible:ring-success scale-[0.98]'
-          : 'bg-primary text-white hover:bg-primary-hover hover:shadow-[var(--shadow-card-hover)] focus-visible:ring-primary disabled:opacity-50',
-      ].join(' ')}
-      style={{ touchAction: 'manipulation', minHeight: '2.75rem' }}
+      className={cn(
+        'w-full text-base py-3.5 px-8',
+        isSuccess && 'bg-success hover:bg-success focus-visible:ring-success scale-[0.98]'
+      )}
     >
       {isSuccess ? (
         <span className="flex items-center justify-center gap-2">
@@ -90,6 +87,6 @@ export function AddToCartButton({
       ) : (
         label
       )}
-    </button>
+    </Button>
   )
 }

@@ -1,6 +1,8 @@
 // frontend/components/product/variant-selector-size.tsx
 'use client'
 
+import { Button } from '@/components/ui/button'
+
 interface SizeOption {
   value: string
   available: boolean
@@ -24,24 +26,18 @@ export function VariantSelectorSize({
         {sizes.map(({ value, available }) => {
           const isSelected = selectedSize === value
           return (
-            <button
+            <Button
               key={value}
               type="button"
+              variant={isSelected ? 'default' : 'outline'}
               onClick={() => available && onSizeSelect(value)}
               aria-pressed={isSelected}
               aria-disabled={!available}
               disabled={!available}
-              className={[
-                'min-h-[44px] min-w-[44px] px-4 py-2 rounded-[var(--radius-button,0.5rem)] border text-sm font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
-                isSelected
-                  ? 'bg-primary text-white border-primary shadow-[var(--shadow-card)]'
-                  : available
-                    ? 'bg-surface text-text-primary border-border hover:border-primary hover:shadow-[var(--shadow-card)]'
-                    : 'bg-surface-elevated text-text-secondary border-border opacity-50 cursor-not-allowed',
-              ].join(' ')}
+              className="min-h-[44px] min-w-[44px] px-4"
             >
               {value}
-            </button>
+            </Button>
           )
         })}
       </div>

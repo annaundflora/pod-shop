@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useCart } from '@/contexts/cart-context'
+import { Badge } from '@/components/ui/badge'
 
 export function CartIcon() {
   const { itemCount } = useCart()
@@ -32,12 +33,12 @@ export function CartIcon() {
 
       {/* Badge */}
       {itemCount > 0 && (
-        <span
+        <Badge
           aria-hidden="true"
-          className="absolute -top-1 -right-1 min-w-[1.125rem] h-[1.125rem] px-1 flex items-center justify-center bg-primary text-white text-xs font-bold rounded-full tabular-nums leading-none"
+          className="absolute -top-1 -right-1 min-w-[1.125rem] h-[1.125rem] px-1 tabular-nums leading-none"
         >
           {itemCount > 99 ? '99+' : itemCount}
-        </span>
+        </Badge>
       )}
     </Link>
   )

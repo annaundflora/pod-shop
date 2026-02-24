@@ -5,6 +5,7 @@ import Link from 'next/link'
 import type { ProductCategory } from '@/lib/graphql/types'
 import { getAccountUrl } from '@/lib/config/account'
 import { Sheet, SheetTrigger, SheetContent } from '@/components/ui/sheet'
+import { Button } from '@/components/ui/button'
 
 interface MobileMenuProps {
   categories: ProductCategory[]
@@ -15,10 +16,11 @@ export function MobileMenu({ categories }: MobileMenuProps) {
     <Sheet>
       {/* Hamburger Button */}
       <SheetTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           aria-label="Menü öffnen"
-          className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-text-primary focus-visible:ring-2 focus-visible:ring-primary rounded"
         >
           <svg
             aria-hidden="true"
@@ -34,7 +36,7 @@ export function MobileMenu({ categories }: MobileMenuProps) {
               d="M4 6h16M4 12h16M4 18h16"
             />
           </svg>
-        </button>
+        </Button>
       </SheetTrigger>
 
       <SheetContent side="left">

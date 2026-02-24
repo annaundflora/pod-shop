@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import type { BlockComponentProps } from '@/lib/blocks/types'
 
 const SHOP_NAME = process.env.NEXT_PUBLIC_SHOP_NAME ?? 'POD Shop'
@@ -49,13 +50,11 @@ export function HeroBlock({ data }: BlockComponentProps<HeroBlockData | null>) {
           {headline}
         </h1>
         <p className="text-text-secondary mb-6">{subline}</p>
-        <Link
-          href={ctaLink}
-          className="inline-flex items-center justify-center px-6 py-3 bg-primary text-white rounded-[var(--radius-button,0.5rem)] font-medium hover:bg-primary-hover transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          style={{ touchAction: 'manipulation' } as React.CSSProperties}
-        >
-          {ctaText}
-        </Link>
+        <Button asChild>
+          <Link href={ctaLink}>
+            {ctaText}
+          </Link>
+        </Button>
       </div>
     </section>
   )
