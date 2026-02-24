@@ -17,7 +17,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary text-white hover:bg-primary-hover shadow-sm hover:shadow-md',
+        default: 'bg-primary text-white hover:bg-primary-hover shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)]',
         destructive: 'bg-error text-white hover:opacity-90 focus-visible:ring-error',
         outline: 'border border-border bg-transparent text-text-primary hover:bg-surface-elevated',
         ghost: 'bg-transparent text-text-primary hover:bg-surface-elevated',

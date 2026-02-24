@@ -4,7 +4,6 @@ import { getClient } from '@/lib/apollo/server-client'
 import { GET_PRODUCT_CATEGORIES } from '@/lib/graphql/queries'
 import { MobileMenu } from './mobile-menu'
 import { CartIcon } from './cart-icon'
-import { ThemeSwitcher } from './theme-switcher'
 import type { ProductCategory } from '@/lib/graphql/types'
 
 export async function Header() {
@@ -36,7 +35,7 @@ export async function Header() {
           href="/"
           className="font-bold text-lg text-text-primary focus-visible:ring-2 focus-visible:ring-primary rounded"
         >
-          POD Shop
+          {process.env.NEXT_PUBLIC_SHOP_NAME ?? 'POD Shop'}
         </Link>
 
         {/* Desktop: Kategorie-Navigation */}
@@ -52,9 +51,8 @@ export async function Header() {
           ))}
         </nav>
 
-        {/* Theme-Switcher + Warenkorb-Icon */}
+        {/* Warenkorb-Icon */}
         <div className="flex items-center gap-3">
-          <ThemeSwitcher />
           <CartIcon />
         </div>
       </div>

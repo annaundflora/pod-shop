@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!product) return { title: 'Produkt nicht gefunden' }
 
   return {
-    title: `${product.name} | POD Shop`,
+    title: `${product.name} | ${process.env.NEXT_PUBLIC_SHOP_NAME ?? 'POD Shop'}`,
     description: product.shortDescription ?? product.description?.substring(0, 160),
     openGraph: {
       images: product.image ? [{ url: product.image.sourceUrl }] : [],

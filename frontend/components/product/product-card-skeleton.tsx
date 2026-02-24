@@ -1,14 +1,16 @@
 // frontend/components/product/product-card-skeleton.tsx
+import { Skeleton } from '@/components/ui/skeleton'
+
 export function ProductCardSkeleton() {
   return (
     <div
-      className="rounded-xl overflow-hidden border border-border bg-surface animate-pulse"
-      aria-label="loading"
+      className="rounded-[var(--radius-card,0.75rem)] overflow-hidden border border-border bg-surface"
+      aria-label="Produkt wird geladen"
     >
-      <div className="aspect-square bg-surface-elevated" />
+      <Skeleton className="aspect-square w-full rounded-none" />
       <div className="p-3 space-y-2">
-        <div className="h-4 bg-surface-elevated rounded w-3/4" />
-        <div className="h-4 bg-surface-elevated rounded w-1/3" />
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-1/3" />
       </div>
     </div>
   )

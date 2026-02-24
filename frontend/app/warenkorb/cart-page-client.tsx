@@ -23,13 +23,13 @@ export function CartPageClient() {
         <div
           role="alert"
           aria-live="polite"
-          className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg text-sm flex items-center justify-between"
+          className="mb-4 p-3 [background-color:color-mix(in_oklch,var(--color-error)_10%,transparent)] border border-error text-error rounded-lg text-sm flex items-center justify-between"
         >
           <span>{error}</span>
           <button
             onClick={clearError}
             aria-label="Fehlermeldung schliessen"
-            className="ml-2 text-red-600 hover:text-red-800 focus-visible:ring-2 focus-visible:ring-red-500 rounded"
+            className="ml-2 text-error hover:text-error focus-visible:ring-2 focus-visible:ring-error rounded opacity-80 hover:opacity-100"
           >
             &#10005;
           </button>

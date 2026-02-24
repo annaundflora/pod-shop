@@ -45,7 +45,7 @@ export function Footer() {
 
         {/* Copyright */}
         <p className="text-center text-xs text-text-secondary mt-4" suppressHydrationWarning>
-          &copy; {currentYear} POD Shop
+          &copy; {currentYear} {process.env.NEXT_PUBLIC_SHOP_NAME ?? 'POD Shop'}
         </p>
       </div>
     </footer>

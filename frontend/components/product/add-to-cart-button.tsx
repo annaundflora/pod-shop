@@ -64,8 +64,8 @@ export function AddToCartButton({
         'focus-visible:ring-2 focus-visible:ring-offset-2',
         'disabled:cursor-not-allowed',
         isSuccess
-          ? 'bg-green-600 text-white focus-visible:ring-green-500 scale-[0.98]'
-          : 'bg-primary text-white hover:bg-primary-hover hover:shadow-lg focus-visible:ring-primary disabled:opacity-50',
+          ? 'bg-success text-white focus-visible:ring-success scale-[0.98]'
+          : 'bg-primary text-white hover:bg-primary-hover hover:shadow-[var(--shadow-card-hover)] focus-visible:ring-primary disabled:opacity-50',
       ].join(' ')}
       style={{ touchAction: 'manipulation', minHeight: '2.75rem' }}
     >

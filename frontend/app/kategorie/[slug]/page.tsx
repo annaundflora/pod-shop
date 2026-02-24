@@ -37,8 +37,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const category = data?.productCategories?.nodes.find((c) => c.slug === slug)
 
   return {
-    title: category ? `${category.name} | POD Shop` : 'Kategorie | POD Shop',
-    description: category ? `Alle ${category.name} im POD Shop` : undefined,
+    title: category ? `${category.name} | ${process.env.NEXT_PUBLIC_SHOP_NAME ?? 'POD Shop'}` : `Kategorie | ${process.env.NEXT_PUBLIC_SHOP_NAME ?? 'POD Shop'}`,
+    description: category ? `Alle ${category.name} im ${process.env.NEXT_PUBLIC_SHOP_NAME ?? 'POD Shop'}` : undefined,
   }
 }
 

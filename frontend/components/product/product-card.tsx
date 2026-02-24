@@ -13,7 +13,7 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       href={`/produkt/${product.slug}`}
-      className="group block rounded-xl overflow-hidden border border-border bg-surface hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary"
+      className="group block rounded-[var(--radius-card,0.75rem)] overflow-hidden border border-border bg-surface hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary"
     >
       {/* Produktbild */}
       <div className="relative aspect-square bg-surface-elevated overflow-hidden">
@@ -33,8 +33,8 @@ export function ProductCard({ product }: ProductCardProps) {
 
         {/* Sold-Out Overlay */}
         {isSoldOut && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <span className="text-white font-medium text-sm px-3 py-1 bg-black/70 rounded">
+          <div className="absolute inset-0 bg-overlay flex items-center justify-center">
+            <span className="text-white font-medium text-sm px-3 py-1 bg-overlay rounded">
               Ausverkauft
             </span>
           </div>

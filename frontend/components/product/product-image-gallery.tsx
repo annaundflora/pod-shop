@@ -107,8 +107,8 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
                 className={[
                   'relative w-18 h-18 rounded-[var(--radius-button,0.5rem)] overflow-hidden border-2 transition-all focus-visible:ring-2 focus-visible:ring-primary',
                   index === activeIndex
-                    ? 'border-primary shadow-md scale-105'
-                    : 'border-border hover:border-text-secondary hover:shadow-sm',
+                    ? 'border-primary shadow-[var(--shadow-card)] scale-105'
+                    : 'border-border hover:border-text-secondary hover:shadow-[var(--shadow-card)]',
                 ].join(' ')}
               >
                 <Image

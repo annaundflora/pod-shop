@@ -85,7 +85,7 @@ export default function HomePage() {
       <section className="relative bg-surface-elevated rounded-2xl overflow-hidden mb-12 p-8 sm:p-12">
         <div className="max-w-lg">
           <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-2">
-            POD Shop
+            {process.env.NEXT_PUBLIC_SHOP_NAME ?? 'POD Shop'}
           </p>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-text-primary mb-4">
             Einzigartige Designs

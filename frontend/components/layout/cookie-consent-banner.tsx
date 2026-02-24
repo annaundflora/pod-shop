@@ -6,6 +6,7 @@ import {
   setConsentAccepted,
   setConsentRejected,
 } from '@/lib/consent/cookie-consent'
+import { Button } from '@/components/ui/button'
 
 // WP_URL aus env – zeigt auf WooCommerce WordPress-Seite
 const WP_URL = process.env.NEXT_PUBLIC_WP_URL ?? 'http://localhost:8080'
@@ -40,7 +41,7 @@ export function CookieConsentBanner() {
       aria-live="polite"
       className={[
         'fixed bottom-0 left-0 right-0 z-50',
-        'bg-white border-t border-border shadow-lg',
+        'bg-surface border-t border-border shadow-[var(--shadow-card-hover)]',
         'p-4 md:p-6',
         // prefers-reduced-motion: keine Slide-Animation
         'motion-safe:animate-slide-up',
@@ -63,33 +64,23 @@ export function CookieConsentBanner() {
 
         {/* Buttons */}
         <div className="flex flex-col sm:flex-row gap-2">
-          <button
+          <Button
             onClick={handleAccept}
-            className={[
-              'flex-1 py-2.5 px-4 rounded-lg font-medium text-sm',
-              'bg-primary text-white',
-              'hover:bg-primary-hover',
-              'focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-              'transition-colors',
-            ].join(' ')}
-            style={{ touchAction: 'manipulation', minHeight: '2.75rem' }}
+            variant="default"
+            className="flex-1"
+            style={{ touchAction: 'manipulation' }}
           >
             Alle Akzeptieren
-          </button>
+          </Button>
 
-          <button
+          <Button
             onClick={handleReject}
-            className={[
-              'flex-1 py-2.5 px-4 rounded-lg font-medium text-sm',
-              'bg-white text-text-primary border border-border',
-              'hover:bg-surface-elevated',
-              'focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-              'transition-colors',
-            ].join(' ')}
-            style={{ touchAction: 'manipulation', minHeight: '2.75rem' }}
+            variant="outline"
+            className="flex-1"
+            style={{ touchAction: 'manipulation' }}
           >
             Nur Notwendige
-          </button>
+          </Button>
         </div>
       </div>
     </div>

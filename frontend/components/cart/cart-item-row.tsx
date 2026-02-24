@@ -47,7 +47,7 @@ export function CartItemRow({ item, isLoading }: CartItemRowProps) {
             onClick={() => removeItem(item.key)}
             disabled={isLoading}
             aria-label={`${item.productName} aus dem Warenkorb entfernen`}
-            className="text-text-secondary hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-500 rounded p-1 transition-colors disabled:opacity-50"
+            className="text-text-secondary hover:text-error focus-visible:ring-2 focus-visible:ring-error rounded p-1 transition-colors disabled:opacity-50"
             style={{ touchAction: 'manipulation' }}
           >
             <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none">

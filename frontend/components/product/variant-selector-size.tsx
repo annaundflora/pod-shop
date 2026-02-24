@@ -34,9 +34,9 @@ export function VariantSelectorSize({
               className={[
                 'min-h-[44px] min-w-[44px] px-4 py-2 rounded-[var(--radius-button,0.5rem)] border text-sm font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
                 isSelected
-                  ? 'bg-primary text-white border-primary shadow-md'
+                  ? 'bg-primary text-white border-primary shadow-[var(--shadow-card)]'
                   : available
-                    ? 'bg-surface text-text-primary border-border hover:border-primary hover:shadow-sm'
+                    ? 'bg-surface text-text-primary border-border hover:border-primary hover:shadow-[var(--shadow-card)]'
                     : 'bg-surface-elevated text-text-secondary border-border opacity-50 cursor-not-allowed',
               ].join(' ')}
             >
