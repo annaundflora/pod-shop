@@ -14,7 +14,7 @@ import type { CartItem, CartState, CartContextValue, ProductAttributeInput } fro
 
 const CART_BACKUP_KEY = 'pod-cart-backup'
 
-const CartContext = createContext<CartContextValue | null>(null)
+export const CartContext = createContext<CartContextValue | null>(null)
 
 function mapCartResponse(cart: unknown): Omit<CartState, 'isLoading' | 'error'> {
   const c = cart as Record<string, unknown>
