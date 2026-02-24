@@ -195,14 +195,15 @@ describe('AC-5: Next.js Frontend project structure', () => {
     expect(layoutSource).toContain('POD Shop')
   })
 
-  it('AC-5: page.tsx exists as placeholder homepage', () => {
+  it('AC-5: page.tsx exists as homepage with block-registry renderer', () => {
     // Arrange (GIVEN)
     const pageSource = readFrontendFile('app/page.tsx')
 
-    // Act (WHEN) -- verify page exists and has content
+    // Act (WHEN) -- verify page exists and uses block-registry pattern (replaced placeholder in Slice 04)
     // Assert (THEN)
-    expect(pageSource).toContain('POD Shop')
     expect(pageSource.length).toBeGreaterThan(0)
+    expect(pageSource).toContain('revalidate')
+    expect(pageSource).toContain('loadPageConfig')
   })
 
   it('AC-5: ApolloWrapper is a client component with ApolloProvider', () => {
