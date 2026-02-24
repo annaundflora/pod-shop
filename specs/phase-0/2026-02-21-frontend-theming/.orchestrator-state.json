@@ -1,0 +1,37 @@
+{
+  "spec_path": "specs/phase-0/2026-02-21-frontend-theming",
+  "feature_name": "frontend-theming",
+  "status": "completed",
+  "current_state": "feature_complete",
+  "current_slice_id": null,
+  "retry_count": 0,
+  "failed_stage": null,
+  "waves": [
+    { "wave": 1, "slices": ["slice-01-theme-token-system"] },
+    { "wave": 2, "slices": ["slice-02-shadcn-ui-primitives"] },
+    { "wave": 3, "slices": ["slice-03-component-migration"] },
+    { "wave": 4, "slices": ["slice-04-block-registry-page-renderer"] },
+    { "wave": 5, "slices": ["slice-05-theme-config-multi-shop"] }
+  ],
+  "completed_slices": [
+    "slice-01-theme-token-system",
+    "slice-02-shadcn-ui-primitives",
+    "slice-03-component-migration",
+    "slice-04-block-registry-page-renderer",
+    "slice-05-theme-config-multi-shop"
+  ],
+  "evidence_files": [
+    ".claude/evidence/frontend-theming/slice-01-theme-token-system.json",
+    ".claude/evidence/frontend-theming/slice-02-shadcn-ui-primitives.json",
+    ".claude/evidence/frontend-theming/slice-03-component-migration.json",
+    ".claude/evidence/frontend-theming/slice-04-block-registry-page-renderer.json",
+    ".claude/evidence/frontend-theming/slice-05-theme-config-multi-shop.json"
+  ],
+  "final_validation": {
+    "status": "passed",
+    "total_tests": 435,
+    "hardcoded_color_violations": 0,
+    "runtime_theme_violations": 0,
+    "multi_shop_theme": "verified"
+  }
+}

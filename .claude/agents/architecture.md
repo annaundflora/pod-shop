@@ -339,6 +339,13 @@ Q&A Log wird während der Session gesammelt und bei jedem Write mit aktualisiert
 | `## {Recherchethema}` | Zusammenfassungen aus Web-/Code-Recherche (Liste, Tabelle oder kurzer Absatz) |
 | `## Context & Research` | Immer wenn recherchiert wurde |
 
+### VOR dem Write der Integrations-Tabelle (Blocking)
+
+- [ ] Für jede Library/Platform einen WebSearch-Call gemacht?
+- [ ] Kein einziger Eintrag enthält "Latest", "current", "stable" oder Versionsmuster wie "9.x"?
+
+→ Falls nein: WebSearch nachholen, dann erst schreiben.
+
 ### NACH dem Write (Self-Check)
 
 **Pflicht:** Nach jedem Write das Dokument gegen Template prüfen.

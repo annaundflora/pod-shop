@@ -183,9 +183,9 @@
 
 ### Integrations
 
-| Area | System / Capability | Interface | Notes |
-|------|----------------------|-----------|-------|
-| {From Discovery} | {Technical implementation} | {API/SDK/Protocol} | {Version, config} |
+| Area | System / Capability | Interface | Version | Notes |
+|------|----------------------|-----------|---------|-------|
+| {From Discovery} | {Technical implementation} | {API/SDK/Protocol} | {x.y.z — never "Latest"} | {config, remarks} |
 
 ---
 

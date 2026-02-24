@@ -1,0 +1,43 @@
+{
+  "feature": "frontend-theming",
+  "slice": "slice-03-component-migration",
+  "timestamp": "2026-02-24T00:00:00Z",
+  "status": "completed",
+  "implementation": {
+    "status": "completed",
+    "files_changed": [
+      "frontend/app/layout.tsx", "frontend/app/page.tsx",
+      "frontend/app/warenkorb/page.tsx", "frontend/app/warenkorb/cart-page-client.tsx",
+      "frontend/app/kategorie/[slug]/page.tsx", "frontend/app/produkt/[slug]/page.tsx",
+      "frontend/components/layout/header.tsx", "frontend/components/layout/footer.tsx",
+      "frontend/components/layout/mobile-menu.tsx", "frontend/components/layout/cookie-consent-banner.tsx",
+      "frontend/components/product/product-card.tsx", "frontend/components/product/product-card-skeleton.tsx",
+      "frontend/components/product/add-to-cart-button.tsx", "frontend/components/cart/cart-item-row.tsx",
+      "frontend/components/ui/button.tsx", "frontend/.env.local.example",
+      "frontend/components/layout/theme-switcher.tsx (DELETED)",
+      "frontend/contexts/theme-context.tsx (DELETED)",
+      "frontend/lib/theme/themes.ts (DELETED)"
+    ],
+    "commit_hash": "de088fd",
+    "notes": "All components migrated to semantic tokens. Runtime theme system removed. NEXT_PUBLIC_SHOP_NAME introduced."
+  },
+  "tests": {
+    "status": "completed",
+    "test_files": ["frontend/tests/slices/frontend-theming/slice-03-component-migration.test.ts"],
+    "test_count": 65,
+    "ac_coverage": { "total": 12, "covered": 12, "missing": [] },
+    "commit_hash": "f702ebd",
+    "fixes": ["5e89a44 (bg-surface-elevated)", "05a034e (beforeAll→inline)", "391aad9 (inline try/finally)", "6ec054d (fileParallelism=false)"]
+  },
+  "validation": {
+    "overall_status": "passed",
+    "stages": {
+      "unit_tests": { "status": "passed", "exit_code": 0, "test_count": 65, "passed": 65, "failed": 0 },
+      "theming_integration": { "status": "passed", "total": 172, "passed": 172, "failed": 0 },
+      "regression": { "status": "passed", "total": 151, "passed": 151, "failed": 0 }
+    },
+    "failed_stage": null,
+    "error_output": null
+  },
+  "retries": 3
+}

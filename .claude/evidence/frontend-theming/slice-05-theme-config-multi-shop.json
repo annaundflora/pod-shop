@@ -1,0 +1,40 @@
+{
+  "feature": "frontend-theming",
+  "slice": "slice-05-theme-config-multi-shop",
+  "timestamp": "2026-02-24T00:00:00Z",
+  "status": "completed",
+  "implementation": {
+    "status": "completed",
+    "files_changed": [
+      "frontend/scripts/generate-theme.mjs (REPLACED with deepMerge)",
+      "frontend/themes/zweiter-shop/theme.yaml",
+      "frontend/themes/zweiter-shop/pages/home.yaml",
+      "frontend/public/themes/default/assets/logo.svg",
+      "frontend/public/themes/default/assets/favicon.ico",
+      "frontend/public/themes/zweiter-shop/assets/logo.svg",
+      "frontend/public/themes/zweiter-shop/assets/favicon.ico",
+      "frontend/lib/theme/logo.ts",
+      "frontend/.env.local.example"
+    ],
+    "commit_hash": "47547ce",
+    "notes": "deepMerge verified: zweiter-shop overrides primary/accent + font, defaults preserved for all other tokens."
+  },
+  "tests": {
+    "status": "completed",
+    "test_files": ["frontend/tests/slices/frontend-theming/slice-05-theme-config-multi-shop.test.ts"],
+    "test_count": 44,
+    "ac_coverage": { "total": 8, "covered": 8, "missing": [] },
+    "commit_hash": "5df1785"
+  },
+  "validation": {
+    "overall_status": "passed",
+    "stages": {
+      "unit_tests": { "status": "passed", "exit_code": 0, "test_count": 44, "passed": 44, "failed": 0 },
+      "theming_integration": { "status": "passed", "total": 284, "passed": 284, "failed": 0 },
+      "regression": { "status": "passed", "total": 151, "passed": 151, "failed": 0 }
+    },
+    "failed_stage": null,
+    "error_output": null
+  },
+  "retries": 0
+}
