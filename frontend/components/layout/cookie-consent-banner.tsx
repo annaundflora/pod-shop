@@ -76,7 +76,7 @@ export function CookieConsentBanner() {
           <Button
             onClick={handleReject}
             variant="outline"
-            className="flex-1"
+            className="flex-1 bg-surface-elevated"
             style={{ touchAction: 'manipulation' }}
           >
             Nur Notwendige
