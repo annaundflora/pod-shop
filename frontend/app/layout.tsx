@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { headingFont, bodyFont } from '@/lib/theme/fonts'
 import { ApolloWrapper } from '@/components/apollo-wrapper'
 import { CartProvider } from '@/contexts/cart-context'
 import { ThemeProvider } from '@/contexts/theme-context'
@@ -19,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="de" suppressHydrationWarning>
+    <html lang="de" suppressHydrationWarning className={`${headingFont.variable} ${bodyFont.variable}`}>
       <head>
         <script
           dangerouslySetInnerHTML={{
