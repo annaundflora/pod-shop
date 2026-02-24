@@ -1,0 +1,11 @@
+# themes/zweiter-shop/theme.yaml
+# Zweiter Shop — NUR Overrides gegenüber Default.
+# Fehlende Werte werden automatisch aus themes/default/theme.yaml übernommen.
+
+colors:
+  primary: "oklch(0.55 0.18 30)"
+  primary-hover: "oklch(0.45 0.18 30)"
+  accent: "oklch(0.7 0.15 30)"
+
+fonts:
+  heading: "Playfair Display"

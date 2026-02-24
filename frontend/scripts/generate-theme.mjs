@@ -1,4 +1,8 @@
-// scripts/generate-theme.mjs
+// scripts/generate-theme.mjs (ERSETZT die Slice-1-Version vollständig)
+// Dieses Script ist das vollständige generate-theme.mjs nach Slice 5.
+// Die Funktionen validateConfig() und generateCSS() aus Slice 1 sind hier beibehalten
+// und identisch übernommen. Neu hinzugekommen ist deepMerge() sowie der erweiterte
+// Main-Flow der Default-YAML und Shop-YAML lädt und merged.
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
@@ -10,12 +14,52 @@ const FRONTEND_ROOT = resolve(__dirname, '..')
 const OKLCH_REGEX = /^oklch\(\s*[\d.]+\s+[\d.]+\s+[\d.]+(\s*\/\s*[\d.]+)?\s*\)$/
 
 /**
+ * Deep merges two config objects.
+ * Values from override take precedence over base values.
+ * Only supports one level of nesting (categories like colors, fonts, etc.).
+ * @param {Record<string, any>} base
+ * @param {Record<string, any>} override
+ * @returns {Record<string, any>}
+ */
+function deepMerge(base, override) {
+  const result = {}
+
+  // Collect all keys from both objects
+  const allKeys = new Set([...Object.keys(base), ...Object.keys(override)])
+
+  for (const key of allKeys) {
+    const baseVal = base[key]
+    const overrideVal = override[key]
+
+    if (
+      overrideVal !== undefined &&
+      overrideVal !== null &&
+      typeof overrideVal === 'object' &&
+      !Array.isArray(overrideVal) &&
+      typeof baseVal === 'object' &&
+      baseVal !== null &&
+      !Array.isArray(baseVal)
+    ) {
+      // Both are plain objects → merge recursively (one level deep)
+      result[key] = { ...baseVal, ...overrideVal }
+    } else if (overrideVal !== undefined && overrideVal !== null) {
+      // Override has a value → use it
+      result[key] = overrideVal
+    } else {
+      // Only base has a value → use it
+      result[key] = baseVal
+    }
+  }
+
+  return result
+}
+
+/**
  * Validates a theme config object.
  * Exits with code 1 and prints error message on first validation failure.
  * @param {Record<string, any>} config
  */
 function validateConfig(config) {
-  // Validate colors
   if (config.colors) {
     for (const [key, value] of Object.entries(config.colors)) {
       if (typeof value !== 'string' || !OKLCH_REGEX.test(value.trim())) {
@@ -25,7 +69,6 @@ function validateConfig(config) {
     }
   }
 
-  // Validate fonts
   if (config.fonts) {
     for (const [key, value] of Object.entries(config.fonts)) {
       if (!value || typeof value !== 'string' || value.trim() === '') {
@@ -35,7 +78,6 @@ function validateConfig(config) {
     }
   }
 
-  // Validate radius
   if (config.radius) {
     for (const [key, value] of Object.entries(config.radius)) {
       if (!value || typeof value !== 'string' || value.trim() === '') {
@@ -45,7 +87,6 @@ function validateConfig(config) {
     }
   }
 
-  // Validate shadows
   if (config.shadows) {
     for (const [key, value] of Object.entries(config.shadows)) {
       if (!value || typeof value !== 'string' || value.trim() === '') {
@@ -103,20 +144,36 @@ const themeDir = resolve(FRONTEND_ROOT, 'themes', themeName)
 const defaultThemeDir = resolve(FRONTEND_ROOT, 'themes', 'default')
 const outputPath = resolve(FRONTEND_ROOT, 'app', 'generated-theme.css')
 
-// Determine which theme.yaml to load — fallback to default if theme folder does not exist
-let resolvedThemeDir = themeDir
-if (!existsSync(resolve(themeDir, 'theme.yaml'))) {
-  resolvedThemeDir = defaultThemeDir
+// Load default config (always required as base)
+const defaultYamlPath = resolve(defaultThemeDir, 'theme.yaml')
+if (!existsSync(defaultYamlPath)) {
+  process.stderr.write(`Default theme.yaml not found at: ${defaultYamlPath}\n`)
+  process.exit(1)
+}
+const defaultConfig = parse(readFileSync(defaultYamlPath, 'utf-8'))
+
+// Load shop config if different from default
+let resolvedThemeName = themeName
+let mergedConfig = defaultConfig
+
+if (themeName !== 'default') {
+  const shopYamlPath = resolve(themeDir, 'theme.yaml')
+
+  if (existsSync(shopYamlPath)) {
+    const shopConfig = parse(readFileSync(shopYamlPath, 'utf-8'))
+    if (shopConfig && typeof shopConfig === 'object') {
+      mergedConfig = deepMerge(defaultConfig, shopConfig)
+    }
+    resolvedThemeName = themeName
+  } else {
+    // Fallback: use default only
+    process.stdout.write(`Theme "${themeName}" not found, falling back to default\n`)
+    resolvedThemeName = 'default'
+  }
 }
 
-const yamlPath = resolve(resolvedThemeDir, 'theme.yaml')
-const yamlContent = readFileSync(yamlPath, 'utf-8')
-const config = parse(yamlContent)
+validateConfig(mergedConfig)
 
-validateConfig(config)
-
-const resolvedThemeName = resolvedThemeDir === defaultThemeDir ? 'default' : themeName
-const css = generateCSS(config, resolvedThemeName)
-
+const css = generateCSS(mergedConfig, resolvedThemeName)
 writeFileSync(outputPath, css, 'utf-8')
 process.stdout.write(`Theme generated: ${outputPath} (theme: ${resolvedThemeName})\n`)

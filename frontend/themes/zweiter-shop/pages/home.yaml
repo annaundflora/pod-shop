@@ -1,0 +1,27 @@
+# themes/zweiter-shop/pages/home.yaml
+# Zweiter Shop — Homepage Block-Konfiguration
+# Überschreibt themes/default/pages/home.yaml vollständig (kein Merge bei Page Configs)
+
+blocks:
+  - type: hero
+    content_source: wordpress
+    params:
+      page_slug: "/"
+
+  - type: product-grid
+    content_source: woocommerce
+    params:
+      query: featured_products
+      first: 6
+
+  - type: usp-bar
+    content_source: inline
+    params:
+      props:
+        items:
+          - icon: "star"
+            text: "Exklusive Designs"
+          - icon: "truck"
+            text: "Express Versand"
+          - icon: "shield"
+            text: "Zufriedenheitsgarantie"
