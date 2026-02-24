@@ -1,72 +1,38 @@
+@import "./generated-theme.css";
 @import "tailwindcss";
 
 @theme {
-  /* Farben – semantisch benannt */
-  --color-primary: oklch(0.45 0.2 270);
-  --color-primary-hover: oklch(0.38 0.2 270);
-  --color-surface: var(--color-white);
-  --color-surface-elevated: oklch(0.98 0 0);
-  --color-text-primary: oklch(0.15 0 0);
-  --color-text-secondary: oklch(0.45 0 0);
-  --color-border: oklch(0.88 0 0);
-  --color-accent: oklch(0.65 0.15 270);
+  /* Farben aus generated-theme.css via var() */
+  --color-primary: var(--theme-color-primary);
+  --color-primary-hover: var(--theme-color-primary-hover);
+  --color-accent: var(--theme-color-accent);
+  --color-surface: var(--theme-color-surface);
+  --color-surface-elevated: var(--theme-color-surface-elevated);
+  --color-text-primary: var(--theme-color-text-primary);
+  --color-text-secondary: var(--theme-color-text-secondary);
+  --color-border: var(--theme-color-border);
+  /* NEU: Status-Tokens */
+  --color-error: var(--theme-color-error);
+  --color-success: var(--theme-color-success);
+  --color-warning: var(--theme-color-warning);
+  --color-overlay: var(--theme-color-overlay);
 
-  /* Touch-Targets: mindestens 44px (Pinterest-Traffic ist mobile) */
+  /* Touch-Targets */
   --min-touch-target: 2.75rem;
 
-  /* Spacing – ergänzt Tailwind-Standard */
+  /* Spacing */
   --spacing-18: 4.5rem;
 
-  /* Cookie Consent Banner Slide-Up Animation */
+  /* Animations */
   --animate-slide-up: slide-up 0.25s ease-out;
-}
 
-/* Modern Minimal (Default) */
-:root, [data-theme="modern"] {
-  --color-primary: oklch(0.45 0.2 270);
-  --color-primary-hover: oklch(0.38 0.2 270);
-  --color-surface: #ffffff;
-  --color-surface-elevated: oklch(0.98 0 0);
-  --color-text-primary: oklch(0.15 0 0);
-  --color-text-secondary: oklch(0.45 0 0);
-  --color-border: oklch(0.88 0 0);
-  --color-accent: oklch(0.65 0.15 270);
-  --radius-card: 0.75rem;
-  --radius-button: 0.5rem;
-  --shadow-card: 0 1px 3px oklch(0 0 0 / 0.08);
-  --shadow-card-hover: 0 8px 25px oklch(0 0 0 / 0.12);
-}
+  /* NEU: Radius-Tokens (aus [data-theme] in @theme verschoben) */
+  --radius-card: var(--theme-radius-card);
+  --radius-button: var(--theme-radius-button);
 
-/* Bold & Vivid */
-[data-theme="bold"] {
-  --color-primary: oklch(0.55 0.25 30);
-  --color-primary-hover: oklch(0.48 0.25 30);
-  --color-surface: oklch(0.99 0 0);
-  --color-surface-elevated: oklch(0.96 0 0);
-  --color-text-primary: oklch(0.1 0 0);
-  --color-text-secondary: oklch(0.4 0 0);
-  --color-border: oklch(0.85 0 0);
-  --color-accent: oklch(0.7 0.2 60);
-  --radius-card: 1rem;
-  --radius-button: 0.75rem;
-  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.1);
-  --shadow-card-hover: 0 12px 35px oklch(0 0 0 / 0.18);
-}
-
-/* Soft & Warm */
-[data-theme="soft"] {
-  --color-primary: oklch(0.6 0.12 160);
-  --color-primary-hover: oklch(0.52 0.12 160);
-  --color-surface: oklch(0.98 0.01 80);
-  --color-surface-elevated: oklch(0.95 0.015 80);
-  --color-text-primary: oklch(0.25 0.02 50);
-  --color-text-secondary: oklch(0.5 0.02 50);
-  --color-border: oklch(0.88 0.02 80);
-  --color-accent: oklch(0.72 0.1 80);
-  --radius-card: 1.25rem;
-  --radius-button: 9999px;
-  --shadow-card: 0 2px 12px oklch(0 0 0 / 0.05);
-  --shadow-card-hover: 0 8px 30px oklch(0 0 0 / 0.08);
+  /* NEU: Shadow-Tokens (aus [data-theme] in @theme verschoben) */
+  --shadow-card: var(--theme-shadow-card);
+  --shadow-card-hover: var(--theme-shadow-card-hover);
 }
 
 @keyframes slide-up {

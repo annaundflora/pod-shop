@@ -1,0 +1,29 @@
+# themes/default/theme.yaml
+
+colors:
+  primary: "oklch(0.45 0.2 270)"
+  primary-hover: "oklch(0.38 0.2 270)"
+  accent: "oklch(0.65 0.15 270)"
+  surface: "oklch(1 0 0)"
+  surface-elevated: "oklch(0.98 0 0)"
+  text-primary: "oklch(0.15 0 0)"
+  text-secondary: "oklch(0.45 0 0)"
+  border: "oklch(0.88 0 0)"
+  # NEU: Status-Tokens
+  error: "oklch(0.55 0.2 25)"
+  success: "oklch(0.55 0.15 145)"
+  warning: "oklch(0.7 0.15 85)"
+  # NEU: Overlay-Token (mit Alpha)
+  overlay: "oklch(0 0 0 / 0.5)"
+
+fonts:
+  heading: "Inter"
+  body: "Inter"
+
+radius:
+  card: "0.75rem"
+  button: "0.5rem"
+
+shadows:
+  card: "0 1px 3px oklch(0 0 0 / 0.08)"
+  card-hover: "0 8px 25px oklch(0 0 0 / 0.12)"
