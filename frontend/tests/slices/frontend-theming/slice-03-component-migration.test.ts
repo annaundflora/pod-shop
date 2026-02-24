@@ -1,5 +1,5 @@
 // tests/slices/frontend-theming/slice-03-component-migration.test.ts
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { existsSync, readFileSync, unlinkSync } from 'fs'
 import { resolve } from 'path'
 import { execSync } from 'child_process'
@@ -95,22 +95,21 @@ describe('AC-1: Keine hardcoded Tailwind-Farben in Components', () => {
 describe('AC-4: --theme-color-error in generated-theme.css ist direkter oklch()-Wert (kein var())', () => {
   const GENERATED_CSS_PATH = resolve(FRONTEND_ROOT, 'app/generated-theme.css')
 
-  beforeAll(() => {
-    execSync('node scripts/generate-theme.mjs', { cwd: FRONTEND_ROOT })
-  })
-
-  afterAll(() => {
-    if (existsSync(GENERATED_CSS_PATH)) {
-      unlinkSync(GENERATED_CSS_PATH)
-    }
-  })
-
   it('generated-theme.css: --theme-color-error ist direkter oklch()-Wert (kein var()-Verweis)', () => {
     // globals.css hat --color-error: var(--theme-color-error) (Indirektion gemaess Slice 1)
     // Der direkte oklch()-Wert liegt in generated-theme.css unter --theme-color-error
     // Dieser Test stellt sicher dass generated-theme.css den Token korrekt enthaelt
-    const cssPath = 'app/generated-theme.css'
-    const content = readFile(cssPath)
+    // Datei wird inline generiert und sofort nach dem Read geloescht, um Race Conditions
+    // mit slice-01's afterEach unlinkSync im parallelen Vitest-Lauf zu vermeiden.
+    execSync('node scripts/generate-theme.mjs', { cwd: FRONTEND_ROOT })
+    let content: string
+    try {
+      content = readFile('app/generated-theme.css')
+    } finally {
+      if (existsSync(GENERATED_CSS_PATH)) {
+        unlinkSync(GENERATED_CSS_PATH)
+      }
+    }
     const errorTokenMatch = content.match(/--theme-color-error\s*:\s*([^;]+);/)
     expect(errorTokenMatch).not.toBeNull()
     if (errorTokenMatch) {
