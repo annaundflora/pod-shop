@@ -1,7 +1,8 @@
 // tests/slices/frontend-theming/slice-03-component-migration.test.ts
-import { describe, it, expect } from 'vitest'
-import { existsSync, readFileSync } from 'fs'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { existsSync, readFileSync, unlinkSync } from 'fs'
 import { resolve } from 'path'
+import { execSync } from 'child_process'
 
 const FRONTEND_ROOT = resolve(__dirname, '..', '..', '..')
 
@@ -92,6 +93,18 @@ describe('AC-1: Keine hardcoded Tailwind-Farben in Components', () => {
 // ─── AC-4: --theme-color-error in generated-theme.css ist direkter oklch()-Wert ──
 
 describe('AC-4: --theme-color-error in generated-theme.css ist direkter oklch()-Wert (kein var())', () => {
+  const GENERATED_CSS_PATH = resolve(FRONTEND_ROOT, 'app/generated-theme.css')
+
+  beforeAll(() => {
+    execSync('node scripts/generate-theme.mjs', { cwd: FRONTEND_ROOT })
+  })
+
+  afterAll(() => {
+    if (existsSync(GENERATED_CSS_PATH)) {
+      unlinkSync(GENERATED_CSS_PATH)
+    }
+  })
+
   it('generated-theme.css: --theme-color-error ist direkter oklch()-Wert (kein var()-Verweis)', () => {
     // globals.css hat --color-error: var(--theme-color-error) (Indirektion gemaess Slice 1)
     // Der direkte oklch()-Wert liegt in generated-theme.css unter --theme-color-error
