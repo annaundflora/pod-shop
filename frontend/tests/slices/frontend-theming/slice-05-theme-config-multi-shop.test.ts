@@ -351,7 +351,7 @@ describe('themes/zweiter-shop/pages/home.yaml — Schema', () => {
 
     const configsDiffer =
       shopBlockTypes !== defaultBlockTypes ||
-      JSON.stringify(shopUsps?.params?.props?.items) !== JSON.stringify(defaultUsps?.params?.props?.items)
+      JSON.stringify((shopUsps?.params?.['props'] as Record<string, unknown>)?.['items']) !== JSON.stringify((defaultUsps?.params?.['props'] as Record<string, unknown>)?.['items'])
 
     expect(
       configsDiffer,
