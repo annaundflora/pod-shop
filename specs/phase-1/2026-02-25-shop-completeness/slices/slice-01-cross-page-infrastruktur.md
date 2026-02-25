@@ -35,15 +35,16 @@
 | **Stack** | `typescript-nextjs` |
 | **Test Command** | `pnpm test tests/slices/shop-completeness/slice-01-cross-page-infrastruktur.test.ts` |
 | **Integration Command** | `pnpm test tests/slices/shop-completeness/` |
-| **Acceptance Command** | `pnpm test tests/slices/shop-completeness/slice-01-cross-page-infrastruktur.test.ts` |
+| **Acceptance Command** | `pnpm test tests/slices/shop-completeness/slice-01-cross-page-infrastruktur.test.ts --reporter=verbose` |
 | **Start Command** | `cd frontend && pnpm dev` |
 | **Health Endpoint** | `http://localhost:3000/api/health` |
-| **Mocking Strategy** | `no_mocks` |
+| **Mocking Strategy** | `mock_external` |
 
 **Erklaerung:**
 - **Stack**: typescript-nextjs (Next.js 16 App Router, Vitest, Tailwind CSS v4)
-- **Test Command**: Einzelner Slice-Testlauf via Vitest
-- **Mocking Strategy**: `no_mocks` — alle 6 Blocks sind Server/Client Components ohne externe API-Calls (inline content_source). Pagination und sort-bar nutzen URL-Params, nicht GraphQL in diesem Slice.
+- **Test Command**: Einzelner Slice-Testlauf via Vitest (Standard-Reporter)
+- **Acceptance Command**: Identische Testdatei, aber mit `--reporter=verbose` fuer vollstaendige AC-Ausgabe (lesbar als Acceptance-Protokoll durch den Orchestrator)
+- **Mocking Strategy**: `mock_external` — `next/navigation` (`useRouter`, `useSearchParams`) wird per `vi.mock()` gemockt in den SortBarBlock-Tests. Alle anderen 5 Blocks nutzen inline content_source ohne externe Calls.
 
 ---
 
@@ -227,17 +228,23 @@ items:
 #### 3.4 `pagination` Block
 
 **Typ:** Server Component
-**Content Source:** `inline`
-**Data Type:** `PaginationData`
+**Content Source:** `inline` (Slice 1) → `woocommerce` (ab Slice 3, kein Interface-Bruch — siehe Transition unten)
+**Data Type:** `PaginationData` (Interim-DTO fuer Slice 1)
 
 ```
 PaginationData:
   currentPage: number     (1-indexed, aus $route.page)
-  totalPages: number      (berechnet aus PaginatedProductsResult)
+  totalPages: number      (berechnet aus PaginatedProductsResult.pagination.totalPages in Slice 3)
   baseUrl: string         (z.B. "/kategorie/t-shirts" oder "/suche")
   currentSort?: string    (aktueller sort-Param, wird in Pagination-URLs beibehalten)
-  currentQuery?: string   (aktueller q-Param für Suche, wird in Pagination-URLs beibehalten)
+  currentQuery?: string   (aktueller q-Param fuer Suche, wird in Pagination-URLs beibehalten)
 ```
+
+> **Interim-DTO Erklaerung:** `PaginationData` ist ein eigenstaendiger Block-Data-Type fuer Slice 1. Er ist ein Subset-Projektion des `PaginatedProductsResult.pagination` Sub-Objekts aus der Architecture (Zeile 371-386). Die Felder `currentPage`, `totalPages` und `baseUrl` entsprechen exakt den gleichnamigen Feldern in `PaginatedProductsResult.pagination`.
+>
+> **Transition zu Slice 3:** In Slice 3 wechselt der `pagination`-Block auf `content_source: woocommerce`. Die Page-Logic in Slice 3 extrahiert `{ currentPage, totalPages, baseUrl, currentSort, currentQuery }` aus dem `PaginatedProductsResult` und befuellt `PaginationBlock` mit einem `PaginationData`-kompatiblen Objekt. Da der Block-Interface unveraendert bleibt, entsteht kein Breaking Change. `PaginationData` bleibt als TypeScript-Interface in `lib/blocks/types.ts` erhalten.
+>
+> **Architecture-Abweichung:** Architecture Block Inventory (Zeile 327) listet `content_source: woocommerce` und `PaginatedProductsResult`. Diese Abweichung ist beabsichtigt fuer Slice 1 — der Block rendert in Slice 1 ausschliesslich UI-Logik (Prev/Next/Ellipsis aus vorberechneten Werten), ohne GraphQL-Calls. Ab Slice 3 ist der Block architecture-konform.
 
 **Render-Regeln:**
 - Format: `‹ 1 2 3 … 8 ›` — immer erste + letzte Seite sichtbar, Ellipsis bei Lücken
@@ -261,17 +268,21 @@ PaginationData:
 
 ```
 SortBarData:
-  currentSort: string    (aus $route.sort — "" | "price_asc" | "price_desc" | "newest")
-  baseUrl: string        (z.B. "/kategorie/t-shirts" oder "/suche")
+  currentSort: SortOption    (aus $route.sort — 'default' | 'price_asc' | 'price_desc' | 'newest')
+  baseUrl: string            (z.B. "/kategorie/t-shirts" oder "/suche")
+
+SortOption = 'default' | 'price_asc' | 'price_desc' | 'newest'
+  (Architecture-Definition: architecture.md Zeile 95)
+  'default' = keine Sortierung (WooCommerce-Default, URL-Param wird weggelassen)
 ```
 
 **Sort-Optionen:**
-| Value | Label (Deutsch) |
-|-------|-----------------|
-| `""` (leer) | Empfohlen |
-| `price_asc` | Preis: aufsteigend |
-| `price_desc` | Preis: absteigend |
-| `newest` | Neueste zuerst |
+| Value | Label (Deutsch) | URL-Param |
+|-------|-----------------|-----------|
+| `default` | Empfohlen | (kein param) |
+| `price_asc` | Preis: aufsteigend | `?sort=price_asc` |
+| `price_desc` | Preis: absteigend | `?sort=price_desc` |
+| `newest` | Neueste zuerst | `?sort=newest` |
 
 **Render-Regeln:**
 - Label "Sortieren nach:" + Native `<select>` Dropdown (Accessibility > Custom Dropdown)
@@ -842,13 +853,13 @@ describe('Slice 01 — Cross-Page Infrastruktur', () => {
   describe('SortBarBlock', () => {
     it('should render sort dropdown with all options', async () => {
       const { SortBarBlock } = await import('@/components/blocks/sort-bar-block')
-      // Mock useRouter
+      // Mock useRouter — next/navigation wird per vi.mock gemockt (mock_external Strategie)
       vi.mock('next/navigation', () => ({
         useRouter: () => ({ push: vi.fn() }),
         useSearchParams: () => new URLSearchParams(),
       }))
       render(
-        <SortBarBlock data={{ currentSort: '', baseUrl: '/kategorie/t-shirts' }} />
+        <SortBarBlock data={{ currentSort: 'default', baseUrl: '/kategorie/t-shirts' }} />
       )
       const select = screen.getByRole('combobox', { name: /produkte sortieren/i })
       expect(select).toBeInTheDocument()
@@ -869,6 +880,19 @@ describe('Slice 01 — Cross-Page Infrastruktur', () => {
       )
       const select = screen.getByRole('combobox') as HTMLSelectElement
       expect(select.value).toBe('price_desc')
+    })
+
+    it('should show "Empfohlen" as selected when currentSort is default', async () => {
+      const { SortBarBlock } = await import('@/components/blocks/sort-bar-block')
+      vi.mock('next/navigation', () => ({
+        useRouter: () => ({ push: vi.fn() }),
+        useSearchParams: () => new URLSearchParams(),
+      }))
+      render(
+        <SortBarBlock data={{ currentSort: 'default', baseUrl: '/kategorie/t-shirts' }} />
+      )
+      const select = screen.getByRole('combobox') as HTMLSelectElement
+      expect(select.value).toBe('default')
     })
   })
 
@@ -1191,28 +1215,28 @@ function getVisiblePages(currentPage: number, totalPages: number): (number | '..
 
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import type { BlockComponentProps } from '@/lib/blocks/types'
+import type { BlockComponentProps, SortOption } from '@/lib/blocks/types'
 
 interface SortBarData {
-  currentSort: string
+  currentSort: SortOption  // 'default' | 'price_asc' | 'price_desc' | 'newest' — Architecture-konform
   baseUrl: string
 }
 
-const SORT_OPTIONS = [
-  { value: '', label: 'Empfohlen' },
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'default', label: 'Empfohlen' },
   { value: 'price_asc', label: 'Preis: aufsteigend' },
   { value: 'price_desc', label: 'Preis: absteigend' },
   { value: 'newest', label: 'Neueste zuerst' },
-] as const
+]
 
 export function SortBarBlock({ data }: BlockComponentProps<SortBarData>) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newSort = e.target.value
+    const newSort = e.target.value as SortOption
     const params = new URLSearchParams()
-    if (newSort) params.set('sort', newSort)
+    if (newSort !== 'default') params.set('sort', newSort)
     params.set('page', '1')
     const url = `${data.baseUrl}?${params.toString()}`
     startTransition(() => {
