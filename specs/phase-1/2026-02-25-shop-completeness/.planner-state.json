@@ -4,18 +4,18 @@
   "phase": "slice_planning",
   "started_at": "2026-02-25T00:00:00Z",
   "total_slices": 6,
-  "current_slice_index": 0,
+  "current_slice_index": 1,
   "slices": [
-    { "number": 1, "name": "cross-page-infrastruktur", "status": "pending", "retries": 0 },
+    { "number": 1, "name": "cross-page-infrastruktur", "status": "approved", "retries": 2 },
     { "number": 2, "name": "produkt-page-enhancements", "status": "pending", "retries": 0 },
     { "number": 3, "name": "kategorie-page-enhancements", "status": "pending", "retries": 0 },
     { "number": 4, "name": "homepage-enhancements", "status": "pending", "retries": 0 },
     { "number": 5, "name": "suchseite", "status": "pending", "retries": 0 },
     { "number": 6, "name": "neue-pages", "status": "pending", "retries": 0 }
   ],
-  "approved_slices": [],
+  "approved_slices": [1],
   "failed_slices": [],
   "gate3_retries": 0,
-  "last_action": "Initialized",
-  "last_updated": "2026-02-25T00:00:00Z"
+  "last_action": "Slice 1 approved",
+  "last_updated": "2026-02-25T00:10:00Z"
 }
