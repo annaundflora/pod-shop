@@ -1,11 +1,12 @@
 import { notFound } from 'next/navigation'
 import { getClient } from '@/lib/apollo/server-client'
 import { GET_PRODUCT, GET_ALL_PRODUCT_SLUGS } from '@/lib/graphql/queries'
-import { ProductImageGallery } from '@/components/product/product-image-gallery'
-import { ProductVariantSelector } from './product-variant-selector'
 import { generateProductJsonLd } from '@/lib/seo/json-ld'
-import { extractVariantOptions } from '@/lib/product/variant-utils'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { SectionRenderer } from '@/lib/blocks/section-renderer'
+import { loadPageConfig } from '@/lib/blocks/page-config'
+import { ProductGalleryBlockSkeleton } from '@/components/blocks/product-gallery-block'
+import { ProductPurchaseBlockSkeleton } from '@/components/blocks/product-purchase-block'
+import { ProductDescriptionBlockSkeleton } from '@/components/blocks/product-description-block'
 import type { ProductDetailData } from '@/lib/graphql/types'
 
 export const revalidate = 60
@@ -16,7 +17,6 @@ export async function generateStaticParams() {
   }>({
     query: GET_ALL_PRODUCT_SLUGS,
   })
-
   return (data?.products?.nodes ?? []).map((product) => ({
     slug: product.slug,
   }))
@@ -28,10 +28,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     query: GET_PRODUCT,
     variables: { slug },
   })
-
   const product = data?.product
   if (!product) return { title: 'Produkt nicht gefunden' }
-
   return {
     title: `${product.name} | ${process.env.NEXT_PUBLIC_SHOP_NAME ?? 'POD Shop'}`,
     description: product.shortDescription ?? product.description?.substring(0, 160),
@@ -41,86 +39,46 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 }
 
+const SKELETON_MAP: Record<string, React.ReactNode> = {
+  'product-gallery': <ProductGalleryBlockSkeleton />,
+  'product-purchase': <ProductPurchaseBlockSkeleton />,
+  'product-description': <ProductDescriptionBlockSkeleton />,
+}
+
 interface ProductPageProps {
   params: Promise<{ slug: string }>
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params
+
+  // notFound-Pruefung: Produkt muss existieren (generateMetadata hat es bereits gecacht)
   const { data } = await getClient().query<{ product: ProductDetailData }>({
     query: GET_PRODUCT,
     variables: { slug },
   })
+  if (!data?.product) notFound()
 
-  const product = data?.product
-  if (!product) notFound()
-
-  const allImages = [
-    ...(product.image ? [product.image] : []),
-    ...(product.galleryImages?.nodes ?? []),
-  ]
-
-  const variantOptions = product.variations
-    ? extractVariantOptions(product.variations.nodes)
-    : { sizes: [], colors: [] }
-
+  const product = data.product
   const pageUrl = `${process.env.NEXT_PUBLIC_SHOP_URL ?? 'http://localhost:3000'}/produkt/${slug}`
   const jsonLd = generateProductJsonLd(product, pageUrl)
 
+  const theme = process.env.NEXT_PUBLIC_THEME ?? 'default'
+  const pageConfig = loadPageConfig('product', theme, { slug })
+
   return (
     <>
-      {/* JSON-LD für SEO */}
+      {/* JSON-LD fuer SEO (bleibt in page.tsx — Slice 1 Constraint) */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd }}
       />
 
-      <main id="main-content">
-        {/* Mobile: Stack. Desktop: 2-Spalten Grid */}
-        <div className="lg:grid lg:grid-cols-2 lg:gap-16">
-          {/* Bild-Galerie */}
-          <ProductImageGallery
-            images={allImages}
-            productName={product.name}
-          />
-
-          {/* Produkt-Infos */}
-          <div className="mt-8 lg:mt-0">
-            <h1 className="text-3xl font-bold tracking-tight text-text-primary">
-              {product.name}
-            </h1>
-
-            <div className="mt-4 flex items-baseline gap-3">
-              <p className="text-3xl font-bold text-[var(--color-accent,var(--color-primary))]">
-                {product.price}
-              </p>
-            </div>
-            <p className="mt-1 text-sm text-text-secondary">inkl. Versandkosten</p>
-
-            <hr className="my-8 border-border" />
-
-            {/* Variant-Selector als Client Component */}
-            <ProductVariantSelector
-              product={product}
-              variantOptions={variantOptions}
-            />
-          </div>
-        </div>
-
-        {/* Beschreibung */}
-        {product.description && (
-          <Card className="mt-12">
-            <CardHeader>
-              <CardTitle>Beschreibung</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div
-                className="prose prose-sm text-text-secondary max-w-none"
-                dangerouslySetInnerHTML={{ __html: product.description }}
-              />
-            </CardContent>
-          </Card>
-        )}
+      <main id="main-content" className="space-y-12">
+        <SectionRenderer
+          sections={pageConfig.sections}
+          skeletonMap={SKELETON_MAP}
+        />
       </main>
     </>
   )

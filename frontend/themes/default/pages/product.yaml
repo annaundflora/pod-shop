@@ -1,0 +1,27 @@
+# themes/default/pages/product.yaml
+# Produktseite Block-Konfiguration — Sections-Format
+
+sections:
+  - columns: 2
+    gap: "gap-16"
+    blocks:
+      - type: product-gallery
+        content_source: woocommerce
+        params:
+          query: product_by_slug
+          slug: "$route.slug"
+
+      - type: product-purchase
+        content_source: woocommerce
+        params:
+          query: product_by_slug
+          slug: "$route.slug"
+
+  - columns: 1
+    gap: "gap-8"
+    blocks:
+      - type: product-description
+        content_source: woocommerce
+        params:
+          query: product_by_slug
+          slug: "$route.slug"
