@@ -87,7 +87,7 @@ describe('Slice 03: Produkt-Seite als Block-Page', () => {
       for (const section of config.sections) {
         for (const block of section.blocks) {
           expect(block.content_source).toBe('woocommerce')
-          expect((block.params as Record<string, unknown>).query).toBe('product_by_slug')
+          expect((block.params as unknown as Record<string, unknown>).query).toBe('product_by_slug')
         }
       }
     })
@@ -96,9 +96,9 @@ describe('Slice 03: Produkt-Seite als Block-Page', () => {
       const config = loadPageConfig('product', 'default', { slug: 'winter-jacke' })
 
       // All 3 blocks should have resolved slug
-      expect((config.sections[0].blocks[0].params as Record<string, unknown>).slug).toBe('winter-jacke')
-      expect((config.sections[0].blocks[1].params as Record<string, unknown>).slug).toBe('winter-jacke')
-      expect((config.sections[1].blocks[0].params as Record<string, unknown>).slug).toBe('winter-jacke')
+      expect((config.sections[0].blocks[0].params as unknown as Record<string, unknown>).slug).toBe('winter-jacke')
+      expect((config.sections[0].blocks[1].params as unknown as Record<string, unknown>).slug).toBe('winter-jacke')
+      expect((config.sections[1].blocks[0].params as unknown as Record<string, unknown>).slug).toBe('winter-jacke')
     })
   })
 
@@ -385,7 +385,7 @@ describe('Slice 03: Produkt-Seite als Block-Page', () => {
 
       // All 3 blocks resolve to same query + slug -> Apollo React.cache() deduplicates
       const allParams = config.sections.flatMap(
-        (s: { blocks: { params: Record<string, unknown> }[] }) => s.blocks.map((b: { params: Record<string, unknown> }) => b.params)
+        (s) => s.blocks.map((b) => b.params as unknown as Record<string, unknown>)
       )
 
       expect(allParams).toHaveLength(3)
@@ -444,7 +444,7 @@ describe('Slice 03: Produkt-Seite als Block-Page', () => {
     })
 
     it('AC-10: should return title "Produkt nicht gefunden" when product is null', () => {
-      const product = null
+      const product = null as { name: string } | null
 
       const title = product ? `${product.name} | POD Shop` : 'Produkt nicht gefunden'
       expect(title).toBe('Produkt nicht gefunden')
