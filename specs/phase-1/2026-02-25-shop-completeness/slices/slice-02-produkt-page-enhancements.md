@@ -182,6 +182,7 @@ type ReviewFormState = 'hidden' | 'open' | 'loading' | 'success' | 'error'
 ```graphql
 query GetProductReviews($productSlug: ID!) {
   product(id: $productSlug, idType: SLUG) {
+    databaseId
     averageRating
     reviewCount
     reviewsAllowed
