@@ -4,13 +4,13 @@ import { PRODUCT_CARD_FRAGMENT, PRODUCT_DETAIL_FRAGMENT, CATEGORY_FRAGMENT } fro
 // Query: Kategorie + Produkte in einem Request (fuer Block-System: products_by_category)
 export const GET_CATEGORY_WITH_PRODUCTS = gql`
   ${PRODUCT_CARD_FRAGMENT}
-  query GetCategoryWithProducts($categorySlug: String!, $first: Int) {
+  query GetCategoryWithProducts($categorySlug: String!, $categoryId: ID!, $first: Int) {
     products(first: $first, where: { categoryIn: [$categorySlug] }) {
       nodes {
         ...ProductCardFields
       }
     }
-    productCategory(id: $categorySlug, idType: SLUG) {
+    productCategory(id: $categoryId, idType: SLUG) {
       name
       description
       slug

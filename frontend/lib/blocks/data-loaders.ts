@@ -106,7 +106,7 @@ async function woocommerceLoader(params: WooCommerceLoaderParams): Promise<WooCo
       }
       const { data } = await getClient().query<CategoryWithProducts>({
         query: GET_CATEGORY_WITH_PRODUCTS,
-        variables: { categorySlug: slug, first },
+        variables: { categorySlug: slug, categoryId: slug, first },
       })
       return { data: data ?? null }
     } else if (params.query === 'product_by_slug') {

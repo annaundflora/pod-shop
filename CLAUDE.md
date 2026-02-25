@@ -136,3 +136,37 @@ Homepage (and future pages) are composed from YAML-configured blocks, not hardco
 5. Use only theme tokens (`bg-primary`, `text-text-primary`, `rounded-card`, etc.) — never hardcode colors or radii
 
 **When modifying existing components:** always use Tailwind theme token utilities (`bg-primary`, `text-text-primary`, `border-border`, `rounded-card`, `shadow-card`) instead of hardcoded values, so that multi-shop theming works automatically.
+
+### Page Config: 3-Tier YAML Lookup
+
+`loadPageConfig(pageType, theme, routeParams)` in `lib/blocks/page-config.ts` resolves YAML configs in this order:
+
+1. `themes/{theme}/pages/{pageType}/{slug}.yaml` — slug-specific override
+2. `themes/{theme}/pages/{pageType}.yaml` — theme-generic
+3. `themes/default/pages/{pageType}.yaml` — always-present fallback
+
+New pages must have a YAML file at tier 3 (`themes/default/pages/{pageType}.yaml`). Shop themes can override at tier 2.
+
+### Route Params in YAML (`$route.*`)
+
+`resolveParams()` in `page-config.ts` replaces `$route.{key}` placeholders in YAML params at load time. Available keys come from the `routeParams` object passed by the page's `page.tsx`. Example:
+
+```yaml
+params:
+  slug: $route.slug      # → route segment (e.g. "t-shirts")
+  query: $route.query    # → custom key passed by page.tsx
+  page: $route.page      # → URL search param forwarded by page.tsx
+```
+
+To support a new URL search param (e.g. `?page=2`), read it in `page.tsx` and pass it via `routeParams`.
+
+### Extending `data-loaders.ts`
+
+`woocommerceLoader` dispatches on `params.query` (string). To add a new data source:
+
+1. Add a new `query` type string (e.g. `'search_products'`, `'products_by_tag'`)
+2. Add a corresponding `else if (params.query === '...')` branch in `woocommerceLoader`
+3. Add the GraphQL query to `lib/graphql/queries.ts`
+4. Extend `WooCommerceLoaderParams` in `lib/blocks/types.ts` if new params are needed
+
+Block-local queries (used by one block only) can be defined inline with `gql` inside `data-loaders.ts` rather than added to `queries.ts`.

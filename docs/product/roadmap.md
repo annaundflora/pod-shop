@@ -121,6 +121,7 @@ Alle verbleibenden Seiten (Kategorie, Produkt, Warenkorb, Rechtliches) als YAML-
 
 | Was | Grund |
 |-----|-------|
+| **Phase 3: Technisches SEO** | Nach Launch -- Core Web Vitals, JSON-LD, Search Console, Lighthouse 90+. Details: `phases.md` Phase 3. |
 | Google Ads Integration | Erst Pinterest validieren |
 | Next.js Account-Seiten | WooCommerce `/mein-konto` reicht fuer MVP |
 | Newsletter / E-Mail-Marketing | Kein Launch-Blocker |

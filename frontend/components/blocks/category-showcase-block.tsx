@@ -7,13 +7,12 @@ import type { BlockComponentProps } from '@/lib/blocks/types'
 import type { ProductCategory } from '@/lib/graphql/types'
 
 interface CategoryShowcaseBlockData {
-  productCategories?: {
-    nodes: ProductCategory[]
-  } | null
+  nodes: ProductCategory[]
+  currentSlug?: string
 }
 
 export function CategoryShowcaseBlock({ data }: BlockComponentProps<CategoryShowcaseBlockData | null>) {
-  const categories = data?.productCategories?.nodes ?? []
+  const categories = data?.nodes ?? []
 
   if (categories.length === 0) return null
 

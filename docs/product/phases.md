@@ -13,6 +13,7 @@ updated: 2026-02-25
 | 0 | MVP Launch | Kann ein Kunde kaufen und wird die Bestellung erfuellt? | in-progress |
 | 1 | Template & Theming | Kann ich einen zweiten Shop in unter einem Tag aufsetzen? | in-progress |
 | 2 | Multi-Provider & Scale | Kann ich andere POD-Provider anbinden und mehrere Shops betreiben? | open |
+| 3 | Technisches SEO | Rankt der Shop und sind Core Web Vitals im gruenen Bereich? | open |
 
 ---
 
@@ -106,6 +107,35 @@ updated: 2026-02-25
 
 - Kein Self-Service fuer Dritte (nur eigene Shops)
 - Kein Marketplace-Modell
+
+---
+
+## Phase 3: Technisches SEO
+
+**Frage:** Rankt der Shop in Suchmaschinen und sind Core Web Vitals im gruenen Bereich?
+
+### Kriterien
+
+- [ ] Core Web Vitals: LCP < 2.5s, INP < 200ms, CLS < 0.1 (gemessen auf Production)
+- [ ] Structured Data / JSON-LD vollstaendig: Product, BreadcrumbList, Organization
+- [ ] Canonical Tags korrekt gesetzt (inkl. Paginated Pages)
+- [ ] Open Graph + Twitter Card Meta-Tags fuer alle Seiten
+- [ ] Sitemap.xml automatisch generiert (Next.js built-in, dynamisch)
+- [ ] robots.txt korrekt konfiguriert
+- [ ] Google Search Console eingerichtet und verifiziert
+- [ ] Interne Verlinkungsstruktur geprueft
+- [ ] 404-Seite optimiert (korrekte HTTP-Status-Codes)
+- [ ] Bildoptimierung: WebP/AVIF, lazy loading, korrekte Alt-Texte
+
+### Exit-Kriterium
+
+> "Der Shop besteht einen Lighthouse-Audit mit 90+ Performance und 100 SEO Score. Google Search Console zeigt keine kritischen Fehler. Alle Produktseiten sind indexiert."
+
+### Nicht in dieser Phase
+
+- Kein Content SEO (Keyword-Strategie, Texte) -- erst nach Echtdaten sinnvoll
+- Kein Blog / Landing Pages
+- Keine Link-Building-Massnahmen
 
 ---
 *Letzte Aktualisierung: 2026-02-25*
