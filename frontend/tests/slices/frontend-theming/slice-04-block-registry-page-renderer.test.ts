@@ -254,17 +254,18 @@ describe('lib/blocks/page-config.ts — Page Config Loader', () => {
     const { loadPageConfig } = await import('@/lib/blocks/page-config')
     const config = loadPageConfig('home', 'default')
 
+    const allBlocks = config.sections.flatMap(s => s.blocks)
     expect(config).toBeDefined()
-    expect(config.blocks).toBeDefined()
-    expect(Array.isArray(config.blocks)).toBe(true)
-    expect(config.blocks.length).toBeGreaterThan(0)
+    expect(config.sections).toBeDefined()
+    expect(Array.isArray(config.sections)).toBe(true)
+    expect(allBlocks.length).toBeGreaterThan(0)
   })
 
   it('AC-2: loadPageConfig home.yaml should have hero block as first block', async () => {
     const { loadPageConfig } = await import('@/lib/blocks/page-config')
     const config = loadPageConfig('home', 'default')
 
-    const firstBlock = config.blocks[0]
+    const firstBlock = config.sections[0].blocks[0]
     expect(firstBlock.type).toBe('hero')
     expect(firstBlock.content_source).toBe('wordpress')
   })
@@ -273,7 +274,8 @@ describe('lib/blocks/page-config.ts — Page Config Loader', () => {
     const { loadPageConfig } = await import('@/lib/blocks/page-config')
     const config = loadPageConfig('home', 'default')
 
-    const productGridBlock = config.blocks.find(b => b.type === 'product-grid')
+    const allBlocks = config.sections.flatMap(s => s.blocks)
+    const productGridBlock = allBlocks.find(b => b.type === 'product-grid')
     expect(productGridBlock).toBeDefined()
     expect(productGridBlock?.content_source).toBe('woocommerce')
   })
@@ -282,7 +284,8 @@ describe('lib/blocks/page-config.ts — Page Config Loader', () => {
     const { loadPageConfig } = await import('@/lib/blocks/page-config')
     const config = loadPageConfig('home', 'default')
 
-    const uspBlock = config.blocks.find(b => b.type === 'usp-bar')
+    const allBlocks = config.sections.flatMap(s => s.blocks)
+    const uspBlock = allBlocks.find(b => b.type === 'usp-bar')
     expect(uspBlock).toBeDefined()
     expect(uspBlock?.content_source).toBe('inline')
   })
@@ -292,8 +295,9 @@ describe('lib/blocks/page-config.ts — Page Config Loader', () => {
     const { loadPageConfig } = await import('@/lib/blocks/page-config')
 
     const config = loadPageConfig('home', 'non-existent-theme-xyz')
+    const allBlocks = config.sections.flatMap(s => s.blocks)
     expect(config).toBeDefined()
-    expect(config.blocks.length).toBeGreaterThan(0)
+    expect(allBlocks.length).toBeGreaterThan(0)
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('non-existent-theme-xyz'))
 
     consoleSpy.mockRestore()
