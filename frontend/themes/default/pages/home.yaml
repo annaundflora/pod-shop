@@ -1,35 +1,42 @@
 # themes/default/pages/home.yaml
-# Homepage Block-Konfiguration
-# content_source: wordpress | woocommerce | inline
+# Homepage Block-Konfiguration — Sections-Format
 
-blocks:
-  - type: hero
-    content_source: wordpress
-    params:
-      page_slug: "/"
+sections:
+  - columns: 1
+    blocks:
+      - type: hero
+        content_source: wordpress
+        params:
+          page_slug: "/"
 
-  - type: product-grid
-    content_source: woocommerce
-    params:
-      query: featured_products
-      first: 4
+  - columns: 1
+    blocks:
+      - type: product-grid
+        content_source: woocommerce
+        params:
+          query: featured_products
+          first: 4
 
-  - type: category-showcase
-    content_source: woocommerce
-    params:
-      query: product_categories
-      first: 6
+  - columns: 1
+    blocks:
+      - type: category-showcase
+        content_source: woocommerce
+        params:
+          query: product_categories
+          first: 6
 
-  - type: usp-bar
-    content_source: inline
-    params:
-      props:
-        items:
-          - icon: "truck"
-            text: "Kostenloser Versand ab 100€"
-          - icon: "shield"
-            text: "Sichere Zahlung"
-          - icon: "refresh"
-            text: "30 Tage Rückgaberecht"
-          - icon: "star"
-            text: "Premium Qualität"
+  - columns: 1
+    blocks:
+      - type: usp-bar
+        content_source: inline
+        params:
+          props:
+            items:
+              - icon: "truck"
+                text: "Kostenloser Versand ab 100€"
+              - icon: "shield"
+                text: "Sichere Zahlung"
+              - icon: "refresh"
+                text: "30 Tage Rückgaberecht"
+              - icon: "star"
+                text: "Premium Qualität"
