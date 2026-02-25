@@ -1,6 +1,23 @@
 import { gql } from '@apollo/client'
 import { PRODUCT_CARD_FRAGMENT, PRODUCT_DETAIL_FRAGMENT, CATEGORY_FRAGMENT } from './fragments'
 
+// Query: Kategorie + Produkte in einem Request (fuer Block-System: products_by_category)
+export const GET_CATEGORY_WITH_PRODUCTS = gql`
+  ${PRODUCT_CARD_FRAGMENT}
+  query GetCategoryWithProducts($categorySlug: String!, $first: Int) {
+    products(first: $first, where: { categoryIn: [$categorySlug] }) {
+      nodes {
+        ...ProductCardFields
+      }
+    }
+    productCategory(id: $categorySlug, idType: SLUG) {
+      name
+      description
+      slug
+    }
+  }
+`
+
 // Query: Alle Produkte für Kategorieseite
 export const GET_PRODUCTS = gql`
   ${PRODUCT_CARD_FRAGMENT}

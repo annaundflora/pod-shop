@@ -1,0 +1,38 @@
+# themes/default/pages/category.yaml
+# Kategorie-Seiten-Konfiguration — wird geladen fuer /kategorie/[slug]
+
+sections:
+  - columns: 1
+    blocks:
+      - type: page-heading
+        content_source: woocommerce
+        params:
+          query: products_by_category
+          slug: $route.slug
+          first: 24
+
+  - columns: 1
+    blocks:
+      - type: filter-chips
+        content_source: woocommerce
+        params:
+          query: product_categories
+          slug: $route.slug
+
+  - columns: 1
+    blocks:
+      - type: product-count
+        content_source: woocommerce
+        params:
+          query: products_by_category
+          slug: $route.slug
+          first: 24
+
+  - columns: 1
+    blocks:
+      - type: product-grid
+        content_source: woocommerce
+        params:
+          query: products_by_category
+          slug: $route.slug
+          first: 24

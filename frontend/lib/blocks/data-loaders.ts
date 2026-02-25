@@ -1,6 +1,6 @@
 // frontend/lib/blocks/data-loaders.ts
 import { getClient } from '@/lib/apollo/server-client'
-import { GET_FEATURED_PRODUCTS, GET_PRODUCT_CATEGORIES } from '@/lib/graphql/queries'
+import { GET_FEATURED_PRODUCTS, GET_PRODUCT_CATEGORIES, GET_CATEGORY_WITH_PRODUCTS, GET_PRODUCT } from '@/lib/graphql/queries'
 import { gql } from '@apollo/client'
 import type {
   WPCustomFieldsData,
@@ -9,8 +9,9 @@ import type {
   InlineLoaderParams,
   LoaderParams,
   ContentSource,
+  CategoryWithProducts,
 } from './types'
-import type { ProductCardData, ProductCategory } from '@/lib/graphql/types'
+import type { ProductCardData, ProductCategory, ProductDetailData } from '@/lib/graphql/types'
 
 // GraphQL Query für WP Custom Fields (lokal definiert — NICHT in lib/graphql/queries.ts)
 const GET_PAGE_CUSTOM_FIELDS = gql`
@@ -32,7 +33,7 @@ interface WordPressLoaderResult {
 }
 
 interface WooCommerceLoaderResult {
-  data: { products?: { nodes: ProductCardData[] } } | { productCategories?: { nodes: ProductCategory[] } } | null
+  data: { products?: { nodes: ProductCardData[] } } | { productCategories?: { nodes: ProductCategory[] } } | CategoryWithProducts | { nodes: ProductCategory[]; currentSlug: string } | ProductDetailData | null
   error?: string
 }
 
@@ -75,7 +76,34 @@ async function woocommerceLoader(params: WooCommerceLoaderParams): Promise<WooCo
         query: GET_PRODUCT_CATEGORIES,
         variables: { first },
       })
+      return {
+        data: {
+          nodes: data?.productCategories?.nodes ?? [],
+          currentSlug: params.slug ?? '',
+        }
+      }
+    } else if (params.query === 'products_by_category') {
+      const slug = params.slug
+      if (!slug) {
+        console.warn('products_by_category: missing slug param')
+        return { data: null }
+      }
+      const { data } = await getClient().query<CategoryWithProducts>({
+        query: GET_CATEGORY_WITH_PRODUCTS,
+        variables: { categorySlug: slug, first },
+      })
       return { data: data ?? null }
+    } else if (params.query === 'product_by_slug') {
+      const slug = params.slug
+      if (!slug) {
+        console.warn('product_by_slug: missing slug param')
+        return { data: null }
+      }
+      const { data } = await getClient().query<{ product: ProductDetailData | null }>({
+        query: GET_PRODUCT,
+        variables: { slug },
+      })
+      return { data: data?.product ?? null }
     }
     return { data: null, error: `Unknown woocommerce query: ${params.query}` }
   } catch (error) {
