@@ -562,7 +562,7 @@ EMPTY STATE (bei 0 Produkten)
    WHEN die Page gerendert wird
    THEN wird kein Pagination-Element gerendert (render null)
 
-8) GIVEN ein Block mit `type: sort-bar` mit `currentSort: ""`, `baseUrl: "/kategorie/t-shirts"` ist konfiguriert
+8) GIVEN ein Block mit `type: sort-bar` mit `currentSort: 'default'`, `baseUrl: "/kategorie/t-shirts"` ist konfiguriert
    WHEN der User "Preis: aufsteigend" im Dropdown auswählt
    THEN wird die Navigation zu `/kategorie/t-shirts?sort=price_asc&page=1` ausgelöst
 

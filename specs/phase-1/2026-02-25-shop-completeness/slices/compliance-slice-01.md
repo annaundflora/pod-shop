@@ -1,4 +1,4 @@
-# Gate 2: Slice 01 Compliance Report
+# Gate 2: Slice 01 Compliance Report (Re-Check)
 
 **Gepruefter Slice:** `specs/phase-1/2026-02-25-shop-completeness/slices/slice-01-cross-page-infrastruktur.md`
 **Pruefdatum:** 2026-02-25
@@ -6,6 +6,18 @@
 **Wireframes:** n/a (UI-Spezifikation in `discovery.md`)
 **Discovery:** `specs/phase-1/2026-02-25-shop-completeness/discovery.md`
 **Vorherige Slices:** keine (erster Slice)
+**Vorheriger Report:** compliance-slice-01.md (FAILED, 3 Blocking Issues)
+**Re-Check Anlass:** 3 Fixes vom Planner angewendet
+
+---
+
+## Bekannte Fixes (aus Aufgabenstellung)
+
+| # | Fix | Erwartet | Geprueft |
+|---|-----|----------|----------|
+| 1 | PaginationData als Interim-DTO definiert mit Transition-Plan zu Slice 3 | Ja | Ja — siehe Sektion A |
+| 2 | SortBarData.currentSort: SortOption (nicht string), Default: 'default' (nicht '') | Ja | Ja — siehe Sektion A + D |
+| 3 | Test-Strategy: Acceptance Command differenziert, Mocking Strategy: mock_external | Ja | Ja — siehe Sektion 0 |
 
 ---
 
@@ -13,9 +25,9 @@
 
 | Status | Count |
 |--------|-------|
-| Pass | 42 |
+| Pass | 44 |
 | Warning | 0 |
-| Blocking | 3 |
+| Blocking | 1 |
 
 **Verdict:** FAILED
 
@@ -34,13 +46,22 @@
 | AC-5 | Yes | Yes | Yes | Yes | Yes | Pass |
 | AC-6 | Yes | Yes | Yes | Yes | Yes | Pass |
 | AC-7 | Yes | Yes | Yes | Yes | Yes | Pass |
-| AC-8 | Yes | Yes | Yes | Yes | Yes | Pass |
+| AC-8 | Yes | No | Yes | Yes | Yes | Blocking |
 | AC-9 | Yes | Yes | Yes | Yes | Yes | Pass |
 | AC-10 | Yes | Yes | Yes | Yes | Yes | Pass |
 | AC-11 | Yes | Yes | Yes | Yes | Yes | Pass |
 | AC-12 | Yes | Yes | Yes | Yes | Yes | Pass |
 
-Alle 12 ACs sind im GIVEN/WHEN/THEN-Format, enthalten konkrete Werte (z.B. `id: "launch-2026"`, `totalPages: 1`, URL `?page=3`), sind maschinell pruefbar und vollstaendig testbar.
+**Detail AC-8 (Blocking):**
+
+AC-8 lautet:
+> GIVEN ein Block mit `type: sort-bar` mit `currentSort: ""`, `baseUrl: "/kategorie/t-shirts"` ist konfiguriert
+> WHEN der User "Preis: aufsteigend" im Dropdown auswahlt
+> THEN wird die Navigation zu `/kategorie/t-shirts?sort=price_asc&page=1` ausgeloest
+
+Das GIVEN verwendet `currentSort: ""` (leerer String). Fix 2 hat jedoch `SortBarData.currentSort` auf den Typ `SortOption = 'default' | 'price_asc' | 'price_desc' | 'newest'` korrigiert — `""` ist kein gueltiger `SortOption`-Wert. Damit beschreibt AC-8 einen Eingabezustand, der gemaess der korrigierten Interface-Definition ungueltig ist. Ein Test-Writer wuerde `currentSort: ""` nicht gegen das TypeScript-Interface kompilieren koennen. Der korrekte Wert waere `currentSort: 'default'`.
+
+Das zugehoerige Test-Spec (SortBarBlock-Test "should show 'Empfohlen' as selected when currentSort is default") verwendet bereits korrekt `currentSort: 'default'`. AC-8 und Test-Spec sind damit inkonsistent.
 
 ### Code Example Korrektheit
 
@@ -48,26 +69,55 @@ Alle 12 ACs sind im GIVEN/WHEN/THEN-Format, enthalten konkrete Werte (z.B. `id: 
 |--------------|----------------|---------------------|---------------------|--------------------|--------|
 | `AnnouncementBarBlock` | Yes | Yes | Yes | Yes | Pass |
 | `PaginationBlock` URL-Builder | Yes | Yes | Yes | Yes | Pass |
-| `SortBarBlock` | No | Yes | No | n/a | Blocking |
+| `SortBarBlock` | Yes | Yes | Yes | n/a | Pass |
 | `global.yaml` | Yes | n/a | n/a | n/a | Pass |
 | `loadGlobalConfig` | Yes | Yes | Yes | n/a | Pass |
 | `layout.tsx` Erweiterung | Yes | Yes | Yes | n/a | Pass |
 
-**Detail zu `SortBarBlock` (Blocking):** Das Code-Beispiel definiert `interface SortBarData { currentSort: string }`. Die Architecture (Zeile 347) definiert `SortBarData.currentSort: SortOption`, wobei `SortOption = 'default' | 'price_asc' | 'price_desc' | 'newest'` (Architecture Zeile 95). Der Typ `string` im Code-Beispiel weicht vom Architecture-definierten Union-Typ ab. Zusaetzlich verwendet das Code-Beispiel `""` (leerer String) als Default-Sort-Wert, waehrend die Architecture `'default'` als gueltigen SortOption-Wert definiert.
+**Detail zu `SortBarBlock` (Fix 2 geprueft):**
 
-### Test-Strategy Pruefung
+Das Code-Beispiel definiert jetzt:
+```typescript
+interface SortBarData {
+  currentSort: SortOption  // 'default' | 'price_asc' | 'price_desc' | 'newest' — Architecture-konform
+  baseUrl: string
+}
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'default', label: 'Empfohlen' },
+  ...
+]
+```
+
+Der Typ ist architecture-konform (`SortOption` statt `string`). Der Default-Wert ist `'default'` (kein leerer String). Import von `SortOption` aus `@/lib/blocks/types` korrekt. Fix 2 ist vollstaendig umgesetzt im Code-Beispiel. Die Inkonsistenz besteht nur noch in AC-8 (siehe oben).
+
+**Detail zu `PaginationBlock` (Fix 1 geprueft):**
+
+Section 3.4 enthaelt jetzt einen expliziten "Interim-DTO Erklaerung"-Block:
+- `PaginationData` ist als Subset-Projektion von `PaginatedProductsResult.pagination` dokumentiert
+- Die Felder `currentPage`, `totalPages`, `baseUrl` entsprechen exakt den gleichnamigen Feldern im Architecture Pagination Data Contract
+- Transition-Plan zu Slice 3 ist beschrieben: "kein Breaking Change, da Block-Interface unveraendert bleibt"
+- Architecture-Abweichung ist explizit und begruendet dokumentiert
+
+Fix 1 ist vollstaendig umgesetzt.
+
+### Test-Strategy Pruefung (Fix 3 geprueft)
 
 | Pruef-Aspekt | Slice Wert | Erwartung | Status |
 |--------------|------------|-----------|--------|
 | Stack | `typescript-nextjs` | typescript-nextjs (Next.js 16, Vitest, TS) | Pass |
-| Commands vollstaendig | 3 definiert (Test, Integration, Acceptance) | 3 (unit, integration, acceptance) | Blocking |
+| Commands vollstaendig | 3 definiert (Test, Integration, Acceptance) | 3 (unit, integration, acceptance) | Pass |
+| Test Command | `pnpm test tests/slices/shop-completeness/slice-01-cross-page-infrastruktur.test.ts` | Einzelner Slice-Testlauf | Pass |
+| Integration Command | `pnpm test tests/slices/shop-completeness/` | Ganzer Slice-Ordner | Pass |
+| Acceptance Command | `pnpm test tests/slices/shop-completeness/slice-01-cross-page-infrastruktur.test.ts --reporter=verbose` | Differenziert von Test Command | Pass |
 | Start-Command | `cd frontend && pnpm dev` | passend zu Next.js Stack | Pass |
 | Health-Endpoint | `http://localhost:3000/api/health` | passend zu Next.js Stack | Pass |
-| Mocking-Strategy | `no_mocks` | definiert | Blocking |
+| Mocking-Strategy | `mock_external` | `mock_external` (next/navigation via vi.mock) | Pass |
 
-**Detail zu Commands (Blocking):** Test Command und Acceptance Command sind identisch (`pnpm test tests/slices/shop-completeness/slice-01-cross-page-infrastruktur.test.ts`). Es sind nur 2 funktional unterschiedliche Commands definiert, nicht 3 distinkte Commands wie gefordert (unit, integration, acceptance muessen unterscheidbar sein).
+**Fix 3 Status:**
 
-**Detail zu Mocking-Strategy (Blocking):** Die Test-Strategy deklariert `no_mocks`, aber der Test-Spec (Zeilen 846 und 863 des Slices) verwendet explizit `vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }), ... }))` in den SortBarBlock-Tests. Die Mocking-Strategy ist faktisch `vitest_mocks` (Next.js Router-Mock), nicht `no_mocks`. Widerspruch zwischen Metadata und Test-Spec.
+- Acceptance Command: `--reporter=verbose` differenziert ihn eindeutig vom Test Command. Pass.
+- Mocking-Strategy: `mock_external` dokumentiert. Erklaerung in der Slice: "`next/navigation` (`useRouter`, `useSearchParams`) wird per `vi.mock()` gemockt in den SortBarBlock-Tests." Konsistent mit Test-Spec. Pass.
 
 ---
 
@@ -79,11 +129,11 @@ Slice 1 definiert kein DB-Schema (kein GraphQL in diesem Slice, nur inline conte
 
 | Arch Field | Arch Type | Slice Spec | Status | Issue |
 |------------|-----------|------------|--------|-------|
-| n/a (kein DB-Schema) | — | — | Pass | — |
+| n/a (kein DB-Schema in Slice 1) | — | — | Pass | — |
 
 ### API Check
 
-Slice 1 nutzt ausschliesslich `content_source: inline` fuer alle 6 Blocks. Kein GraphQL in Slice 1. `WooCommerceLoaderParams`-Erweiterung wird deklariert aber erst ab Slice 3 genutzt.
+Slice 1 nutzt ausschliesslich `content_source: inline` fuer alle 6 Blocks. Kein GraphQL in Slice 1.
 
 | Endpoint | Arch Method | Slice Method | Status | Issue |
 |----------|-------------|--------------|--------|-------|
@@ -96,15 +146,17 @@ Slice 1 nutzt ausschliesslich `content_source: inline` fuer alle 6 Blocks. Kein 
 | `announcement-bar` | `inline` | `AnnouncementBarData` | `inline` | `AnnouncementBarData` | Pass |
 | `breadcrumb` | `woocommerce / inline` | `BreadcrumbData` | `inline` (Slice 1 Scope) | `BreadcrumbData` | Pass |
 | `trust-badges` | `inline` | `TrustBadgeData` | `inline` | `TrustBadgeData` | Pass |
-| `pagination` | `woocommerce` | `PaginatedProductsResult` | `inline` | `PaginationData` | Blocking |
-| `sort-bar` | `inline` | `SortBarData` (currentSort: SortOption) | `inline` | `SortBarData` (currentSort: string) | Blocking |
+| `pagination` | `woocommerce` | `PaginatedProductsResult` | `inline` (Slice 1) / `woocommerce` (ab Slice 3) | `PaginationData` (Subset-Projektion, explizit dokumentiert) | Pass |
+| `sort-bar` | `inline` | `SortBarData` (currentSort: SortOption) | `inline` | `SortBarData` (currentSort: SortOption) | Pass |
 | `empty-state` | `inline` | `EmptyStateData` | `inline` | `EmptyStateData` | Pass |
 
-**Detail zu `pagination` content source (Blocking):** Architecture Block Inventory (Zeile 327) definiert `pagination` mit `content_source: woocommerce` und Data Type `PaginatedProductsResult`. Der Slice definiert `content_source: inline` mit einem eigenen `PaginationData` DTO. Die Architecture definiert zwar einen Pagination Data Contract (Zeile 380-386), aber dieser ist als Sub-Objekt in `PaginatedProductsResult.pagination` beschrieben, nicht als eigenstaendiger Block-Data-Typ. Der Slice erstellt einen neuen DTO `PaginationData`, der nicht in der Architecture definiert ist. Dies ist ein Widerspruch zwischen Architecture und Slice-Spezifikation.
+**Detail `pagination` (Fix 1 abgeschlossen):**
 
-**Hinweis:** Die Slice-Erklaerung (Zeile 1006-1009) sagt explizit, dass der Pagination-Block in Slice 1 nur UI rendert und die Berechnung von `currentPage`/`totalPages` erst in Slice 3 passiert. Dies ist eine valide Slice-Scoping-Entscheidung, erfordert aber eine explizite Aenderung in der Architecture oder eine klarere Benennung des Interim-DTO.
+Slice dokumentiert die Abweichung von Architecture Block Inventory explizit und mit Transition-Plan. Die Felder von `PaginationData` sind eine direkte Projektion der `pagination`-Felder aus dem Architecture "Pagination Data Contract" (Architecture Zeile 376-386). Kein Interface-Bruch in Slice 3 gemaess Slice-Erklaerung. Akzeptiert als begruendete Abweichung mit dokumentiertem Rueckweg.
 
-**Detail zu `SortBarData.currentSort` Typ (Blocking):** Architecture (Zeile 347): `SortBarData: { currentSort: SortOption, baseUrl: string }`. Architecture (Zeile 95): `SortOption = 'default' | 'price_asc' | 'price_desc' | 'newest'`. Slice-Code-Beispiel (Zeile 1197-1199): `interface SortBarData { currentSort: string; baseUrl: string }`. Slice-Sort-Optionen (Zeile 1201-1206) enthalten `{ value: '', label: 'Empfohlen' }` — leerer String statt `'default'`. Doppelter Widerspruch: (a) `string` vs. `SortOption` Typ, (b) `''` vs. `'default'` als Default-Wert.
+**Detail `sort-bar` (Fix 2 abgeschlossen):**
+
+`currentSort: SortOption` in Block-Spec (Section 3.5) und Code-Beispiel. Architecture-konform. SORT_OPTIONS nutzen `'default'` als Default-Wert. Kein Widerspruch mehr zwischen Slice und Architecture.
 
 ### Security Check
 
@@ -112,7 +164,7 @@ Slice 1 nutzt ausschliesslich `content_source: inline` fuer alle 6 Blocks. Kein 
 |-------------|-----------|---------------------|--------|
 | localStorage: keine PII | Architecture: localStorage nur fuer dismissed-State | Slice: `localStorage['announcement-dismissed-{id}']` — nur boolean-Flag, keine PII | Pass |
 | Keine Auth fuer Block-Render | Architecture: Unauthenticated reads | Alle 6 Blocks: inline source, kein Auth erforderlich | Pass |
-| Input Sanitization | Architecture: sortOption muss gueltiger Wert sein | Sort-Bar nutzt `<select>` mit fixer SORT_OPTIONS Liste — kein freie Eingabe moeglich | Pass |
+| Input Sanitization | Architecture: sortOption muss gueltiger Wert sein | Sort-Bar nutzt `<select>` mit fixer SORT_OPTIONS-Liste vom Typ `SortOption` — keine freie Eingabe moeglich | Pass |
 
 ---
 
@@ -140,7 +192,7 @@ Slice 1 nutzt ausschliesslich `content_source: inline` fuer alle 6 Blocks. Kein 
 | Pagination Prev: `disabled` auf Seite 1 | disabled auf Seite 1 | `aria-disabled="true" pointer-events-none opacity-40` | Pass |
 | Pagination Next: `disabled` auf letzter Seite | disabled auf letzter Seite | analog zu Prev | Pass |
 | Pagination aktuelle Seite: `aria-current="page"` | nicht klickbar | `aria-current="page"` definiert | Pass |
-| Sort-Bar: `no_sort` | Dropdown: "Empfohlen" | `currentSort: ""` → "Empfohlen" Option | Pass |
+| Sort-Bar: `no_sort` | Dropdown: "Empfohlen" | `currentSort: 'default'` → "Empfohlen" Option | Pass |
 | Sort-Bar: `sorted_*` | entsprechende Label-Anzeige | value-Attribut auf select gesetzt | Pass |
 | Sort-Bar: `pending` (Transition) | — (Discovery: nicht explizit) | `opacity-70 pointer-events-none` waehrend Navigation | Pass |
 | Empty State: immer vollstaendig | Nur ein Zustand | Slice: "Nur ein Zustand" bestaetig | Pass |
@@ -153,9 +205,7 @@ Slice 1 nutzt ausschliesslich `content_source: inline` fuer alle 6 Blocks. Kein 
 | Announcement Bar: Padding | nicht spezifiziert | `py-2 px-4` | Pass |
 | Touch Target: min 44px | min. 44px (44px = 2.75rem) | `min-h-[2.75rem] min-w-[2.75rem]` | Pass |
 | Breadcrumb: Trennzeichen | `›` (explizit) | `›` Zeichen | Pass |
-| Breadcrumb: Schriftgroesse | nicht spezifiziert | `text-sm` | Pass |
 | Trust Badges: horizontal, flex-wrap | Discovery: horizontal | `flex flex-wrap justify-center gap-6` | Pass |
-| Trust Badges: Icon-Groesse | nicht spezifiziert | `h-5 w-5` | Pass |
 | Pagination: `‹` / `›` | Discovery: `‹` und `›` | Slice: `‹` und `›` | Pass |
 | Empty State: zentriert, py-16 | "zentrierter Container" | `text-center py-16 px-4` | Pass |
 | Announcement Bar X-Button: `touch-action: manipulation` | Discovery: X-Button klickbar | `touch-action: manipulation` | Pass |
@@ -183,8 +233,8 @@ Slice 1 nutzt ausschliesslich `content_source: inline` fuer alle 6 Blocks. Kein 
 | `AnnouncementBarData` (TS Interface) | `lib/blocks/types.ts` | Felder dokumentiert | Pass |
 | `BreadcrumbData` (TS Interface) | `lib/blocks/types.ts` | Felder dokumentiert | Pass |
 | `TrustBadgeData` (TS Interface) | `lib/blocks/types.ts` | Felder dokumentiert | Pass |
-| `PaginationData` (TS Interface) | `lib/blocks/types.ts` | Felder dokumentiert | Pass |
-| `SortBarData` (TS Interface) | `lib/blocks/types.ts` | Felder dokumentiert (aber Typ-Konflikt) | Pass |
+| `PaginationData` (TS Interface) | `lib/blocks/types.ts` | Felder dokumentiert, Interim-DTO begruendet | Pass |
+| `SortBarData` (TS Interface) | `lib/blocks/types.ts` | Felder dokumentiert, currentSort: SortOption | Pass |
 | `EmptyStateData` (TS Interface) | `lib/blocks/types.ts` | Felder dokumentiert | Pass |
 | `loadGlobalConfig(theme)` | `app/layout.tsx` | Signatur `(theme: string): PageConfig` | Pass |
 | `registry` (erweitert) | `lib/blocks/section-renderer.tsx` | 6 neue Block-Typen | Pass |
@@ -199,8 +249,6 @@ Slice 1 nutzt ausschliesslich `content_source: inline` fuer alle 6 Blocks. Kein 
 | `PaginationBlock` | Slice 3, Slice 5 YAML | n/a (future slices) | Slice 03, 05 | Pass |
 | `SortBarBlock` | Slice 3, Slice 5 YAML | n/a (future slices) | Slice 03, 05 | Pass |
 | `EmptyStateBlock` | Slice 3, Slice 5 YAML | n/a (future slices) | Slice 03, 05 | Pass |
-
-Anmerkung: `AnnouncementBarBlock` wird von `app/layout.tsx` konsumiert. Diese Datei ist als Deliverable im Slice deklariert (modifiziert). Consumer-Deliverable-Traceability ist damit gewaehrleistet.
 
 ### AC-Deliverable-Konsistenz
 
@@ -218,26 +266,24 @@ Alle ACs beschreiben Block-Rendering-Verhalten und testen keine spezifischen Pag
 |--------------|----------|-----------|-----------------|--------|
 | `AnnouncementBarBlock` | Sektion "Code Examples MANDATORY" | Yes | Yes | Pass |
 | `PaginationBlock` URL-Builder + Ellipsis | Sektion "Code Examples MANDATORY" | Yes | Yes | Pass |
-| `SortBarBlock` | Sektion "Code Examples MANDATORY" | Yes | No (SortBarData.currentSort: string statt SortOption) | Blocking |
+| `SortBarBlock` | Sektion "Code Examples MANDATORY" | Yes | Yes (SortBarData.currentSort: SortOption, Default: 'default') | Pass |
 | `global.yaml` | Sektion "Code Examples MANDATORY" | Yes | Yes | Pass |
 | `loadGlobalConfig` | Sektion "Code Examples MANDATORY" | Yes | Yes | Pass |
 | `layout.tsx` Erweiterung | Sektion "Code Examples MANDATORY" | Yes | Yes | Pass |
 
-**Code Examples MANDATORY Section:** Vorhanden (Zeile 1060-1078). Tabelle listet 11 Pflicht-Deliverables auf. Pass.
+**Code Examples MANDATORY Section:** Vorhanden. Tabelle listet 11 Pflicht-Deliverables auf. Pass.
 
-**`AnnouncementBarBlock` Detail:** Implementierung korrekt. `useEffect` fuer localStorage-Pruefung (verhindert SSR-Mismatch), `suppressHydrationWarning`-Aequivalent via `!mounted` Guard, `BlockComponentProps<AnnouncementBarData>` korrekt verwendet, `X` aus `lucide-react` importiert. Konsistent mit Architecture.
-
-**`SortBarBlock` Detail:** `interface SortBarData { currentSort: string }` — Architecture definiert `currentSort: SortOption`. Zusaetzlich: SORT_OPTIONS enthalten `{ value: '', label: 'Empfohlen' }` aber Architecture SortOption-Enum enthaelt `'default'` (nicht leerer String). Widerspruch ist blocking, da der Interface-Contract fuer Consumer-Slices (3, 5) damit falsch definiert wird.
-
-**`loadGlobalConfig` Detail:** Verwendet `path.join(process.cwd(), 'themes', ...)` — konsistent mit existierendem `page-config.ts` Pattern (`FRONTEND_ROOT = resolve(process.cwd())`). `readFileSync` und `parse` korrekt importiert. 2-tier Lookup (theme → default) korrekt implementiert. Fallback auf `{ sections: [] }` korrekt.
-
-**`layout.tsx` Erweiterung Detail:** `loadGlobalConfig` wird korrekt aufgerufen, `SectionRenderer` mit `globalConfig.sections` und leerem `skeletonMap` gerendert. Globale Blocks werden oberhalb von `<Header />` positioniert (korrekt gemaess Architecture und Discovery).
+**`SortBarBlock` Fix 2 bestaetigt:**
+- `interface SortBarData { currentSort: SortOption; baseUrl: string }` — Architecture-konform.
+- Import: `import type { BlockComponentProps, SortOption } from '@/lib/blocks/types'` — korrekt.
+- `SORT_OPTIONS`: `{ value: 'default', label: 'Empfohlen' }` — kein leerer String mehr.
+- `handleChange`: `if (newSort !== 'default') params.set('sort', newSort)` — Default-Wert wird korrekt als "kein URL-Param" behandelt.
 
 ---
 
 ## E) Build Config Sanity Check
 
-Slice 01 hat keine Build-Config-Deliverables (kein vite.config, webpack.config, tsconfig etc.). Nicht anwendbar.
+Slice 01 hat keine Build-Config-Deliverables. Nicht anwendbar.
 
 | Pruef-Aspekt | Requirement | Vorhanden? | Status |
 |--------------|-------------|------------|--------|
@@ -255,9 +301,9 @@ Slice 01 hat keine Build-Config-Deliverables (kein vite.config, webpack.config, 
 | AC-4: Breadcrumb mit aria-current | `should render breadcrumb with correct links` + `should set aria-current="page" on last breadcrumb item` | Vitest/RTL | Pass |
 | AC-5: Trust Badges korrekte Icons | `should render all badge items` | Vitest/RTL | Pass |
 | AC-6: Pagination 2/5 korrekte Links | `should render pagination with correct page links` + `should disable prev/next buttons` + `should build correct page URLs` | Vitest/RTL | Pass |
-| AC-7: Pagination totalPages=1 → null | `should return null when totalPages is 1` | Vitest/RTL | Pass |
-| AC-8: Sort-Bar navigiert zu korrekte URL | Implizit durch `should render sort dropdown with all options` (Navigation selbst nicht direkt getestet) | Vitest/RTL | Pass |
-| AC-9: Sort-Bar resetzt page=1 | Nicht explizit als eigenstaendiger Test vorhanden — wird indirekt durch `handleChange` Logik abgedeckt, aber kein dedizierter Test fuer page-reset | Pass (akzeptabel da Logik in Code-Beispiel explizit) |
+| AC-7: Pagination totalPages=1 -> null | `should return null when totalPages is 1` | Vitest/RTL | Pass |
+| AC-8: Sort-Bar navigiert zu korrekter URL | `should render sort dropdown with all options` | Vitest/RTL | Pass (Test korrekt, aber AC-8 GIVEN verwendet ungueltigen Wert `""` — Blocking, siehe Sektion 0) |
+| AC-9: Sort-Bar resetzt page=1 | `handleChange` Logik + `should show correct selected option for currentSort` | Vitest/RTL | Pass |
 | AC-10: Empty State Headline+Text+Links | `should render headline, text and suggestion links` | Vitest/RTL | Pass |
 | AC-11: resolveBlock fuer alle 6 Typen | 6 separate Registry-Tests | Vitest | Pass |
 | AC-12: loadGlobalConfig gibt PageConfig zurueck | `should return a valid PageConfig from global.yaml` + `should contain announcement-bar block in default global config` | Vitest | Pass |
@@ -275,127 +321,60 @@ Slice 01 hat keine Build-Config-Deliverables (kein vite.config, webpack.config, 
 | UI Components | `pagination-number` (default/active) | Yes | Yes (aria-current) | Pass |
 | UI Components | `empty-state-suggestions` (static) | Yes | Yes | Pass |
 | UI Components | `trust-badge-item` (static) | Yes | Yes | Pass |
-| State Machine | Announcement Bar: `visible` → `dismissed` | Yes | Yes | Pass |
+| State Machine | Announcement Bar: `visible` -> `dismissed` | Yes | Yes | Pass |
 | State Machine | Sort-Bar: `no_sort` / `sorted_*` | Yes | Yes | Pass |
-| Transitions | Announcement Bar: Click X → `dismissed` (localStorage) | Yes | Yes | Pass |
-| Transitions | Sort-Bar: Dropdown-Auswahl → URL-Param + page=1 | Yes | Yes | Pass |
+| Transitions | Announcement Bar: Click X -> `dismissed` (localStorage) | Yes | Yes | Pass |
+| Transitions | Sort-Bar: Dropdown-Auswahl -> URL-Param + page=1 | Yes | Yes | Pass |
 | Business Rules | Pagination: `?page=N` (1-indexed) | Yes | Yes | Pass |
 | Business Rules | Sort: `?sort=price_asc|price_desc|newest` | Yes | Yes | Pass |
 | Business Rules | Announcement Bar ID: gleiche ID = nicht erneut zeigen | Yes | Yes | Pass |
-| Data | Announcement Bar: `id`, `text`, `link`, `dismissible`, `bg_color` | Yes | Yes (bgColor statt bg_color) | Pass |
-
-Anmerkung zu `bg_color` vs. `bgColor`: Discovery definiert das Feld als `bg_color` (snake_case), Slice und Architecture definieren es als `bgColor` (camelCase). Da TypeScript-Interfaces camelCase verwenden und YAML das snake_case-Original bleibt, ist dies eine korrekte Konvention (YAML-Parser mappt nicht automatisch). Kein Blocking-Issue, da Architecture und Slice konsistent sind.
+| Data | Announcement Bar: `id`, `text`, `link`, `dismissible`, `bg_color` | Yes | Yes (bgColor in TypeScript, bg_color in Discovery/YAML) | Pass |
 
 ---
 
 ## Blocking Issues Summary
 
-### Issue 1: `pagination` Block — Content Source und Data Type widersprechen Architecture
+### Issue 1: AC-8 GIVEN verwendet ungueltigen `currentSort`-Wert nach Fix 2
 
-**Category:** Architecture / Data Type
+**Category:** AC-Qualitaet / Interne Konsistenz
 **Severity:** Blocking
 
-**Spec says (Slice, Zeile 231-240):**
-> ```
-> PaginationData:
->   currentPage: number     (1-indexed, aus $route.page)
->   totalPages: number      (berechnet aus PaginatedProductsResult)
->   baseUrl: string         (z.B. "/kategorie/t-shirts" oder "/suche")
->   currentSort?: string    (aktueller sort-Param, wird in Pagination-URLs beibehalten)
->   currentQuery?: string   (aktueller q-Param fuer Suche, wird in Pagination-URLs beibehalten)
-> ```
-> Content Source: `inline`
+**Spec says (Slice, AC-8):**
+> GIVEN ein Block mit `type: sort-bar` mit `currentSort: ""`, `baseUrl: "/kategorie/t-shirts"` ist konfiguriert
 
-**Reference says (Architecture, Zeile 324-328):**
+**Reference says (Slice, Section 3.5, nach Fix 2):**
 > ```
-> | 4 | `pagination` | Server | `woocommerce` | `PaginatedProductsResult` | `null` (lightweight) |
+> SortBarData:
+>   currentSort: SortOption    (aus $route.sort — 'default' | 'price_asc' | 'price_desc' | 'newest')
 > ```
 
-**Problem:**
-Die Architecture definiert den `pagination`-Block mit `content_source: woocommerce` und Data Type `PaginatedProductsResult`. Der Slice definiert ihn als `content_source: inline` mit einem nicht in der Architecture definierten DTO `PaginationData`. Obwohl die Scoping-Erklaerung des Slices (Zeile 1006-1009) die Trennung begruendet, muss die Architecture entweder (a) einen `PaginationData` DTO explizit definieren, oder (b) der Slice muss klarmachen, wie die Transition von `PaginationData` zu `PaginatedProductsResult` in Slice 3 erfolgt, ohne einen Breaking Change am Block-Interface zu verursachen.
-
-**Resolution:**
-Entweder:
-- Option A: Architecture um `PaginationData` DTO als eigenstaendigen Block-Data-Type erwaeitern und explizit festhalten, dass der Block in Slice 1 inline-Daten bekommt, in Slice 3+ woocommerce-Daten — mit angepasster `content_source`.
-- Option B: Slice-Spezifikation so anpassen, dass `PaginationData` als Subset/Projektion von `PaginatedProductsResult.pagination` dokumentiert wird, und der Block so implementiert wird, dass er in Slice 3 den korrekten `content_source: woocommerce` erhaelt (kein Interface-Bruch noetig wenn der Block beide Typen akzeptiert).
-
----
-
-### Issue 2: `SortBarData.currentSort` — Typ-Konflikt und Default-Wert-Konflikt
-
-**Category:** Schema / Code Example
-**Severity:** Blocking
-
-**Spec says (Slice, Zeile 1197-1199 + 1201-1206):**
+**Reference says (Slice, Code Example SortBarBlock, nach Fix 2):**
 > ```typescript
 > interface SortBarData {
->   currentSort: string
+>   currentSort: SortOption  // 'default' | 'price_asc' | 'price_desc' | 'newest' — Architecture-konform
 >   baseUrl: string
 > }
-> const SORT_OPTIONS = [
->   { value: '', label: 'Empfohlen' },
->   ...
-> ]
-> ```
-
-**Reference says (Architecture, Zeilen 95 und 347):**
-> ```
-> SortOption = 'default' | 'price_asc' | 'price_desc' | 'newest'
-> SortBarData: { currentSort: SortOption, baseUrl: string }
 > ```
 
 **Problem:**
-Zwei Konflikte gleichzeitig:
-1. Typ-Konflikt: Slice definiert `currentSort: string`, Architecture fordert `currentSort: SortOption` (Union Type).
-2. Wert-Konflikt: Slice nutzt leeren String `''` als Default-Sort-Wert, Architecture definiert `'default'` als gueltigen SortOption-Wert. Da URL-Params bei leerem Sort keinen Wert uebertragen, ist `''` vs. `'default'` eine semantische Inkonsistenz.
+Fix 2 hat `SortBarData.currentSort` korrekt auf `SortOption = 'default' | 'price_asc' | 'price_desc' | 'newest'` geaendert. AC-8 wurde jedoch nicht synchron aktualisiert und verwendet weiterhin `currentSort: ""` (leerer String) im GIVEN-Abschnitt. Der leere String ist kein gueltiger `SortOption`-Wert. Ein Test-Writer, der das AC als Grundlage fuer einen automatisierten Test nimmt, wuerde einen TypeScript-Compile-Fehler erhalten, da `""` nicht dem `SortOption`-Typ entspricht.
 
-Wenn Consumer-Slices (3, 5) den SortBar-Block mit `SortOption`-Werten befuellen (wie in Architecture spezifiziert), und der Block `string` annimmt, ist das zur Laufzeit kompatibel — aber TypeScript-Compile-Zeit-Safety geht verloren und der Contract ist falsch dokumentiert.
+Zusaetzlich ist das Test-Spec bereits korrekt und konsistent mit Fix 2: `render(<SortBarBlock data={{ currentSort: 'default', baseUrl: '/kategorie/t-shirts' }} />)`. AC-8 und Test-Spec sind damit inkonsistent innerhalb desselben Dokuments.
 
 **Resolution:**
-Slice-Code-Beispiel und `SortBarData` Interface auf `currentSort: SortOption` aendern. Entscheiden ob Default-Sort `''` oder `'default'` ist und Architecture und Slice konsistent machen. Empfehlung: `''` (leerer String) als Default beibehalten und `SortOption` in Architecture auf `'' | 'price_asc' | 'price_desc' | 'newest'` korrigieren (leerer String repraesentiert "keine Sortierung" korrekt und ist URL-Param-kompatibel).
-
----
-
-### Issue 3: Test-Strategy — Acceptance Command identisch mit Test Command, und Mocking-Strategy-Widerspruch
-
-**Category:** Test-Strategy Metadata
-**Severity:** Blocking
-
-**Spec says (Slice, Zeile 36-41):**
-> ```
-> Test Command:       pnpm test tests/slices/shop-completeness/slice-01-cross-page-infrastruktur.test.ts
-> Integration Command: pnpm test tests/slices/shop-completeness/
-> Acceptance Command: pnpm test tests/slices/shop-completeness/slice-01-cross-page-infrastruktur.test.ts
-> Mocking Strategy:   no_mocks
-> ```
-
-**Reference says (Test-Spec, Zeilen 846 und 863):**
-> ```typescript
-> vi.mock('next/navigation', () => ({
->   useRouter: () => ({ push: vi.fn() }),
->   useSearchParams: () => new URLSearchParams(),
-> }))
-> ```
-
-**Problem:**
-- Test Command und Acceptance Command sind identisch. Fuer den Orchestrator sind das funktional 2 Commands, nicht 3. Der Acceptance-Command muss entweder einen anderen Scope oder eine andere Ausfuehrungsweise haben.
-- `Mocking Strategy: no_mocks` widerspricht dem Test-Spec, der explizit `vi.mock('next/navigation', ...)` verwendet. Dies ist ein Mocking-Einsatz fuer Next.js Router-Abhaengigkeiten.
-
-**Resolution:**
-- Acceptance Command differenzieren, z.B. durch separaten Test-Tag oder Aufrufsyntax: `pnpm test tests/slices/shop-completeness/slice-01-cross-page-infrastruktur.test.ts --reporter=verbose` oder durch Auftrennung in separate Testdateien (unit vs. acceptance).
-- Mocking Strategy auf `vitest_mocks` setzen (oder `module_mocks`) und dokumentieren welche Module gemockt werden: `next/navigation` (useRouter, useSearchParams).
+AC-8 GIVEN anpassen:
+```
+GIVEN ein Block mit `type: sort-bar` mit `currentSort: 'default'`, `baseUrl: "/kategorie/t-shirts"` ist konfiguriert
+WHEN der User "Preis: aufsteigend" im Dropdown auswahlt
+THEN wird die Navigation zu `/kategorie/t-shirts?sort=price_asc&page=1` ausgeloest
+```
+(Leerer String `""` ersetzen durch `'default'` — den gueltigen SortOption-Default-Wert.)
 
 ---
 
 ## Recommendations
 
-1. Entscheide explizit ob `PaginationData` ein eigener Architecture-definierter DTO fuer Slice 1 ist, oder ob der Block von Beginn an `PaginatedProductsResult` empfaengt und nur in Slice-1-Tests mit inline-Daten befuellt wird. Dokumentiere den Weg in der Architecture.
-
-2. Korrigiere `SortOption` in Architecture.md: Ersetze `'default'` durch `''` (leeren String) als Default-Wert, oder aendere alle SORT_OPTIONS im Slice auf `'default'`. Einigung erforderlich, da Consumer-Slices (3, 5) diesen Typ verwenden werden.
-
-3. Definiere einen eindeutig anderen Acceptance Command (z.B. Runner mit anderem Report-Format, oder erstelle eine separate acceptance-Testdatei `slice-01.acceptance.test.ts`).
-
-4. Aendere `Mocking Strategy` von `no_mocks` auf `vitest_module_mocks` und dokumentiere: "next/navigation (useRouter, useSearchParams) wird per vi.mock gemockt".
+1. AC-8 GIVEN von `currentSort: ""` auf `currentSort: 'default'` aendern. Damit ist das AC intern konsistent mit dem korrigierten `SortBarData`-Interface und dem bereits korrekten Test-Spec.
 
 ---
 
@@ -403,13 +382,16 @@ Slice-Code-Beispiel und `SortBarData` Interface auf `currentSort: SortOption` ae
 
 **Status:** FAILED
 
-**Blocking Issues:** 3
+**Blocking Issues:** 1
 **Warnings:** 0
 
+**Hinweis zur Schwere:** Dieses ist ein isolierter Restfehler aus Fix 2. Alle drei dokumentierten Fixes wurden korrekt in den Code-Beispielen, der Block-Spezifikation und der Test-Strategy umgesetzt. Nur AC-8 wurde nicht synchron aktualisiert. Der Fix ist minimal (ein Wert in einem GIVEN-Satz).
+
 **Next Steps:**
-- [ ] Issue 1 beheben: `pagination` Block Data Type und Content Source in Architecture oder Slice klaeren und konsistent dokumentieren
-- [ ] Issue 2 beheben: `SortBarData.currentSort` Typ und Default-Wert in Slice-Code-Beispiel und Architecture angleichen
-- [ ] Issue 3 beheben: Acceptance Command von Test Command unterscheiden; Mocking Strategy von `no_mocks` auf korrekte Strategie aendern
-- [ ] Gate 2 erneut ausfuehren nach Korrekturen
+- [ ] AC-8 GIVEN: `currentSort: ""` durch `currentSort: 'default'` ersetzen
+- [ ] Gate 2 erneut ausfuehren nach Korrektur
 
 VERDICT: FAILED
+
+**BLOCKING_ISSUES:**
+1. AC-8 GIVEN verwendet `currentSort: ""` (leerer String) — ungueltig gemaess korrigiertem `SortBarData.currentSort: SortOption`. Korrektur: `currentSort: 'default'`.
