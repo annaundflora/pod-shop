@@ -81,3 +81,58 @@ Copy `.env.example` → `.env` (root) and `frontend/.env.local.example` → `fro
 - `/kategorie/[slug]` — Category page
 - `/produkt/[slug]` — Product detail page
 - `/warenkorb` — Cart page
+
+## Theming Engine
+
+The codebase supports multiple shops from a single codebase via a YAML-based theming system. Full documentation: `docs/theming.md`.
+
+### How it works
+
+```
+NEXT_PUBLIC_THEME=zweiter-shop  (env variable)
+  → scripts/generate-theme.mjs  (build-time: YAML → CSS)
+    → themes/default/theme.yaml  (base values, always loaded)
+    → themes/{shop}/theme.yaml   (overrides only, deepMerge'd)
+  → app/generated-theme.css      (:root { --theme-color-primary: … })
+  → app/globals.css @theme block  (Tailwind tokens: bg-primary, text-text-primary, …)
+```
+
+**Key rules:**
+- `theme.yaml` uses **deep merge** — shop themes only override what differs from `themes/default/theme.yaml`
+- `pages/{slug}.yaml` uses **full replacement** — no merge, default as fallback if shop file missing
+- All colors must use `oklch()` format — hex/rgb values are rejected by the validator
+- `app/generated-theme.css` is auto-generated — never edit manually
+- Fonts are declared in YAML but currently hardcoded to Inter in `lib/theme/fonts.ts` — changing fonts requires updating that file
+
+**After any `theme.yaml` change:**
+```bash
+cd frontend && node scripts/generate-theme.mjs
+```
+
+### CSS Token Pipeline
+
+YAML key → CSS custom property → Tailwind utility:
+- `colors.primary` → `--theme-color-primary` → `bg-primary`, `text-primary`
+- `radius.card` → `--theme-radius-card` → `rounded-card`
+- `shadows.card` → `--theme-shadow-card` → `shadow-card`
+
+To add a new token: (1) add to `themes/default/theme.yaml`, (2) emit in `generate-theme.mjs`, (3) map in `globals.css` `@theme` block.
+
+## Block-Based Page Composition
+
+Homepage (and future pages) are composed from YAML-configured blocks, not hardcoded JSX.
+
+**Data flow:** `pages/home.yaml` → `page-config.ts` (YAML loader) → `registry.ts` (type→component) → `data-loaders.ts` (fetches data per `content_source`) → React component renders.
+
+**Available block types:** `hero`, `product-grid`, `category-showcase`, `usp-bar` (registered in `lib/blocks/registry.ts`).
+
+**Content sources:** `wordpress` (custom fields via GraphQL), `woocommerce` (products/categories via GraphQL), `inline` (data directly in YAML — renders synchronously, no Suspense needed).
+
+**Component migration pattern — when creating new components:**
+1. Create block component in `components/blocks/` with a `BlockComponentProps<T>` interface
+2. Export a skeleton component for Suspense fallback (unless inline/synchronous)
+3. Register in `lib/blocks/registry.ts`
+4. Add skeleton to `SKELETON_MAP` in `app/page.tsx`
+5. Use only theme tokens (`bg-primary`, `text-text-primary`, `rounded-card`, etc.) — never hardcode colors or radii
+
+**When modifying existing components:** always use Tailwind theme token utilities (`bg-primary`, `text-text-primary`, `border-border`, `rounded-card`, `shadow-card`) instead of hardcoded values, so that multi-shop theming works automatically.

@@ -51,8 +51,8 @@ Thumbs.db
 # WordPress cache
 wordpress/cache/
 
-# Theme Build Output
-frontend/app/generated-theme.css
+# Theme Build Output (tracked with default fallback so Tailwind never hits ENOENT)
+# frontend/app/generated-theme.css
 
 # Claude Code project settings (local only)
 .claude/settings.local.json

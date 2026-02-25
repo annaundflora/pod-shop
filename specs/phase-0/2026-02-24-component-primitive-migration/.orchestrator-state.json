@@ -1,0 +1,26 @@
+{
+  "spec_path": "specs/phase-0/2026-02-24-component-primitive-migration",
+  "feature_name": "component-primitive-migration",
+  "status": "completed",
+  "current_state": "feature_complete",
+  "current_slice_id": null,
+  "retry_count": 0,
+  "failed_stage": null,
+  "waves": [
+    { "id": 1, "slices": ["slice-01"] },
+    { "id": 2, "slices": ["slice-02"] }
+  ],
+  "completed_slices": ["slice-01", "slice-02"],
+  "evidence_files": [
+    ".claude/evidence/component-primitive-migration/slice-01.json",
+    ".claude/evidence/component-primitive-migration/slice-02.json"
+  ],
+  "started_at": "2026-02-24T00:00:00Z",
+  "completed_at": "2026-02-24T00:00:00Z",
+  "final_validation": {
+    "overall_status": "passed",
+    "total_tests": 688,
+    "build": "passed",
+    "migration_check": "2 native buttons remaining (both approved)"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "feature": "component-primitive-migration",
+  "slice": "slice-02",
+  "timestamp": "2026-02-24T00:00:00Z",
+  "status": "completed",
+  "implementation": {
+    "status": "completed",
+    "files_changed": [
+      "frontend/.storybook/main.ts",
+      "frontend/.storybook/preview.ts",
+      "frontend/contexts/cart-context.tsx",
+      "frontend/package.json",
+      "frontend/pnpm-lock.yaml",
+      "frontend/stories/ui/Button.stories.tsx",
+      "frontend/stories/ui/Card.stories.tsx",
+      "frontend/stories/ui/Input.stories.tsx",
+      "frontend/stories/ui/Badge.stories.tsx",
+      "frontend/stories/ui/Skeleton.stories.tsx",
+      "frontend/stories/ui/Dialog.stories.tsx",
+      "frontend/stories/ui/Sheet.stories.tsx",
+      "frontend/stories/layout/Header.stories.tsx",
+      "frontend/stories/layout/Footer.stories.tsx",
+      "frontend/stories/layout/MobileMenu.stories.tsx",
+      "frontend/stories/layout/CartIcon.stories.tsx",
+      "frontend/stories/layout/CookieConsentBanner.stories.tsx",
+      "frontend/stories/product/ProductCard.stories.tsx",
+      "frontend/stories/product/ProductCardSkeleton.stories.tsx",
+      "frontend/stories/product/AddToCartButton.stories.tsx",
+      "frontend/stories/product/ImageGallery.stories.tsx",
+      "frontend/stories/product/VariantSelectorSize.stories.tsx",
+      "frontend/stories/product/VariantSelectorColor.stories.tsx",
+      "frontend/stories/cart/CartItemRow.stories.tsx",
+      "frontend/stories/cart/CartSummary.stories.tsx",
+      "frontend/stories/cart/QuantityStepper.stories.tsx",
+      "frontend/stories/cart/EmptyCart.stories.tsx",
+      "frontend/stories/category/FilterChips.stories.tsx",
+      "frontend/stories/blocks/HeroBlock.stories.tsx",
+      "frontend/stories/blocks/ProductGridBlock.stories.tsx",
+      "frontend/stories/blocks/CategoryShowcaseBlock.stories.tsx",
+      "frontend/stories/blocks/UspBarBlock.stories.tsx",
+      "frontend/app/generated-theme.css"
+    ],
+    "commit_hash": "c4f6982",
+    "notes": "Storybook 10.2.x with @storybook/nextjs-vite. 27 stories created. CartContext exported as named export. @storybook/addon-essentials built-in to v10 (not listed in addons array)."
+  },
+  "tests": {
+    "status": "completed",
+    "test_files": ["frontend/tests/slices/component-primitive-migration/slice-02-storybook-setup-stories.test.ts"],
+    "test_count": 187,
+    "commit_hash": "d348194",
+    "ac_coverage": { "total": 8, "covered": 8, "missing": [] },
+    "notes": "Added beforeAll self-healing guard for generated-theme.css to fix test isolation race condition with frontend-theming tests."
+  },
+  "validation": {
+    "overall_status": "passed",
+    "stages": {
+      "slice_tests": { "status": "passed", "passed": 187, "failed": 0 },
+      "full_suite": { "status": "passed", "passed": 688, "failed": 0 },
+      "build": { "status": "passed" }
+    },
+    "failed_stage": null,
+    "error_output": null
+  },
+  "retries": 2
+}

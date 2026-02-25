@@ -214,8 +214,12 @@ describe('generate-theme.mjs — deepMerge() Unit Tests', () => {
     })
 
     const css = readFileSync(GENERATED_CSS, 'utf-8')
+    // Dynamically read the actual primary color from default theme.yaml
+    const defaultYaml = readFileSync(DEFAULT_THEME_YAML, 'utf-8')
+    const primaryMatch = defaultYaml.match(/^\s*primary:\s*"([^"]+)"/m)
+    const defaultPrimary = primaryMatch?.[1] ?? ''
     // All default colors are in the output
-    expect(css).toContain('--theme-color-primary: oklch(0.45 0.2 270)')
+    expect(css).toContain(`--theme-color-primary: ${defaultPrimary}`)
     expect(css).toContain('--theme-font-heading: Inter')
   })
 

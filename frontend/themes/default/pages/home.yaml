@@ -26,7 +26,7 @@ blocks:
       props:
         items:
           - icon: "truck"
-            text: "Kostenloser Versand ab 50€"
+            text: "Kostenloser Versand ab 100€"
           - icon: "shield"
             text: "Sichere Zahlung"
           - icon: "refresh"

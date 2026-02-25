@@ -1,7 +1,7 @@
 # themes/default/theme.yaml
 
 colors:
-  primary: "oklch(0.45 0.2 270)"
+  primary: "oklch(0.45 0.18 150)" 
   primary-hover: "oklch(0.38 0.2 270)"
   accent: "oklch(0.65 0.15 270)"
   surface: "oklch(1 0 0)"

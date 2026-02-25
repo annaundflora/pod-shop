@@ -11,6 +11,20 @@ import { parse } from 'yaml'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const FRONTEND_ROOT = resolve(__dirname, '..')
 
+// Load .env.local manually since this script runs before Next.js
+const envLocalPath = resolve(FRONTEND_ROOT, '.env.local')
+if (existsSync(envLocalPath)) {
+  for (const line of readFileSync(envLocalPath, 'utf-8').split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const eqIndex = trimmed.indexOf('=')
+    if (eqIndex === -1) continue
+    const key = trimmed.slice(0, eqIndex).trim()
+    const value = trimmed.slice(eqIndex + 1).trim()
+    if (!(key in process.env)) process.env[key] = value
+  }
+}
+
 const OKLCH_REGEX = /^oklch\(\s*[\d.]+\s+[\d.]+\s+[\d.]+(\s*\/\s*[\d.]+)?\s*\)$/
 
 /**

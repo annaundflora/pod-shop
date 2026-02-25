@@ -1,0 +1,20 @@
+{
+  "spec_path": "specs/phase-0/2026-02-25-block-page-migration",
+  "status": "completed",
+  "phase": "completed",
+  "started_at": "2026-02-25T10:00:00Z",
+  "completed_at": "2026-02-25T12:00:00Z",
+  "total_slices": 4,
+  "current_slice_index": 0,
+  "slices": [
+    { "number": 1, "name": "block-system-upgrade", "status": "approved", "retries": 6 },
+    { "number": 2, "name": "kategorie-seite", "status": "approved", "retries": 0 },
+    { "number": 3, "name": "produkt-seite", "status": "approved", "retries": 0 },
+    { "number": 4, "name": "rechtsseiten", "status": "approved", "retries": 2 }
+  ],
+  "approved_slices": [1, 2, 3, 4],
+  "failed_slices": [],
+  "gate3_retries": 0,
+  "last_action": "Initialized",
+  "last_updated": "2026-02-25T10:00:00Z"
+}
