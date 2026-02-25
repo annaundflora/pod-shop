@@ -91,14 +91,14 @@ describe('Slice 04: Rechtsseiten als Block-Pages', () => {
       // Section 1: page-heading block
       expect(config.sections[0].columns).toBe(1)
       expect(config.sections[0].blocks[0].type).toBe('page-heading')
-      const headingParams = config.sections[0].blocks[0].params as Record<string, unknown>
+      const headingParams = config.sections[0].blocks[0].params as unknown as Record<string, unknown>
       expect(headingParams.page_slug).toBe('impressum')
       expect(headingParams.query).toBe('page_content')
 
       // Section 2: legal-content block
       expect(config.sections[1].columns).toBe(1)
       expect(config.sections[1].blocks[0].type).toBe('legal-content')
-      const contentParams = config.sections[1].blocks[0].params as Record<string, unknown>
+      const contentParams = config.sections[1].blocks[0].params as unknown as Record<string, unknown>
       expect(contentParams.page_slug).toBe('impressum')
       expect(contentParams.query).toBe('page_content')
     })
@@ -176,9 +176,9 @@ describe('Slice 04: Rechtsseiten als Block-Pages', () => {
 
         // Each config should have 2 sections with resolved slug
         expect(config.sections).toHaveLength(2)
-        const headingParams = config.sections[0].blocks[0].params as Record<string, unknown>
+        const headingParams = config.sections[0].blocks[0].params as unknown as Record<string, unknown>
         expect(headingParams.page_slug).toBe(slug)
-        const contentParams = config.sections[1].blocks[0].params as Record<string, unknown>
+        const contentParams = config.sections[1].blocks[0].params as unknown as Record<string, unknown>
         expect(contentParams.page_slug).toBe(slug)
       }
     })

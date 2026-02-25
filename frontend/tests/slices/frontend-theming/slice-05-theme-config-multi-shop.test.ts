@@ -335,12 +335,19 @@ describe('themes/zweiter-shop/pages/home.yaml — Schema', () => {
     const shopConfig = parse(shopContent)
     const defaultConfig = parse(defaultContent)
 
+    // zweiter-shop uses flat blocks[] format; default home.yaml uses sections[] format
+    // Flatten default sections to blocks for comparison
+    const defaultBlocks: { type: string; content_source: string; params: Record<string, unknown> }[] =
+      defaultConfig.sections
+        ? defaultConfig.sections.flatMap((s: { blocks: { type: string; content_source: string; params: Record<string, unknown> }[] }) => s.blocks)
+        : (defaultConfig.blocks ?? [])
+
     // At least one difference must be detectable
     const shopBlockTypes = shopConfig.blocks.map((b: { type: string }) => b.type).join(',')
-    const defaultBlockTypes = defaultConfig.blocks.map((b: { type: string }) => b.type).join(',')
+    const defaultBlockTypes = defaultBlocks.map((b: { type: string }) => b.type).join(',')
 
     const shopUsps = shopConfig.blocks.find((b: { type: string }) => b.type === 'usp-bar')
-    const defaultUsps = defaultConfig.blocks.find((b: { type: string }) => b.type === 'usp-bar')
+    const defaultUsps = defaultBlocks.find((b: { type: string }) => b.type === 'usp-bar')
 
     const configsDiffer =
       shopBlockTypes !== defaultBlockTypes ||

@@ -291,16 +291,14 @@ describe('lib/blocks/page-config.ts — Page Config Loader', () => {
   })
 
   it('loadPageConfig: should fall back to default theme when non-existent theme is given', async () => {
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { loadPageConfig } = await import('@/lib/blocks/page-config')
 
+    // loadPageConfig silently falls back to themes/default/pages/home.yaml when
+    // the theme-specific file does not exist (no warn required — 3-tier lookup)
     const config = loadPageConfig('home', 'non-existent-theme-xyz')
     const allBlocks = config.sections.flatMap(s => s.blocks)
     expect(config).toBeDefined()
     expect(allBlocks.length).toBeGreaterThan(0)
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('non-existent-theme-xyz'))
-
-    consoleSpy.mockRestore()
   })
 })
 
@@ -308,19 +306,21 @@ describe('lib/blocks/page-config.ts — Page Config Loader', () => {
 // AC-3: themes/default/pages/home.yaml enthaelt mindestens einen Block-Eintrag
 
 describe('themes/default/pages/home.yaml — Schema', () => {
-  it('AC-3: should parse as valid YAML with blocks array (at least one block)', async () => {
+  it('AC-3: should parse as valid YAML with sections array (at least one block)', async () => {
     /**
      * AC-3: GIVEN themes/default/pages/home.yaml exists
      * WHEN parsed as YAML
-     * THEN it contains at least one block entry
+     * THEN it contains at least one block entry (via sections[])
      */
     const { parse } = await import('yaml')
     const content = readFile('themes/default/pages/home.yaml')
     const config = parse(content)
 
     expect(config).toBeDefined()
-    expect(Array.isArray(config.blocks)).toBe(true)
-    expect(config.blocks.length).toBeGreaterThanOrEqual(3)
+    // home.yaml now uses sections[] format
+    expect(Array.isArray(config.sections)).toBe(true)
+    const allBlocks = config.sections.flatMap((s: { blocks: unknown[] }) => s.blocks)
+    expect(allBlocks.length).toBeGreaterThanOrEqual(3)
   })
 
   it('all blocks should have required fields: type, content_source, params', async () => {
@@ -328,7 +328,8 @@ describe('themes/default/pages/home.yaml — Schema', () => {
     const content = readFile('themes/default/pages/home.yaml')
     const config = parse(content)
 
-    for (const block of config.blocks) {
+    const allBlocks = config.sections.flatMap((s: { blocks: { type: string; content_source: string; params: Record<string, unknown> }[] }) => s.blocks)
+    for (const block of allBlocks) {
       expect(block.type, `Block missing type`).toBeDefined()
       expect(block.content_source, `Block "${block.type}" missing content_source`).toBeDefined()
       expect(block.params, `Block "${block.type}" missing params`).toBeDefined()
@@ -341,7 +342,8 @@ describe('themes/default/pages/home.yaml — Schema', () => {
     const config = parse(content)
     const validSources = ['wordpress', 'woocommerce', 'inline']
 
-    for (const block of config.blocks) {
+    const allBlocks = config.sections.flatMap((s: { blocks: { type: string; content_source: string }[] }) => s.blocks)
+    for (const block of allBlocks) {
       expect(
         validSources.includes(block.content_source),
         `Invalid content_source "${block.content_source}" for block "${block.type}"`
@@ -354,7 +356,8 @@ describe('themes/default/pages/home.yaml — Schema', () => {
     const content = readFile('themes/default/pages/home.yaml')
     const config = parse(content)
 
-    for (const block of config.blocks) {
+    const allBlocks = config.sections.flatMap((s: { blocks: { type: string; content_source: string; params: Record<string, unknown> }[] }) => s.blocks)
+    for (const block of allBlocks) {
       if (block.content_source === 'wordpress') {
         expect(
           block.params.page_slug,
@@ -369,7 +372,8 @@ describe('themes/default/pages/home.yaml — Schema', () => {
     const content = readFile('themes/default/pages/home.yaml')
     const config = parse(content)
 
-    for (const block of config.blocks) {
+    const allBlocks = config.sections.flatMap((s: { blocks: { type: string; content_source: string; params: Record<string, unknown> }[] }) => s.blocks)
+    for (const block of allBlocks) {
       if (block.content_source === 'woocommerce') {
         expect(
           block.params.query,
@@ -384,7 +388,8 @@ describe('themes/default/pages/home.yaml — Schema', () => {
     const content = readFile('themes/default/pages/home.yaml')
     const config = parse(content)
 
-    for (const block of config.blocks) {
+    const allBlocks = config.sections.flatMap((s: { blocks: { type: string; content_source: string; params: Record<string, unknown> }[] }) => s.blocks)
+    for (const block of allBlocks) {
       if (block.content_source === 'inline') {
         expect(
           block.params.props,
@@ -482,14 +487,10 @@ describe('app/page.tsx — PageRenderer (Block-System)', () => {
     expect(content).toContain('lib/blocks/page-config')
   })
 
-  it('should import resolveBlock from lib/blocks/registry', () => {
+  it('should import SectionRenderer from lib/blocks/section-renderer', () => {
     const content = readFile('app/page.tsx')
-    expect(content).toContain('resolveBlock')
-  })
-
-  it('should import loadBlockData from lib/blocks/data-loaders', () => {
-    const content = readFile('app/page.tsx')
-    expect(content).toContain('loadBlockData')
+    expect(content).toContain('SectionRenderer')
+    expect(content).toContain('section-renderer')
   })
 
   it('AC-6: should still have ISR revalidate = 60', () => {

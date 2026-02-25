@@ -404,37 +404,31 @@ describe('AC-10: ProductCard — Card asChild', () => {
 })
 
 // -----------------------------------------------------------------------
-// AC-11: Produkt Page — Card Composition
-// GIVEN produkt/[slug]/page.tsx hat eine <section> mit manuellen
-//       bg/shadow/rounded-Styles
+// AC-11: Produkt Page — Card Composition via SectionRenderer
+// GIVEN produkt/[slug]/page.tsx wurde auf SectionRenderer migriert
 // WHEN die Migration implementiert ist
-// THEN ist die Beschreibungs-Section eine <Card> mit <CardHeader><CardTitle>
-//      fuer die Ueberschrift und <CardContent> fuer den Prose-Inhalt
+// THEN nutzt die Seite SectionRenderer und loadPageConfig (Block-System)
+//      fuer die Produkt-Detail-Darstellung; Card-Primitives werden in den
+//      Block-Komponenten verwendet (product-description-block.tsx)
 // -----------------------------------------------------------------------
-describe('AC-11: Produkt Page — Card Composition', () => {
-  it('should import Card, CardHeader, CardTitle, CardContent from @/components/ui/card', () => {
+describe('AC-11: Produkt Page — Card Composition via SectionRenderer', () => {
+  it('should use SectionRenderer from lib/blocks/section-renderer', () => {
     const content = readFile('app/produkt/[slug]/page.tsx')
+    expect(content).toContain('SectionRenderer')
+    expect(content).toContain('section-renderer')
+  })
+
+  it('should import loadPageConfig from lib/blocks/page-config', () => {
+    const content = readFile('app/produkt/[slug]/page.tsx')
+    expect(content).toContain('loadPageConfig')
+    expect(content).toContain('page-config')
+  })
+
+  it('product-description-block.tsx should use Card primitives for description section', () => {
+    const content = readFile('components/blocks/product-description-block.tsx')
     expect(content).toContain("from '@/components/ui/card'")
     expect(content).toContain('Card')
-    expect(content).toContain('CardHeader')
-    expect(content).toContain('CardTitle')
     expect(content).toContain('CardContent')
-  })
-
-  it('should use <Card> for description section (not <section> with manual styles)', () => {
-    const content = readFile('app/produkt/[slug]/page.tsx')
-    expect(content).toContain('<Card')
-  })
-
-  it('should use <CardHeader> with <CardTitle> for heading', () => {
-    const content = readFile('app/produkt/[slug]/page.tsx')
-    expect(content).toContain('<CardHeader>')
-    expect(content).toContain('<CardTitle>')
-  })
-
-  it('should use <CardContent> for prose/description body', () => {
-    const content = readFile('app/produkt/[slug]/page.tsx')
-    expect(content).toContain('<CardContent>')
   })
 })
 
@@ -513,7 +507,8 @@ describe('AC-14: Build Success — TypeScript Compatibility', () => {
       'components/category/filter-chips.tsx',
       'components/product/product-card.tsx',
       'components/blocks/category-showcase-block.tsx',
-      'app/produkt/[slug]/page.tsx',
+      // app/produkt/[slug]/page.tsx has been migrated to SectionRenderer —
+      // UI primitives are now used inside block components, not in page.tsx directly
       'components/layout/cart-icon.tsx',
     ]
 

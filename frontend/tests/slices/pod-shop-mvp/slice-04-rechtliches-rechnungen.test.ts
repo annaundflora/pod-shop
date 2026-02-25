@@ -203,17 +203,16 @@ describe('AC-10: Footer contains 4 legal links pointing to WooCommerce WordPress
     expect(footerContent).toContain("label: 'Widerruf'")
   })
 
-  it('AC-10: Footer legal links point to WP_URL slugs /impressum, /agb, /datenschutz, /widerruf', () => {
+  it('AC-10: Footer legal links use internal Next.js routes /impressum, /agb, /datenschutz, /widerruf', () => {
     // Arrange
     const footerPath = path.resolve(__dirname, '../../../components/layout/footer.tsx')
     const footerContent = fs.readFileSync(footerPath, 'utf-8')
 
-    // Assert - hrefs use WP_URL + slug pattern
+    // Assert - hrefs use internal Next.js routes (no WP_URL prefix)
     expect(footerContent).toContain('/impressum')
     expect(footerContent).toContain('/agb')
     expect(footerContent).toContain('/datenschutz')
     expect(footerContent).toContain('/widerruf')
-    expect(footerContent).toContain('WP_URL')
   })
 
   it('AC-10: Footer has exactly 4 legal links in LEGAL_LINKS array', () => {
