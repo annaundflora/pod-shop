@@ -116,7 +116,7 @@ Review Submit (Client-Side):
 
 | Layer | Änderungen |
 |-------|------------|
-| `frontend/lib/graphql/queries.ts` | Neu: `GET_PRODUCT_REVIEWS`, `GET_RELATED_PRODUCTS`, `GET_BESTSELLER_PRODUCTS`, `GET_PRODUCTS_BY_IDS` |
+| `frontend/lib/graphql/queries.ts` | Neu: `GET_PRODUCT_REVIEWS`, `GET_RELATED_PRODUCTS`, `GET_BESTSELLER_PRODUCTS`, `GET_PRODUCTS_BY_IDS`, `GET_PRODUCT_CATEGORY` |
 | `frontend/lib/graphql/mutations.ts` | Neu: Datei erstellen + `WRITE_REVIEW` Mutation |
 | `frontend/lib/blocks/types.ts` | Neu: `ProductReviewsResult`, `ReviewEdge`, `WriteReviewInput`, `ProductRecommendationsParams` + WooCommerceLoaderParams erweitern |
 | `frontend/lib/blocks/data-loaders.ts` | Neu: `product_reviews` + `product_recommendations` Branches in `woocommerceLoader` |
@@ -247,6 +247,23 @@ query GetProductsByIds($include: [Int!]!, $first: Int) {
   }
 }
 ```
+
+**`GET_PRODUCT_CATEGORY`** (neu — schlanke Query nur für Recommendations-Loader)
+
+```graphql
+query GetProductCategory($slug: ID!) {
+  product(id: $slug, idType: SLUG) {
+    databaseId
+    productCategories {
+      nodes {
+        slug
+      }
+    }
+  }
+}
+```
+
+> **Hinweis:** Diese Query ist bewusst minimal gehalten. Sie liefert ausschliesslich `databaseId` (als `Int` benoetigt fuer `GET_RELATED_PRODUCTS`) und den ersten `categorySlug` (fuer den Category-Fallback). Der bestehende `GET_PRODUCT` Query laedt den vollen `ProductDetailFields`-Fragment und ist fuer den Recommendations-Loader zu schwergewichtig.
 
 ### 5. GraphQL Mutation (neu: `lib/graphql/mutations.ts`)
 
@@ -588,9 +605,9 @@ function buildProductReviewsResult(overrides?: {
 const mockMutate = vi.fn()
 
 vi.mock('@/lib/apollo/client', () => ({
-  getApolloClient: () => ({
+  apolloClient: {
     mutate: mockMutate,
-  }),
+  },
 }))
 
 vi.mock('@/lib/graphql/mutations', () => ({
@@ -761,6 +778,30 @@ describe('ProductReviewsBlock', () => {
     expect(screen.queryByLabelText(/Name/i)).toBeNull()
   })
 
+  it('should show error toast and keep form open when WRITE_REVIEW mutation fails', async () => {
+    mockMutate.mockRejectedValueOnce(new Error('Network error'))
+
+    const data = buildProductReviewsResult()
+    render(<ProductReviewsBlock data={{ ...data, productId: 42 } as any} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Bewertung schreiben/i }))
+    await waitFor(() => { expect(screen.getByLabelText(/Name/i)).toBeTruthy() })
+
+    fireEvent.change(screen.getByLabelText(/Name/i), { target: { value: 'Max Muster' } })
+    fireEvent.change(screen.getByLabelText(/E-Mail/i), { target: { value: 'max@example.com' } })
+    const starButtons = screen.getAllByRole('button', { name: /Stern/i })
+    fireEvent.click(starButtons[4]) // 5. Stern
+    const textarea = screen.getByRole('textbox', { name: /Bewertungstext|Deine Bewertung/i })
+    fireEvent.change(textarea, { target: { value: 'Tolles Produkt, sehr empfehlenswert!' } })
+    fireEvent.click(screen.getByRole('button', { name: /Absenden/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Bewertung konnte nicht gespeichert werden/i)).toBeTruthy()
+      // Formular bleibt offen (Name-Feld noch sichtbar)
+      expect(screen.getByLabelText(/Name/i)).toBeTruthy()
+    })
+  })
+
   it('should return null when reviewsAllowed is false', () => {
     const data = buildProductReviewsResult({ reviewsAllowed: false })
     const { container } = render(<ProductReviewsBlock data={data} />)
@@ -878,10 +919,120 @@ describe('Review Validation Logic', () => {
 
 // ─── Data Loader: product_recommendations Fallback ───────────────────────────
 
+const mockQuery = vi.fn()
+
+vi.mock('@/lib/apollo/server-client', () => ({
+  getClient: () => ({
+    query: mockQuery,
+  }),
+}))
+
 describe('woocommerceLoader product_recommendations fallback', () => {
-  it.todo('should return null when related and category both return empty (requires Apollo mock setup)')
-  it.todo('should return category products as fallback when related is empty')
-  it.todo('should return bestsellers without fallback when source=bestsellers and empty → null')
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('should return category products as fallback when related is empty', async () => {
+    const { woocommerceLoader } = await import('@/lib/blocks/data-loaders')
+
+    const categoryProduct = {
+      id: 'cat-prod-1',
+      slug: 'kategorie-produkt-1',
+      name: 'Kategorie Produkt',
+      price: '19,99\u00a0€',
+      regularPrice: null,
+      onSale: false,
+      stockStatus: 'IN_STOCK',
+      image: { sourceUrl: '/img/cat1.jpg', altText: 'Kategorie Produkt' },
+      productCategories: { nodes: [] },
+    }
+
+    // Aufruf 1: GET_PRODUCT_CATEGORY → gibt productId + categorySlug
+    mockQuery.mockResolvedValueOnce({
+      data: {
+        product: {
+          databaseId: 99,
+          productCategories: { nodes: [{ slug: 't-shirts' }] },
+        },
+      },
+    })
+    // Aufruf 2: GET_RELATED_PRODUCTS → leer
+    mockQuery.mockResolvedValueOnce({
+      data: { product: { related: { nodes: [] } } },
+    })
+    // Aufruf 3: GET_PRODUCTS_PAGINATED (category fallback) → 4 Produkte
+    mockQuery.mockResolvedValueOnce({
+      data: { products: { nodes: [categoryProduct, categoryProduct, categoryProduct, categoryProduct] } },
+    })
+
+    const result = await woocommerceLoader({
+      query: 'product_recommendations',
+      source: 'related',
+      slug: 'aktuelles-produkt',
+      first: 4,
+      heading: 'Das koennte dir gefallen',
+    } as any)
+
+    expect(result.data).not.toBeNull()
+    expect((result.data as any).products.nodes.length).toBeGreaterThan(0)
+  })
+
+  it('should return null when related and category both return empty', async () => {
+    const { woocommerceLoader } = await import('@/lib/blocks/data-loaders')
+
+    // Aufruf 1: GET_PRODUCT_CATEGORY → gibt productId + categorySlug
+    mockQuery.mockResolvedValueOnce({
+      data: {
+        product: {
+          databaseId: 99,
+          productCategories: { nodes: [{ slug: 't-shirts' }] },
+        },
+      },
+    })
+    // Aufruf 2: GET_RELATED_PRODUCTS → leer
+    mockQuery.mockResolvedValueOnce({
+      data: { product: { related: { nodes: [] } } },
+    })
+    // Aufruf 3: GET_PRODUCTS_PAGINATED (category fallback) → leer
+    mockQuery.mockResolvedValueOnce({
+      data: { products: { nodes: [] } },
+    })
+
+    const result = await woocommerceLoader({
+      query: 'product_recommendations',
+      source: 'related',
+      slug: 'aktuelles-produkt',
+      first: 4,
+      heading: 'Das koennte dir gefallen',
+    } as any)
+
+    expect(result.data).toBeNull()
+  })
+
+  it('should return null when source=bestsellers and query returns empty', async () => {
+    const { woocommerceLoader } = await import('@/lib/blocks/data-loaders')
+
+    // Aufruf 1: GET_PRODUCT_CATEGORY
+    mockQuery.mockResolvedValueOnce({
+      data: {
+        product: { databaseId: 99, productCategories: { nodes: [] } },
+      },
+    })
+    // Aufruf 2: GET_BESTSELLER_PRODUCTS → leer
+    mockQuery.mockResolvedValueOnce({
+      data: { products: { nodes: [] } },
+    })
+
+    const result = await woocommerceLoader({
+      query: 'product_recommendations',
+      source: 'bestsellers',
+      slug: 'aktuelles-produkt',
+      first: 4,
+      heading: 'Bestseller',
+    } as any)
+
+    expect(result.data).toBeNull()
+  })
 })
 
 // ─── YAML product.yaml ────────────────────────────────────────────────────────
@@ -1036,7 +1187,8 @@ describe('product.yaml configuration', () => {
 | `validateReviewInput()` | Code Example 3 | YES | Export aus review-form.tsx, verwendbar in Tests |
 | `WRITE_REVIEW` Mutation | Code Example 4 | YES | In lib/graphql/mutations.ts |
 | `ProductReviewsResult` Type | Code Example 5 | YES | In lib/blocks/types.ts |
-| `product_recommendations` Loader Branch | Code Example 6 | YES | In lib/blocks/data-loaders.ts |
+| `product_recommendations` Loader Branch | Code Example 6 | YES | In lib/blocks/data-loaders.ts; verwendet GET_PRODUCT_CATEGORY |
+| `GET_PRODUCT_CATEGORY` Query | Technische Umsetzung §4 | YES | Neue schlanke Query in lib/graphql/queries.ts |
 | `product.yaml` (erweitert) | Technische Umsetzung §6 | YES | Alle 3 neuen Sections vorhanden |
 
 ### Code Example 1: ProductReviewsBlock (Skelett)
@@ -1331,9 +1483,9 @@ if (params.query === 'product_recommendations') {
   const first = (params as any).first ?? 4
   const productSlug = params.slug
 
-  // Produktdaten für productId + categorySlug laden
+  // Produktdaten für productId + categorySlug laden (schlanke Query, kein Full-Detail-Fragment)
   const { data: productData } = await getClient().query({
-    query: GET_PRODUCT,
+    query: GET_PRODUCT_CATEGORY,
     variables: { slug: productSlug },
   })
   const productId = productData?.product?.databaseId
@@ -1420,7 +1572,7 @@ if (params.query === 'product_recommendations') {
 ### Geänderte Dateien
 
 - [ ] `frontend/lib/blocks/types.ts` — Neue Types: `ReviewEdge`, `ProductReviewsResult`, `WriteReviewInput`, `ProductRecommendationsData`; `WooCommerceLoaderParams.query` Union erweitern
-- [ ] `frontend/lib/graphql/queries.ts` — Neue Queries: `GET_PRODUCT_REVIEWS`, `GET_RELATED_PRODUCTS`, `GET_BESTSELLER_PRODUCTS`, `GET_PRODUCTS_BY_IDS`
+- [ ] `frontend/lib/graphql/queries.ts` — Neue Queries: `GET_PRODUCT_REVIEWS`, `GET_RELATED_PRODUCTS`, `GET_BESTSELLER_PRODUCTS`, `GET_PRODUCTS_BY_IDS`, `GET_PRODUCT_CATEGORY`
 - [ ] `frontend/lib/blocks/data-loaders.ts` — Neue Branches: `product_reviews`, `product_recommendations` (inkl. Fallback-Logik); neue Query-Imports
 - [ ] `frontend/lib/blocks/registry.ts` — Neue Einträge: `'product-reviews'` → `ProductReviewsBlock`, `'product-recommendations'` → `ProductRecommendationsBlock`
 - [ ] `frontend/themes/default/pages/product.yaml` — 3 neue Sections: `trust-badges` (inline), `product-reviews` (woocommerce), `product-recommendations` (woocommerce)
