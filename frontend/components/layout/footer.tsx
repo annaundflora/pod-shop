@@ -1,14 +1,12 @@
 // frontend/components/layout/footer.tsx
+import Link from 'next/link'
 import { getAccountUrl } from '@/lib/config/account'
 
-// WP_URL aus env – zeigt auf WooCommerce WordPress-Seite (localhost:8080 oder Produktions-Domain)
-const WP_URL = process.env.NEXT_PUBLIC_WP_URL ?? 'http://localhost:8080'
-
 const LEGAL_LINKS = [
-  { label: 'Impressum', href: `${WP_URL}/impressum` },
-  { label: 'AGB', href: `${WP_URL}/agb` },
-  { label: 'Datenschutz', href: `${WP_URL}/datenschutz` },
-  { label: 'Widerruf', href: `${WP_URL}/widerruf` },
+  { label: 'Impressum', href: '/impressum' },
+  { label: 'AGB', href: '/agb' },
+  { label: 'Datenschutz', href: '/datenschutz' },
+  { label: 'Widerruf', href: '/widerruf' },
 ] as const
 
 export function Footer() {
@@ -22,12 +20,12 @@ export function Footer() {
           <ul className="flex flex-wrap gap-x-4 gap-y-2 justify-center text-sm text-text-secondary">
             {LEGAL_LINKS.map((link) => (
               <li key={link.href}>
-                <a
+                <Link
                   href={link.href}
                   className="hover:text-text-primary focus-visible:ring-2 focus-visible:ring-primary rounded underline-offset-2 hover:underline"
                 >
                   {link.label}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>

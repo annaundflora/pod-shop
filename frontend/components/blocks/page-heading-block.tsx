@@ -1,9 +1,17 @@
 // frontend/components/blocks/page-heading-block.tsx
 import type { BlockComponentProps } from '@/lib/blocks/types'
-import type { CategoryWithProducts } from '@/lib/blocks/types'
+import type { CategoryWithProducts, WPPageContent } from '@/lib/blocks/types'
 
-export function PageHeadingBlock({ data }: BlockComponentProps<CategoryWithProducts | null>) {
-  const title = (data as CategoryWithProducts | null)?.productCategory?.name
+type PageHeadingData = CategoryWithProducts | WPPageContent | null
+
+export function PageHeadingBlock({ data }: BlockComponentProps<PageHeadingData>) {
+  // WPPageContent hat { title, content } — fuer Rechtsseiten
+  // CategoryWithProducts hat { productCategory: { name } } — fuer Kategorieseiten
+  const title = data
+    ? 'title' in data
+      ? (data as WPPageContent).title
+      : (data as CategoryWithProducts).productCategory?.name
+    : null
 
   if (!title) return null
 

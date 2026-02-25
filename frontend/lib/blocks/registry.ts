@@ -11,6 +11,7 @@ import { ProductCountBlock } from '@/components/blocks/product-count-block'
 import { ProductGalleryBlock } from '@/components/blocks/product-gallery-block'
 import { ProductPurchaseBlock } from '@/components/blocks/product-purchase-block'
 import { ProductDescriptionBlock } from '@/components/blocks/product-description-block'
+import { LegalContentBlock } from '@/components/blocks/legal-content-block'
 
 // Typisiertes Registry-Map
 type BlockComponent = ComponentType<BlockComponentProps<unknown>>
@@ -28,6 +29,8 @@ const registry: Record<string, BlockComponent> = {
   'product-gallery': ProductGalleryBlock as BlockComponent,
   'product-purchase': ProductPurchaseBlock as BlockComponent,
   'product-description': ProductDescriptionBlock as BlockComponent,
+  // Neu in Slice 4:
+  'legal-content': LegalContentBlock as BlockComponent,
 }
 
 /**

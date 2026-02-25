@@ -1,9 +1,10 @@
 // frontend/lib/blocks/data-loaders.ts
 import { getClient } from '@/lib/apollo/server-client'
-import { GET_FEATURED_PRODUCTS, GET_PRODUCT_CATEGORIES, GET_CATEGORY_WITH_PRODUCTS, GET_PRODUCT } from '@/lib/graphql/queries'
+import { GET_FEATURED_PRODUCTS, GET_PRODUCT_CATEGORIES, GET_CATEGORY_WITH_PRODUCTS, GET_PRODUCT, GET_PAGE_CONTENT } from '@/lib/graphql/queries'
 import { gql } from '@apollo/client'
 import type {
   WPCustomFieldsData,
+  WPPageContent,
   WordPressLoaderParams,
   WooCommerceLoaderParams,
   InlineLoaderParams,
@@ -28,7 +29,7 @@ const GET_PAGE_CUSTOM_FIELDS = gql`
 `
 
 interface WordPressLoaderResult {
-  data: WPCustomFieldsData | null
+  data: WPCustomFieldsData | WPPageContent | null
   error?: string
 }
 
@@ -42,11 +43,26 @@ interface InlineLoaderResult {
 }
 
 /**
- * Loads WP Custom Fields for a page via GraphQL.
+ * Loads WP Custom Fields or page content for a page via GraphQL.
  * Returns null data on GraphQL error (Error Boundary handles rendering).
  */
 async function wordpressLoader(params: WordPressLoaderParams): Promise<WordPressLoaderResult> {
   try {
+    if (params.query === 'page_content') {
+      const { data } = await getClient().query<{ pageBy: { title: string; content: string } | null }>({
+        query: GET_PAGE_CONTENT,
+        variables: { slug: params.page_slug },
+      })
+      if (!data?.pageBy) return { data: null }
+      return {
+        data: {
+          title: data.pageBy.title,
+          content: data.pageBy.content,
+        } satisfies WPPageContent,
+      }
+    }
+
+    // Default: custom_fields (bestehendes Verhalten)
     const { data } = await getClient().query<{ pageBy: WPCustomFieldsData | null }>({
       query: GET_PAGE_CUSTOM_FIELDS,
       variables: { slug: params.page_slug },

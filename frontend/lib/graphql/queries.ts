@@ -99,3 +99,13 @@ export const GET_ALL_CATEGORY_SLUGS = gql`
     }
   }
 `
+
+// Query: WordPress-Seiteninhalt für Rechtsseiten (Impressum, AGB, Datenschutz, Widerruf)
+export const GET_PAGE_CONTENT = gql`
+  query GetPageContent($slug: String!) {
+    pageBy(uri: $slug) {
+      title
+      content
+    }
+  }
+`

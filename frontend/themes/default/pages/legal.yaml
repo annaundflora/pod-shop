@@ -1,0 +1,20 @@
+# themes/default/pages/legal.yaml
+# Gemeinsames YAML-Template fuer alle 4 Rechtsseiten.
+# $route.slug wird zur Laufzeit ersetzt: impressum / agb / datenschutz / widerruf
+
+sections:
+  - columns: 1
+    blocks:
+      - type: page-heading
+        content_source: wordpress
+        params:
+          page_slug: "$route.slug"
+          query: page_content
+
+  - columns: 1
+    blocks:
+      - type: legal-content
+        content_source: wordpress
+        params:
+          page_slug: "$route.slug"
+          query: page_content
