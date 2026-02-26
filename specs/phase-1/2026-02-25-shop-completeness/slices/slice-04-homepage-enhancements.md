@@ -158,13 +158,15 @@ app/page.tsx (RSC, ISR revalidate=60)
 **Data Type:** `TestimonialsData`
 
 ```typescript
-// Architecture-Definition (architecture.md Zeile 349)
+// Architecture-Extension (bewusst): location? nicht in architecture.md Zeile 349,
+// aber für Testimonials-UX notwendig ("— Maria K., München"). Optionales Feld,
+// das nicht-brechend ist — Consumer müssen es nicht setzen.
 interface TestimonialsData {
   items: {
     name: string
     text: string
     rating: number       // 1–5 Integer
-    location?: string    // optional (z.B. "Berlin")
+    location?: string    // optional (z.B. "Berlin") — Architecture-Extension
   }[]
 }
 ```
@@ -705,9 +707,9 @@ NEWSLETTER SIGNUP (neue Section, vor usp-bar)
    WHEN der User auf den X-Button klickt
    THEN wird `localStorage['announcement-dismissed-launch-2026']` gesetzt und die Bar verschwindet ohne Page-Reload
 
-3) GIVEN der User hat die Announcement Bar bereits dismissed (localStorage gesetzt)
+3) GIVEN der User hat die Announcement Bar bereits dismissed (`localStorage['announcement-dismissed-launch-2026']` gesetzt)
    WHEN die Homepage neu geladen wird
-   THEN wird die Announcement Bar nicht angezeigt (kein Flicker)
+   THEN wird die Announcement Bar nicht angezeigt
 
 4) GIVEN die Homepage wird geladen
    WHEN der `testimonials` Block in `home.yaml` konfiguriert ist
@@ -1068,6 +1070,29 @@ describe('loadGlobalConfig', () => {
     // 'nonexistent' theme has no global.yaml — falls back gracefully
     const config = await loadGlobalConfig('nonexistent-theme-xyz')
     expect(config.sections).toEqual([])
+  })
+})
+
+// --- AC-3: AnnouncementBar localStorage-dismissed ---
+
+describe('AnnouncementBarBlock localStorage dismissed (AC-3)', () => {
+  it('should not render when localStorage dismissed key is set', async () => {
+    const { AnnouncementBarBlock } = await import('@/components/blocks/announcement-bar-block')
+    // Pre-set dismissed state in localStorage
+    window.localStorage.setItem('announcement-dismissed-launch-2026', '1')
+    const data = { id: 'launch-2026', text: 'Kostenloser Versand ab 50€', dismissible: true }
+    render(<AnnouncementBarBlock data={data} />)
+    // Bar should not be visible
+    expect(screen.queryByText('Kostenloser Versand ab 50€')).toBeNull()
+    window.localStorage.clear()
+  })
+
+  it('should render when localStorage dismissed key is NOT set', async () => {
+    const { AnnouncementBarBlock } = await import('@/components/blocks/announcement-bar-block')
+    window.localStorage.clear()
+    const data = { id: 'launch-2026', text: 'Kostenloser Versand ab 50€', dismissible: true }
+    render(<AnnouncementBarBlock data={data} />)
+    expect(screen.getByText('Kostenloser Versand ab 50€')).toBeTruthy()
   })
 })
 ```
