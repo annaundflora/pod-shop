@@ -110,7 +110,7 @@ URL Parameter Pattern:
 | Layer | Änderungen |
 |-------|------------|
 | `frontend/app/kategorie/[slug]/page.tsx` | Erweitern: `searchParams` prop lesen (`page`, `sort`); `loadPageConfig` mit `{ slug, page, sort }` aufrufen; `skeletonMap` um `breadcrumb`, `sort-bar`, `pagination`, `empty-state` erweitern |
-| `frontend/lib/blocks/types.ts` | `WooCommerceLoaderParams` um `page?: number`, `perPage?: number`, `sort?: string` erweitern |
+| `frontend/lib/blocks/types.ts` | `WooCommerceLoaderParams` um `page?: string`, `perPage?: number`, `sort?: string`, `source?`, `productSlug?`, `customIds?` erweitern |
 | `frontend/lib/graphql/queries.ts` | `GET_PRODUCTS_PAGINATED` Query hinzufügen (ersetzt/erweitert `GET_CATEGORY_WITH_PRODUCTS` für paginierten Use-Case) |
 | `frontend/lib/blocks/data-loaders.ts` | `products_by_category` Branch erweitern: over-fetch + slice Pagination + Sort-Mapping; `category_meta` Branch hinzufügen (für Breadcrumb KategorieName) |
 | `frontend/themes/default/pages/category.yaml` | `breadcrumb` vor `page-heading`, `sort-bar` nach `product-count`, `pagination` nach `product-grid`, `empty-state` als conditional nach `product-grid` eintragen |
@@ -175,6 +175,10 @@ export const GET_PRODUCTS_PAGINATED = gql`
     ) {
       nodes {
         ...ProductCardFields
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
       }
     }
     productCategory(id: $categorySlug, idType: SLUG) {
@@ -253,6 +257,8 @@ function buildOrderby(sort: string | undefined): { field: string; order: string 
 
 ### 6. `PaginatedProductsResult` DTO (in types.ts)
 
+> **Architecture-Divergenz (bewusst):** Die Architecture-Spec definiert `products: ProductCardData[]` (flaches Array) und direkte Felder `currentPage`, `totalPages`, `hasNextPage`. Dieses Slice verwendet stattdessen `products: { nodes: ProductCardData[] }` (WooGraphQL-konform, da WPGraphQL immer `nodes`-Pattern zurückgibt) und ein separates `pagination: PaginationMeta` Sub-Objekt für bessere Trennbarkeit. Consumer-Slices 5 und 6 verwenden dieselbe Struktur — kein Breaking Change, da `PaginatedProductsResult` erst in diesem Slice definiert wird.
+
 ```typescript
 // lib/blocks/types.ts (Ergänzung)
 export interface PaginationMeta {
@@ -286,10 +292,13 @@ export interface WooCommerceLoaderParams {
     | 'search_products'         // neu in Slice 5
   first?: number
   slug?: string
-  page?: number        // neu: 1-indexed Seitennummer
+  page?: string        // neu: 1-indexed Seitennummer als String (aus $route.page → YAML → data-loader konvertiert zu Number)
   perPage?: number     // neu: Produkte pro Seite (default: 24)
   sort?: string        // neu: SortOption-String aus URL-Param
   search?: string      // neu: Suchbegriff (für Slice 5)
+  source?: string      // aus Slice 2: product_recommendations Quelle (related|category|bestsellers|custom)
+  productSlug?: string // aus Slice 2: Produkt-Slug für related/category Fallback
+  customIds?: string   // aus Slice 2: Komma-getrennte WC-Produkt-IDs für source=custom
 }
 ```
 
@@ -1117,7 +1126,7 @@ describe('Empty-State Rendering-Bedingung', () => {
 <!-- DELIVERABLES_START -->
 ### Frontend
 - [ ] `frontend/app/kategorie/[slug]/page.tsx` — Erweitern: `searchParams` prop (`page`, `sort`) lesen; URL-Param Validierung + Redirect; `loadPageConfig` mit `{ slug, page, sort }`; `skeletonMap` um breadcrumb, sort-bar, pagination, empty-state erweitern
-- [ ] `frontend/lib/blocks/types.ts` — `WooCommerceLoaderParams` um `page?: number`, `perPage?: number`, `sort?: string`, `search?: string` erweitern; `PaginatedProductsResult` und `PaginationMeta` Interface exportieren
+- [ ] `frontend/lib/blocks/types.ts` — `WooCommerceLoaderParams` um `page?: string`, `perPage?: number`, `sort?: string`, `search?: string`, `source?`, `productSlug?`, `customIds?` erweitern; `PaginatedProductsResult` und `PaginationMeta` Interface exportieren
 - [ ] `frontend/lib/graphql/queries.ts` — `GET_PRODUCTS_PAGINATED` Query exportieren; `GET_CATEGORY_META` Query exportieren
 - [ ] `frontend/lib/blocks/data-loaders.ts` — `buildOrderby()` Funktion (intern); `products_by_category` Branch mit over-fetch + slice + sort-mapping erweitern; `category_meta` Branch hinzufügen; Import `GET_PRODUCTS_PAGINATED` und `GET_CATEGORY_META`
 - [ ] `frontend/themes/default/pages/category.yaml` — Vollständig ersetzen: breadcrumb, page-heading (mit page/sort params), filter-chips, product-count (mit page/sort), sort-bar (inline), product-grid (mit page/sort), pagination (woocommerce), empty-state (inline)
