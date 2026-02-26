@@ -198,3 +198,58 @@ export const GET_PRODUCT_CATEGORY = gql`
     }
   }
 `
+
+// ============================================================
+// Slice 03 — Kategorie-Page Enhancements
+// ============================================================
+
+// Query: Produkte mit Pagination fuer Kategorie-Seiten und Suchseite
+export const GET_PRODUCTS_PAGINATED = gql`
+  ${PRODUCT_CARD_FRAGMENT}
+  query GetProductsPaginated(
+    $categorySlug: String
+    $first: Int!
+    $orderby: [ProductsOrderbyInput]
+    $search: String
+  ) {
+    products(
+      first: $first
+      where: {
+        categoryIn: [$categorySlug]
+        orderby: $orderby
+        search: $search
+        status: "publish"
+      }
+    ) {
+      nodes {
+        ...ProductCardFields
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+    productCategory(id: $categorySlug, idType: SLUG) {
+      name
+      count
+      description
+      slug
+    }
+  }
+`
+
+// Query: Kategorie-Metadaten (fuer Breadcrumb und CollectionHeader)
+export const GET_CATEGORY_META = gql`
+  query GetCategoryMeta($slug: ID!) {
+    productCategory(id: $slug, idType: SLUG) {
+      name
+      description
+      slug
+      count
+      image {
+        sourceUrl
+        altText
+      }
+    }
+  }
+`

@@ -8,16 +8,29 @@ export interface WordPressLoaderParams {
 }
 
 export interface WooCommerceLoaderParams {
-  query: 'featured_products' | 'product_categories' | 'products_by_category' | 'product_by_slug' | 'products_paginated' | 'product_reviews' | 'product_recommendations' | 'featured_collection' | 'search_products' | 'category_meta'
+  query:
+    | 'featured_products'
+    | 'product_categories'
+    | 'products_by_category'
+    | 'product_by_slug'
+    | 'products_paginated'
+    | 'product_reviews'
+    | 'product_recommendations'
+    | 'featured_collection'
+    | 'search_products'
+    | 'category_meta'
+    | 'collection_products'
+    | 'collection_header'
   first?: number
   slug?: string
-  page?: number
-  perPage?: number
-  sort?: string
-  search?: string
-  source?: string
-  productSlug?: string
-  customIds?: string[]
+  page?: string        // 1-indexed Seitennummer als String (aus $route.page)
+  perPage?: number     // Produkte pro Seite (default: 24)
+  sort?: string        // SortOption-String aus URL-Param
+  search?: string      // Suchbegriff (fuer Slice 5)
+  source?: string      // product_recommendations Quelle (related|category|bestsellers|custom)
+  productSlug?: string // Produkt-Slug fuer related/category Fallback
+  customIds?: string   // Komma-getrennte WC-Produkt-IDs fuer source=custom
+  heading?: string     // Ueberschrift fuer Recommendations-Block
 }
 
 export interface InlineLoaderParams {
@@ -127,23 +140,7 @@ export interface EmptyStateData {
 }
 
 // ============================================================
-// Slice 02 — Produkt-Page: Types (placeholder for slice-02)
-// ============================================================
-
-export interface PaginationMeta {
-  currentPage: number
-  totalPages: number
-  totalItems: number
-  perPage: number
-}
-
-export interface PaginatedProductsResult {
-  products: { nodes: ProductCardData[] }
-  pagination: PaginationMeta
-}
-
-// ============================================================
-// Slice 02 — Produkt-Page: Neue Types
+// Slice 02 — Produkt-Page: Review Types
 // ============================================================
 
 export interface ReviewEdge {
@@ -181,4 +178,22 @@ export interface WriteReviewInput {
 export interface ProductRecommendationsData {
   heading: string
   products: { nodes: ProductCardData[] } | null
+}
+
+// ============================================================
+// Slice 03 — Kategorie-Page Pagination Types
+// ============================================================
+
+export interface PaginationMeta {
+  currentPage: number
+  totalPages: number
+  hasNextPage: boolean
+  hasPreviousPage: boolean
+  totalCount: number
+}
+
+export interface PaginatedProductsResult {
+  products: { nodes: ProductCardData[] }
+  productCategory?: { name: string; description: string; slug: string; count: number } | null
+  pagination: PaginationMeta
 }

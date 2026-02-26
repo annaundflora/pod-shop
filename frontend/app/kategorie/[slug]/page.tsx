@@ -3,6 +3,7 @@ import {
   GET_PRODUCT_CATEGORIES,
   GET_ALL_CATEGORY_SLUGS,
 } from '@/lib/graphql/queries'
+import { redirect } from 'next/navigation'
 import { CategoryPageClient } from './category-page-client'
 import { SectionRenderer } from '@/lib/blocks/section-renderer'
 import { loadPageConfig } from '@/lib/blocks/page-config'
@@ -44,13 +45,30 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 interface CategoryPageProps {
   params: Promise<{ slug: string }>
+  searchParams: Promise<{ page?: string; sort?: string }>
 }
 
-export default async function CategoryPage({ params }: CategoryPageProps) {
+export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
   const { slug } = await params
+  const { page: pageParam, sort: sortParam } = await searchParams
   const theme = process.env.NEXT_PUBLIC_THEME ?? 'default'
 
-  const pageConfig = loadPageConfig('category', theme, { slug })
+  // URL-Param Validierung und Sanitierung
+  const pageRaw = parseInt(pageParam ?? '1', 10)
+  const page = isNaN(pageRaw) || pageRaw < 1 ? 1 : pageRaw
+  const validSorts = ['price_asc', 'price_desc', 'newest']
+  const sort = sortParam && validSorts.includes(sortParam) ? sortParam : ''
+
+  // Redirect zu Seite 1 wenn page-Param ungültig
+  if (pageParam !== undefined && page !== pageRaw) {
+    redirect(`/kategorie/${slug}${sort ? `?sort=${sort}` : ''}`)
+  }
+
+  const pageConfig = loadPageConfig('category', theme, {
+    slug,
+    page: String(page),
+    sort,
+  })
 
   return (
     <main id="main-content">
@@ -60,9 +78,11 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         <SectionRenderer
           sections={pageConfig.sections}
           skeletonMap={{
+            'breadcrumb': null,
             'page-heading': null,
             'filter-chips': null,
             'product-count': null,
+            'sort-bar': null,
             'product-grid': (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {Array.from({ length: 8 }).map((_, i) => (
@@ -70,6 +90,8 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
                 ))}
               </div>
             ),
+            'pagination': null,
+            'empty-state': null,
           }}
         />
       </div>
