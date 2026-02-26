@@ -115,7 +115,8 @@ URL Parameter Pattern:
 | `frontend/components/blocks/search-results-block.tsx` | NEU | Server Component, delegiert an ProductGrid-Darstellung, nutzt `PaginatedProductsResult` |
 | `frontend/lib/blocks/data-loaders.ts` | MODIFY | Branch `search_products` hinzufügen: Over-fetch + Slice mit `search`-Variable |
 | `frontend/lib/blocks/registry.ts` | MODIFY | `search-bar` und `search-results` registrieren |
-| `frontend/lib/blocks/types.ts` | MODIFY | `SearchBarData`-Interface hinzufügen; `WooCommerceLoaderParams.query` um `'search_products'` erweitern (bereits in Slice 3 als Platzhalter dokumentiert) |
+| `frontend/lib/blocks/types.ts` | MODIFY | `SearchBarData`-Interface hinzufügen; `SortBarData` um `currentQuery?: string` erweitern; `WooCommerceLoaderParams.query` um `'search_products'` erweitern (bereits in Slice 3 als Platzhalter dokumentiert) |
+| `frontend/components/blocks/sort-bar-block.tsx` | MODIFY | `currentQuery` aus `SortBarData` lesen; bei Sort-URL-Konstruktion `?q=`-Param beibehalten wenn `currentQuery` gesetzt (Architecture Extension, rückwärtskompatibel) |
 | `frontend/themes/default/pages/search.yaml` | NEU | Block-Konfiguration für Suchseite (search-bar, product-count, sort-bar, search-results, pagination, empty-state) |
 | `frontend/components/layout/header.tsx` | MODIFY | Suchicon hinzufügen: klickt → navigiert zu `/suche` (ggf. mit aktuellem Query) |
 
@@ -302,6 +303,10 @@ Render-Regel:
 - Desktop: Icon + optionaler Text "Suche" (YAML-konfigurierbar via Header-Config, falls vorhanden; sonst hardcoded Icon)
 
 ### 8. `themes/default/pages/search.yaml`
+
+> **Architecture-Extension (search.yaml):** Die architecture.md-Vorlage für `search.yaml` enthält weder `currentQuery: "$route.q"` im `sort-bar`-Block noch eine `empty-state`-Section. Beide Erweiterungen sind notwendig und rückwärtskompatibel:
+> - `currentQuery` im sort-bar: Pflicht damit Suchbegriff bei Sortierungswechsel erhalten bleibt (ohne würde q-Param verloren gehen)
+> - `empty-state`-Section: Pflicht für AC6 — ohne diese Section wird bei 0 Ergebnissen nur nichts gerendert, ohne Nutzer-Feedback
 
 ```yaml
 sections:
@@ -574,10 +579,10 @@ THEN wird HTTP 200 zurückgegeben und ein Element mit role="search" ist im DOM v
 
 **AC2: Suchanfrage mit Ergebnissen**
 ```
-GIVEN /suche?q=shirt wird aufgerufen
-WHEN woocommerceLoader('search_products') mit search="shirt" ausgeführt wird
-THEN gibt der Loader ein PaginatedProductsResult mit products.nodes.length > 0 zurück,
-     sofern WooCommerce Produkte mit "shirt" im Titel/Beschreibung enthält
+GIVEN woocommerceLoader('search_products') mit search="shirt" aufgerufen wird
+      UND der GraphQL-Client 2 Produkt-Nodes zurückgibt (gemockt)
+WHEN der Loader die Antwort verarbeitet
+THEN gibt der Loader ein PaginatedProductsResult mit products.nodes.length === 2 zurück
 ```
 
 **AC3: Mindestzeichenregel**
@@ -859,7 +864,30 @@ describe('woocommerceLoader search_products', () => {
     expect(result.data.pagination.currentPage).toBe(2)
     expect(result.data.pagination.hasPreviousPage).toBe(true)
   })
+})
 
+// ---------------------------------------------------------------------------
+// AC4: PaginationBlock URL-Komposition — q und sort werden beibehalten
+// ---------------------------------------------------------------------------
+describe('PaginationBlock URL-Komposition (AC4)', () => {
+  it('erzeugt korrekte URL für Seite 2 mit ?q und ?sort Params', async () => {
+    const { PaginationBlock } = await import('@/components/blocks/pagination-block')
+    render(
+      <PaginationBlock
+        data={{
+          currentPage: 1,
+          totalPages: 3,
+          baseUrl: '/suche?q=shirt&sort=price_asc',
+        }}
+      />
+    )
+    // Seite-2-Link muss q und sort beibehalten
+    const page2Link = screen.getByRole('link', { name: /2/ })
+    expect(page2Link.getAttribute('href')).toBe('/suche?q=shirt&sort=price_asc&page=2')
+  })
+})
+
+describe('woocommerceLoader search_products sort', () => {
   it('wendet Sort-Mapping an: price_asc → PRICE ASC orderby (AC5)', async () => {
     const mockQuery = vi.fn().mockResolvedValue({
       data: { products: { nodes: [] } },
@@ -909,6 +937,22 @@ describe('SearchResultsBlock', () => {
       />
     )
     expect(container.firstChild).toBeNull()
+  })
+
+  it('EmptyStateBlock zeigt "Keine Ergebnisse gefunden" wenn SearchResultsBlock null rendert (AC6-Teil2)', async () => {
+    // EmptyStateBlock ist als separater Block in search.yaml konfiguriert.
+    // Hier testen wir EmptyStateBlock direkt mit den search.yaml-Props.
+    const { EmptyStateBlock } = await import('@/components/blocks/empty-state-block')
+    render(
+      <EmptyStateBlock
+        data={{
+          headline: 'Keine Ergebnisse gefunden',
+          text: 'Versuche es mit einem anderen Suchbegriff oder stöbere in unseren Kategorien.',
+          links: [{ label: 'Alle Produkte', href: '/kategorie/alle' }],
+        }}
+      />
+    )
+    expect(screen.getByRole('heading', { name: 'Keine Ergebnisse gefunden' })).toBeTruthy()
   })
 
   it('rendert Produkt-Grid wenn nodes vorhanden (AC2)', async () => {
@@ -1146,6 +1190,7 @@ export interface SortBarData {
 - [ ] `frontend/lib/blocks/data-loaders.ts` — Branch `search_products` hinzufügen (Min-2-Zeichen-Guard, Over-fetch, Slice, buildOrderby wiederverwendet)
 - [ ] `frontend/lib/blocks/registry.ts` — `search-bar` und `search-results` Block-Typen registrieren (Import + Eintrag in Registry-Map)
 - [ ] `frontend/lib/blocks/types.ts` — `SearchBarData` Interface hinzufügen; `SortBarData` um `currentQuery?: string` erweitern; `WooCommerceLoaderParams.query` Union um `'search_products'` ergänzen (falls noch nicht durch Slice 3 geschehen)
+- [ ] `frontend/components/blocks/sort-bar-block.tsx` — `currentQuery` aus Props lesen; Sort-URL mit `?q=`-Param aufbauen wenn `currentQuery` gesetzt (Architecture Extension, rückwärtskompatibel — Slice-1-Block wird erweitert)
 - [ ] `frontend/components/layout/header.tsx` — Suchicon (`<Search />`) als `<Link href="/suche" aria-label="Suche öffnen">` in Navigation einfügen (neben Cart-Icon)
 
 ### YAML-Konfiguration
