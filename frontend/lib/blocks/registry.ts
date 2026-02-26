@@ -26,6 +26,9 @@ import { ProductRecommendationsBlock } from '@/components/blocks/product-recomme
 import { TestimonialsBlock } from '@/components/blocks/testimonials-block'
 import { NewsletterSignupBlock } from '@/components/blocks/newsletter-signup-block'
 import { FeaturedCollectionBlock } from '@/components/blocks/featured-collection-block'
+// Slice 05 — Suchseite:
+import { SearchBarBlock } from '@/components/blocks/search-bar-block'
+import { SearchResultsBlock } from '@/components/blocks/search-results-block'
 
 type BlockComponent = ComponentType<BlockComponentProps<unknown>>
 
@@ -55,6 +58,9 @@ const registry: Record<string, BlockComponent> = {
   'testimonials': TestimonialsBlock as BlockComponent,
   'newsletter-signup': NewsletterSignupBlock as BlockComponent,
   'featured-collection': FeaturedCollectionBlock as BlockComponent,
+  // Slice 05:
+  'search-bar': SearchBarBlock as BlockComponent,
+  'search-results': SearchResultsBlock as BlockComponent,
 }
 
 export function resolveBlock(type: string): BlockComponent | null {

@@ -238,6 +238,61 @@ async function woocommerceLoader(params: WooCommerceLoaderParams): Promise<WooCo
           products: { nodes: products.slice(0, collectionFirst) },
         } satisfies FeaturedCollectionData,
       }
+    } else if (params.query === 'search_products') {
+      // ─── Branch: search_products ──────────────────────────────────────────
+      const searchQuery = (params as Record<string, unknown>).search as string | undefined ?? ''
+      const page = Number(params.page ?? 1)
+      const perPage = Number(params.perPage ?? 24)
+      const sort = params.sort as string | undefined
+
+      // Business Rule: Min. 2 Zeichen für Query-Ausführung
+      if (searchQuery.trim().length < 2) {
+        return {
+          data: {
+            products: { nodes: [] },
+            pagination: {
+              currentPage: page,
+              totalPages: 0,
+              hasNextPage: false,
+              hasPreviousPage: false,
+              totalCount: 0,
+            },
+          } satisfies PaginatedProductsResult,
+        }
+      }
+
+      const fetchCount = page * perPage + 1
+      const orderby = buildOrderby(sort)
+
+      const { data } = await getClient().query({
+        query: GET_PRODUCTS_PAGINATED,
+        variables: {
+          search: searchQuery.trim(),
+          first: fetchCount,
+          orderby,
+          categorySlug: null,
+        },
+      })
+
+      const allNodes = data?.products?.nodes ?? []
+      const pageNodes = allNodes.slice((page - 1) * perPage, page * perPage)
+      const hasNextPage = allNodes.length > page * perPage
+      const totalPages = hasNextPage
+        ? page + 1
+        : Math.ceil(allNodes.length / perPage) || (page > 1 ? page : 0)
+
+      return {
+        data: {
+          products: { nodes: pageNodes },
+          pagination: {
+            currentPage: page,
+            totalPages: Math.max(totalPages, page),
+            hasNextPage,
+            hasPreviousPage: page > 1,
+            totalCount: allNodes.length,
+          },
+        } satisfies PaginatedProductsResult,
+      }
     }
     return { data: null, error: `Unknown woocommerce query: ${params.query}` }
   } catch (error) {

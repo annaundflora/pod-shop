@@ -15,11 +15,18 @@ function buildPageUrl(
   currentSort?: string,
   currentQuery?: string
 ): string {
-  const params = new URLSearchParams()
+  // If baseUrl already contains query params, append with & instead of ?
+  const [base, existingQuery] = baseUrl.split('?')
+  const params = new URLSearchParams(existingQuery ?? '')
   params.set('page', String(page))
-  if (currentSort && currentSort !== 'default') params.set('sort', currentSort)
-  if (currentQuery) params.set('q', currentQuery)
-  return `${baseUrl}?${params.toString()}`
+  // Only set sort/q when NOT already in baseUrl (avoid duplicates)
+  if (!existingQuery?.includes('sort=') && currentSort && currentSort !== 'default') {
+    params.set('sort', currentSort)
+  }
+  if (!existingQuery?.includes('q=') && currentQuery) {
+    params.set('q', currentQuery)
+  }
+  return `${base}?${params.toString()}`
 }
 
 function getVisiblePages(currentPage: number, totalPages: number): (number | '...')[] {

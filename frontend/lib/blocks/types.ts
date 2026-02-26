@@ -231,3 +231,12 @@ export interface FeaturedCollectionData {
     nodes: ProductCardData[]
   }
 }
+
+// ============================================================
+// Slice 05 — Suchseite: Types
+// ============================================================
+
+export interface SearchBarData {
+  placeholder: string
+  currentQuery?: string
+}
