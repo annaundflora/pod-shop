@@ -4,6 +4,7 @@ import { loadPageConfig } from '@/lib/blocks/page-config'
 import { HeroBlockSkeleton } from '@/components/blocks/hero-block'
 import { ProductGridBlockSkeleton } from '@/components/blocks/product-grid-block'
 import { CategoryShowcaseBlockSkeleton } from '@/components/blocks/category-showcase-block'
+import { FeaturedCollectionBlockSkeleton } from '@/components/blocks/featured-collection-block'
 
 // ISR: Seite wird alle 60 Sekunden neu gebaut
 export const revalidate = 60
@@ -14,6 +15,10 @@ const SKELETON_MAP: Record<string, React.ReactNode> = {
   'product-grid': <ProductGridBlockSkeleton />,
   'category-showcase': <CategoryShowcaseBlockSkeleton />,
   'usp-bar': null,
+  // Slice 04 — Homepage Enhancements:
+  'testimonials': null,           // inline, kein async — kein Skeleton nötig
+  'newsletter-signup': null,      // inline, kein async — kein Skeleton nötig
+  'featured-collection': <FeaturedCollectionBlockSkeleton />,
 }
 
 export default function HomePage() {

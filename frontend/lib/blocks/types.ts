@@ -197,3 +197,37 @@ export interface PaginatedProductsResult {
   productCategory?: { name: string; description: string; slug: string; count: number } | null
   pagination: PaginationMeta
 }
+
+// ============================================================
+// Slice 04 — Homepage Enhancements: Types
+// ============================================================
+
+export interface TestimonialsItem {
+  name: string
+  text: string
+  rating: number
+  location?: string
+}
+
+export interface TestimonialsData {
+  items: TestimonialsItem[]
+}
+
+export interface NewsletterSignupData {
+  headline: string
+  text: string
+  buttonText: string
+  placeholder: string
+}
+
+export interface FeaturedCollectionData {
+  category: {
+    name: string
+    description: string
+    slug: string
+    image?: { sourceUrl: string; altText: string } | null
+  }
+  products: {
+    nodes: ProductCardData[]
+  }
+}

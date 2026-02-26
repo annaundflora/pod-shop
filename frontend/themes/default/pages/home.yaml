@@ -30,6 +30,47 @@ sections:
           query: product_categories
           first: 6
 
+  # NEU: Testimonials
+  - columns: 1
+    blocks:
+      - type: testimonials
+        content_source: inline
+        params:
+          props:
+            items:
+              - name: "Maria K."
+                text: "Absolut begeistert von der Qualität! Das Shirt sitzt perfekt und die Farben sind leuchtend."
+                rating: 5
+                location: "München"
+              - name: "Thomas B."
+                text: "Schnelle Lieferung und tolles Produkt. Werde definitiv wieder bestellen."
+                rating: 4
+                location: "Hamburg"
+              - name: "Sandra M."
+                text: "Schönes Design, gute Verarbeitung. Genau das was ich gesucht habe."
+                rating: 5
+
+  # NEU: Featured Collection
+  - columns: 1
+    blocks:
+      - type: featured-collection
+        content_source: woocommerce
+        params:
+          query: featured_collection
+          slug: "t-shirts"
+          first: 4
+
+  # NEU: Newsletter Signup
+  - columns: 1
+    blocks:
+      - type: newsletter-signup
+        content_source: inline
+        params:
+          props:
+            headline: "Bleib auf dem Laufenden"
+            text: "Erhalte exklusive Angebote und neue Designs direkt in dein Postfach."
+            buttonText: "Anmelden"
+            placeholder: "deine@email.de…"
 
   - columns: 1
     blocks:
