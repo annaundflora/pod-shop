@@ -26,6 +26,7 @@ import type {
   ProductRecommendationsData,
   PaginatedProductsResult,
   FeaturedCollectionData,
+  CollectionHeaderData,
 } from './types'
 import type { ProductCardData, ProductCategory, ProductDetailData } from '@/lib/graphql/types'
 
@@ -237,6 +238,25 @@ async function woocommerceLoader(params: WooCommerceLoaderParams): Promise<WooCo
           },
           products: { nodes: products.slice(0, collectionFirst) },
         } satisfies FeaturedCollectionData,
+      }
+    } else if (params.query === 'collection_header') {
+      // ─── Branch: collection_header ────────────────────────────────────────
+      const slug = params.slug
+      if (!slug) return { data: null }
+      const { data } = await getClient().query({
+        query: GET_CATEGORY_META,
+        variables: { slug },
+      })
+      const cat = data?.productCategory
+      if (!cat) return { data: null }
+      return {
+        data: {
+          name: cat.name,
+          description: cat.description ?? '',
+          image: cat.image
+            ? { sourceUrl: cat.image.sourceUrl, altText: cat.image.altText ?? cat.name ?? '' }
+            : undefined,
+        } satisfies CollectionHeaderData,
       }
     } else if (params.query === 'search_products') {
       // ─── Branch: search_products ──────────────────────────────────────────

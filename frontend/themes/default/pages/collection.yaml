@@ -1,0 +1,41 @@
+# themes/default/pages/collection.yaml
+# Collections-Page Block-Konfiguration
+
+sections:
+  - columns: 1
+    blocks:
+      - type: collection-header
+        content_source: woocommerce
+        params:
+          query: collection_header
+          slug: "$route.slug"
+  - columns: 1
+    blocks:
+      - type: product-count
+        content_source: woocommerce
+        params:
+          query: products_by_category
+          slug: "$route.slug"
+          page: "$route.page"
+          perPage: 24
+          sort: "$route.sort"
+  - columns: 1
+    blocks:
+      - type: product-grid
+        content_source: woocommerce
+        params:
+          query: products_by_category
+          slug: "$route.slug"
+          page: "$route.page"
+          perPage: 24
+          sort: "$route.sort"
+  - columns: 1
+    blocks:
+      - type: pagination
+        content_source: woocommerce
+        params:
+          query: products_by_category
+          slug: "$route.slug"
+          page: "$route.page"
+          perPage: 24
+          sort: "$route.sort"

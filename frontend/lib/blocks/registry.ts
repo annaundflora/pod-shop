@@ -29,6 +29,9 @@ import { FeaturedCollectionBlock } from '@/components/blocks/featured-collection
 // Slice 05 — Suchseite:
 import { SearchBarBlock } from '@/components/blocks/search-bar-block'
 import { SearchResultsBlock } from '@/components/blocks/search-results-block'
+// Slice 06 — Neue Pages:
+import { CollectionHeaderBlock } from '@/components/blocks/collection-header-block'
+import { OrderConfirmationBlock } from '@/components/blocks/order-confirmation-block'
 
 type BlockComponent = ComponentType<BlockComponentProps<unknown>>
 
@@ -61,6 +64,9 @@ const registry: Record<string, BlockComponent> = {
   // Slice 05:
   'search-bar': SearchBarBlock as BlockComponent,
   'search-results': SearchResultsBlock as BlockComponent,
+  // Slice 06:
+  'collection-header': CollectionHeaderBlock as BlockComponent,
+  'order-confirmation': OrderConfirmationBlock as BlockComponent,
 }
 
 export function resolveBlock(type: string): BlockComponent | null {

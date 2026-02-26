@@ -240,3 +240,25 @@ export interface SearchBarData {
   placeholder: string
   currentQuery?: string
 }
+
+// ============================================================
+// Slice 06 — Neue Pages: Types
+// ============================================================
+
+export interface CollectionHeaderData {
+  name: string
+  description: string
+  image?: {
+    sourceUrl: string
+    altText: string
+  }
+}
+
+export interface OrderConfirmationData {
+  headline: string
+  text: string
+  emailText: string
+  ctaText: string
+  ctaLink: string
+  // orderId wird NICHT hier definiert — wird client-seitig aus window.location.search gelesen
+}
