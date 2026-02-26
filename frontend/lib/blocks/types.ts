@@ -141,3 +141,44 @@ export interface PaginatedProductsResult {
   products: { nodes: ProductCardData[] }
   pagination: PaginationMeta
 }
+
+// ============================================================
+// Slice 02 — Produkt-Page: Neue Types
+// ============================================================
+
+export interface ReviewEdge {
+  rating: number  // WICHTIG: rating ist auf dem Edge, NICHT auf dem Node (WooGraphQL-Quirk)
+  node: {
+    id: string
+    content: string
+    date: string
+    author: {
+      node: {
+        name: string
+      }
+    }
+  }
+}
+
+export interface ProductReviewsResult {
+  averageRating: number
+  reviewCount: number
+  reviewsAllowed: boolean
+  reviews: {
+    edges: ReviewEdge[]
+  }
+  productId: number  // WooCommerce Database ID (für writeReview commentOn: Int!)
+}
+
+export interface WriteReviewInput {
+  productId: number
+  content: string
+  author: string
+  authorEmail: string
+  rating: number  // Integer 1-5
+}
+
+export interface ProductRecommendationsData {
+  heading: string
+  products: { nodes: ProductCardData[] } | null
+}

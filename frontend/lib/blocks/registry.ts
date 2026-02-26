@@ -19,6 +19,9 @@ import { TrustBadgesBlock } from '@/components/blocks/trust-badges-block'
 import { PaginationBlock } from '@/components/blocks/pagination-block'
 import { SortBarBlock } from '@/components/blocks/sort-bar-block'
 import { EmptyStateBlock } from '@/components/blocks/empty-state-block'
+// Slice 02 — Produkt-Page Enhancements:
+import { ProductReviewsBlock } from '@/components/blocks/product-reviews-block'
+import { ProductRecommendationsBlock } from '@/components/blocks/product-recommendations-block'
 
 // Typisiertes Registry-Map
 type BlockComponent = ComponentType<BlockComponentProps<unknown>>
@@ -45,6 +48,9 @@ const registry: Record<string, BlockComponent> = {
   'pagination': PaginationBlock as BlockComponent,
   'sort-bar': SortBarBlock as BlockComponent,
   'empty-state': EmptyStateBlock as BlockComponent,
+  // Neu in Slice 02 (Produkt-Page Enhancements):
+  'product-reviews': ProductReviewsBlock as BlockComponent,
+  'product-recommendations': ProductRecommendationsBlock as BlockComponent,
 }
 
 /**

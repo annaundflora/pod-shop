@@ -109,3 +109,92 @@ export const GET_PAGE_CONTENT = gql`
     }
   }
 `
+
+// ============================================================
+// Slice 02 — Produkt-Page Enhancements
+// ============================================================
+
+// Query: Produkt-Bewertungen für ProductReviewsBlock
+export const GET_PRODUCT_REVIEWS = gql`
+  query GetProductReviews($productSlug: ID!) {
+    product(id: $productSlug, idType: SLUG) {
+      databaseId
+      averageRating
+      reviewCount
+      reviewsAllowed
+      reviews {
+        edges {
+          rating
+          node {
+            id
+            content
+            date
+            author {
+              node {
+                name
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
+// Query: Verwandte Produkte für Recommendations
+export const GET_RELATED_PRODUCTS = gql`
+  ${PRODUCT_CARD_FRAGMENT}
+  query GetRelatedProducts($productId: ID!, $first: Int) {
+    product(id: $productId, idType: DATABASE_ID) {
+      related(first: $first) {
+        nodes {
+          ...ProductCardFields
+        }
+      }
+    }
+  }
+`
+
+// Query: Bestseller-Produkte
+export const GET_BESTSELLER_PRODUCTS = gql`
+  ${PRODUCT_CARD_FRAGMENT}
+  query GetBestsellerProducts($first: Int) {
+    products(
+      first: $first
+      where: { orderby: [{ field: TOTAL_SALES, order: DESC }] }
+    ) {
+      nodes {
+        ...ProductCardFields
+      }
+    }
+  }
+`
+
+// Query: Produkte nach IDs
+export const GET_PRODUCTS_BY_IDS = gql`
+  ${PRODUCT_CARD_FRAGMENT}
+  query GetProductsByIds($include: [Int!]!, $first: Int) {
+    products(
+      first: $first
+      where: { include: $include }
+    ) {
+      nodes {
+        ...ProductCardFields
+      }
+    }
+  }
+`
+
+// Query: Produkt-Kategorie (schlanke Query nur für Recommendations-Loader)
+export const GET_PRODUCT_CATEGORY = gql`
+  query GetProductCategory($slug: ID!) {
+    product(id: $slug, idType: SLUG) {
+      databaseId
+      productCategories {
+        nodes {
+          slug
+        }
+      }
+    }
+  }
+`
