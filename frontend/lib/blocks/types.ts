@@ -8,9 +8,16 @@ export interface WordPressLoaderParams {
 }
 
 export interface WooCommerceLoaderParams {
-  query: 'featured_products' | 'product_categories' | 'products_by_category' | 'product_by_slug'
+  query: 'featured_products' | 'product_categories' | 'products_by_category' | 'product_by_slug' | 'products_paginated' | 'product_reviews' | 'product_recommendations' | 'featured_collection' | 'search_products' | 'category_meta'
   first?: number
   slug?: string
+  page?: number
+  perPage?: number
+  sort?: string
+  search?: string
+  source?: string
+  productSlug?: string
+  customIds?: string[]
 }
 
 export interface InlineLoaderParams {
@@ -75,4 +82,62 @@ export interface ProductCardData {
 // Props für Block-Components
 export interface BlockComponentProps<T = unknown> {
   data: T
+}
+
+// ============================================================
+// Slice 01 — Cross-Page Infrastruktur: Neue Data-Types
+// ============================================================
+
+export interface AnnouncementBarData {
+  id: string
+  text: string
+  link?: string
+  dismissible?: boolean
+  bgColor?: string
+}
+
+export interface BreadcrumbData {
+  items: { label: string; href?: string }[]
+}
+
+export interface TrustBadgeData {
+  items: { icon: string; text: string }[]
+}
+
+export interface PaginationData {
+  currentPage: number
+  totalPages: number
+  baseUrl: string
+  currentSort?: string
+  currentQuery?: string
+}
+
+export type SortOption = 'default' | 'price_asc' | 'price_desc' | 'newest'
+
+export interface SortBarData {
+  currentSort: SortOption
+  baseUrl: string
+  currentQuery?: string
+}
+
+export interface EmptyStateData {
+  headline: string
+  text: string
+  links?: { label: string; href: string }[]
+}
+
+// ============================================================
+// Slice 02 — Produkt-Page: Types (placeholder for slice-02)
+// ============================================================
+
+export interface PaginationMeta {
+  currentPage: number
+  totalPages: number
+  totalItems: number
+  perPage: number
+}
+
+export interface PaginatedProductsResult {
+  products: { nodes: ProductCardData[] }
+  pagination: PaginationMeta
 }

@@ -1,0 +1,14 @@
+# themes/default/pages/global.yaml
+# Global-Konfiguration: Blocks die auf allen Pages erscheinen (via layout.tsx)
+sections:
+  - columns: 1
+    blocks:
+      - type: announcement-bar
+        content_source: inline
+        params:
+          props:
+            id: "launch-2026"
+            text: "Kostenloser Versand ab 100 Euro | Code: SOMMER10"
+            link: "/kollektion/sale"
+            dismissible: true
+            bgColor: "primary"

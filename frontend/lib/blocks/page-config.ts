@@ -117,3 +117,32 @@ export function loadPageConfig(
 
   return config
 }
+
+/**
+ * Laedt die globale YAML-Konfiguration (global.yaml) fuer layout-level Blocks.
+ * 2-Tier: themes/{theme}/pages/global.yaml → themes/default/pages/global.yaml
+ * Gibt leere PageConfig zurueck wenn kein global.yaml gefunden.
+ */
+export function loadGlobalConfig(theme: string = 'default'): PageConfig {
+  const candidates = [
+    resolve(FRONTEND_ROOT, 'themes', theme, 'pages', 'global.yaml'),
+    resolve(FRONTEND_ROOT, 'themes', 'default', 'pages', 'global.yaml'),
+  ]
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      try {
+        const raw = readFileSync(candidate, 'utf-8')
+        const parsed = parse(raw) as PageConfig
+        if (parsed?.sections && Array.isArray(parsed.sections)) {
+          return parsed
+        }
+      } catch {
+        // Datei nicht lesbar, naechste versuchen
+      }
+    }
+  }
+
+  // Kein global.yaml gefunden → leere Config (keine globalen Blocks)
+  return { sections: [] }
+}

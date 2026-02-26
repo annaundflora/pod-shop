@@ -1,10 +1,11 @@
+// frontend/components/blocks/announcement-bar-block.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import type { BlockComponentProps } from '@/lib/blocks/types'
 
-export interface AnnouncementBarData {
+interface AnnouncementBarData {
   id: string
   text: string
   link?: string
@@ -27,7 +28,7 @@ export function AnnouncementBarBlock({ data }: BlockComponentProps<AnnouncementB
     if (isDismissed) setDismissed(true)
   }, [data.id])
 
-  // Before mount: render null to prevent hydration mismatch
+  // Vor Mount: render null (verhindert Hydration-Mismatch)
   if (!mounted || dismissed) return null
 
   const bgClass = BG_COLOR_MAP[data.bgColor ?? 'primary'] ?? 'bg-primary'
