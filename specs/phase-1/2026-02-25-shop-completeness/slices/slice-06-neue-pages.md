@@ -16,7 +16,7 @@
 | **ID** | `slice-06-neue-pages` |
 | **Test** | `pnpm test tests/slices/shop-completeness/slice-06-neue-pages.test.ts` |
 | **E2E** | `false` |
-| **Dependencies** | `["slice-01-cross-page-infrastruktur"]` |
+| **Dependencies** | `["slice-01-cross-page-infrastruktur", "slice-03-kategorie-page-enhancements"]` |
 
 **Erklärung:**
 - **ID**: Eindeutiger Identifier (wird für Commits und Evidence verwendet)
@@ -1266,8 +1266,12 @@ sections:
 
 ### Code Example 4: `themes/default/pages/thanks.yaml`
 
+> **Architecture-Deviation-Note:** `architecture.md` Zeile 567 spezifiziert `orderId: "$route.order_id"` als Prop in `thanks.yaml`. Dieser Slice lässt das Feld bewusst weg, weil `order_id` client-seitig via `window.location.search` in `useEffect` gelesen wird (Hydration-sicherheit — SSR kennt `window` nicht). `OrderConfirmationData` hat kein `orderId`-Feld, ein serverseitig übergebener Wert würde TypeScript-Fehler oder Hydration-Mismatch produzieren. → `architecture.md` sollte korrigiert werden: `orderId`-Prop aus `thanks.yaml`-Template entfernen.
+
 ```yaml
 # themes/default/pages/thanks.yaml
+# HINWEIS: orderId wird NICHT als YAML-Prop übergeben — wird client-seitig via
+# window.location.search gelesen (verhindert Hydration-Mismatch bei SSR)
 sections:
   - columns: 1
     blocks:
