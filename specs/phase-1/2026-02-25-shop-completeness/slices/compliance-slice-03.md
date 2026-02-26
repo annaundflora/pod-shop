@@ -1,10 +1,11 @@
-# Gate 2: Slice 03 Compliance Report
+# Gate 2: Slice 03 Compliance Report (Re-Check)
 
 **Gepruefter Slice:** `specs/phase-1/2026-02-25-shop-completeness/slices/slice-03-kategorie-page-enhancements.md`
-**Pruefdatum:** 2026-02-26
+**Pruefdatum:** 2026-02-26 (Re-Check nach Fix)
 **Architecture:** `specs/phase-1/2026-02-25-shop-completeness/architecture.md`
 **Wireframes:** `specs/phase-1/2026-02-25-shop-completeness/discovery.md` (UI Layout & Context Section)
-**Vorherige Slices:** `slice-01-cross-page-infrastruktur.md`, `slice-02-produkt-page-enhancements.md`
+**Vorherige Slices:** `slice-01-cross-page-infrastruktur.md` (approved), `slice-02-produkt-page-enhancements.md` (approved)
+**Vorheriger Report:** Compliance-Check v1 — FAILED mit 3 Blocking Issues
 
 ---
 
@@ -12,11 +13,69 @@
 
 | Status | Count |
 |--------|-------|
-| PASS | 47 |
+| PASS | 53 |
 | WARNING | 0 |
-| BLOCKING | 3 |
+| BLOCKING | 0 |
 
-**Verdict:** FAILED
+**Verdict:** APPROVED
+
+---
+
+## Re-Check: Verifizierung der 3 bekannten Fixes
+
+Vor den regulaeren Compliance-Checks werden die 3 Blocking Issues aus dem vorherigen Report explizit verifiziert.
+
+### Fix 1: `pageInfo { hasNextPage endCursor }` in `GET_PRODUCTS_PAGINATED` Query
+
+**Gefordert:** Query-Body muss `pageInfo { hasNextPage endCursor }` enthalten.
+
+**Slice Abschnitt 3 (Zeilen 175-183):**
+```graphql
+products(
+  first: $first
+  where: { ... }
+) {
+  nodes {
+    ...ProductCardFields
+  }
+  pageInfo {
+    hasNextPage
+    endCursor
+  }
+}
+```
+
+**Befund:** `pageInfo { hasNextPage endCursor }` ist vorhanden. Fix korrekt umgesetzt. PASS.
+
+---
+
+### Fix 2: Architecture-Divergenz fuer `PaginatedProductsResult` explizit dokumentiert
+
+**Gefordert:** Die abweichende DTO-Struktur (`{ nodes: ProductCardData[] }` statt `ProductCardData[]`) muss als bewusste Divergenz begruendet und dokumentiert sein.
+
+**Slice Abschnitt 6 (Zeile 260):**
+> "Architecture-Divergenz (bewusst): Die Architecture-Spec definiert `products: ProductCardData[]` (flaches Array) und direkte Felder `currentPage`, `totalPages`, `hasNextPage`. Dieses Slice verwendet stattdessen `products: { nodes: ProductCardData[] }` (WooGraphQL-konform, da WPGraphQL immer `nodes`-Pattern zurueckgibt) und ein separates `pagination: PaginationMeta` Sub-Objekt fuer bessere Trennbarkeit. Consumer-Slices 5 und 6 verwenden dieselbe Struktur — kein Breaking Change, da `PaginatedProductsResult` erst in diesem Slice definiert wird."
+
+**Befund:** Divergenz ist explizit dokumentiert, Begruendung ist sachlich (WooGraphQL-Konvention, erst-Definition in diesem Slice, Consumer-Slices folgen dieser Struktur). Fix korrekt umgesetzt. PASS.
+
+---
+
+### Fix 3: `WooCommerceLoaderParams: page?: string` (nicht `number`), `source?`, `productSlug?`, `customIds?` ergaenzt
+
+**Gefordert:** `page` muss als `string` typisiert sein. Fehlende Felder `source?`, `productSlug?`, `customIds?` muessen ergaenzt sein.
+
+**Slice Abschnitt 7 (Zeilen 295-302):**
+```typescript
+page?: string        // neu: 1-indexed Seitennummer als String (aus $route.page → YAML → data-loader konvertiert zu Number)
+perPage?: number     // neu: Produkte pro Seite (default: 24)
+sort?: string
+search?: string
+source?: string      // aus Slice 2: product_recommendations Quelle
+productSlug?: string // aus Slice 2: Produkt-Slug fuer related/category Fallback
+customIds?: string   // aus Slice 2: Komma-getrennte WC-Produkt-IDs fuer source=custom
+```
+
+**Befund:** `page?: string` korrekt. Alle drei fehlenden Felder (`source?`, `productSlug?`, `customIds?`) vorhanden. Kommentar erklaert die String-Konvertierung im data-loader. Fix korrekt umgesetzt. PASS.
 
 ---
 
@@ -35,32 +94,36 @@
 | AC-7 | Yes | Yes | Yes | Yes | Yes | PASS |
 | AC-8 | Yes | Yes | Yes | Yes | Yes | PASS |
 
-Alle 8 ACs sind im GIVEN/WHEN/THEN-Format verfasst, enthalten konkrete Werte (URL-Parameter, Seitenzahlen, aria-Attribute) und sind maschinell pruefbar. Keine vagen Formulierungen.
+Alle 8 ACs sind im GIVEN/WHEN/THEN-Format verfasst. Konkrete Werte: URL-Pfade (`/kategorie/t-shirts`), Seitenzahlen (25-48), aria-Attribute (`aria-current="page"`), GraphQL-Felder, Redirect-Ziele. Alle THEN-Clauses sind maschinell pruefbar.
 
 ### Code Example Korrektheit
 
 | Code Example | Types korrekt? | Imports realistisch? | Signaturen korrekt? | Agent Contract OK? | Status |
 |--------------|----------------|---------------------|---------------------|--------------------|--------|
-| `GET_PRODUCTS_PAGINATED` Query (Abschnitt 3) | Teilweise | Yes | No | No | BLOCKING |
+| `GET_PRODUCTS_PAGINATED` Query (Abschnitt 3) | Yes | Yes | Yes | Yes | PASS |
 | `GET_CATEGORY_META` Query (Abschnitt 11) | Yes | Yes | Yes | Yes | PASS |
 | `buildOrderby()` Funktion (Abschnitt 4) | Yes | Yes | Yes | N/A | PASS |
 | `products_by_category` Branch (Abschnitt 5) | Yes | Yes | Yes | Yes | PASS |
 | `category_meta` Branch (Abschnitt 10) | Yes | Yes | Yes | Yes | PASS |
-| `PaginatedProductsResult` DTO (Abschnitt 6) | Teilweise | Yes | N/A | No | BLOCKING |
+| `PaginatedProductsResult` DTO (Abschnitt 6) | Yes | Yes | N/A | Yes (Divergenz dokumentiert) | PASS |
 | `PaginationMeta` DTO (Abschnitt 6) | Yes | Yes | N/A | Yes | PASS |
-| `WooCommerceLoaderParams` Erweiterung (Abschnitt 7) | Teilweise | Yes | N/A | No | BLOCKING |
-| `CategoryPage` page.tsx (Abschnitt 8) | Yes | Yes | Yes | Yes | PASS |
-| `category.yaml` (Abschnitt 9) | Yes | Yes | N/A | Yes | PASS |
+| `WooCommerceLoaderParams` Erweiterung (Abschnitt 7) | Yes | Yes | N/A | Yes | PASS |
+| `CategoryPage` page.tsx Erweiterung (Abschnitt 8) | Yes | Yes | Yes | Yes | PASS |
+| `category.yaml` Erweiterung (Abschnitt 9) | Yes | Yes | N/A | Yes | PASS |
+
+Begruendung `GET_PRODUCTS_PAGINATED`: `pageInfo { hasNextPage endCursor }` vorhanden. Das eingebettete `productCategory`-Feld (Combined-Query-Pattern) ist pragmatisch begruendet (Apollo cache dedup) und fuer den Category-Page-Use-Case korrekt. Der Hinweis "Wichtig: $categorySlug ist nullable" erklaert die Wiederverwendbarkeit fuer Slice 5 ohne `productCategory`.
+
+Begruendung `PaginatedProductsResult`: Die Divergenz zur Architecture ist sachlich begruendet und explizit dokumentiert. Der `products: { nodes: ProductCardData[] }` Ansatz stimmt mit dem WooGraphQL `nodes`-Pattern ueberein, das alle bestehenden Blocks verwenden. Das `productCategory?`-Feld ist notwendig fuer `totalPages`-Berechnung via `category.count`.
 
 ### Test-Strategy Pruefung
 
 | Pruef-Aspekt | Slice Wert | Erwartung | Status |
 |--------------|------------|-----------|--------|
 | Stack | `typescript-nextjs` | `typescript-nextjs` (Next.js 16, Vitest, Tailwind v4) | PASS |
-| Commands vollstaendig | 3 Commands vorhanden (Test, Integration, Acceptance) | 3 (unit, integration, acceptance) | PASS |
-| Start-Command | `cd frontend && pnpm dev` | `cd frontend && pnpm dev` (Next.js-Projekt im `frontend/`-Verzeichnis) | PASS |
+| Commands vollstaendig | 3 Commands vorhanden | 3 (unit, integration, acceptance) | PASS |
+| Start-Command | `cd frontend && pnpm dev` | Passend zu Next.js-Projekt im `frontend/`-Verzeichnis | PASS |
 | Health-Endpoint | `http://localhost:3000/api/health` | Passend zu Next.js Stack auf Port 3000 | PASS |
-| Mocking-Strategy | `mock_external` (Apollo Server-Client per `vi.mock()`, `next/navigation` per `vi.mock()`) | Definiert und korrekt beschrieben | PASS |
+| Mocking-Strategy | `mock_external` (Apollo Server-Client + `next/navigation` via `vi.mock()`) | Definiert, korrekt erklaert | PASS |
 
 ---
 
@@ -68,30 +131,32 @@ Alle 8 ACs sind im GIVEN/WHEN/THEN-Format verfasst, enthalten konkrete Werte (UR
 
 ### Schema Check
 
-Kein eigenes DB-Schema. Alle Daten aus WooCommerce. Architecture bestätigt: "Kein neues DB-Schema". Nicht anwendbar.
+Kein eigenes DB-Schema. Architecture bestaetigt: "Kein neues DB-Schema". Alle Daten aus WooCommerce.
 
 | Arch Field | Arch Type | Slice Spec | Status | Issue |
 |------------|-----------|------------|--------|-------|
-| `wp_comments` (reviews) | WooCommerce type:review | Nicht verwendet in Slice 3 (Slice 2) | PASS | N/A — Reviews are Slice 2 scope |
-| `wp_terms` / `wp_term_taxonomy` | WooCommerce categories | Genutzt via `productCategory` GraphQL field | PASS | — |
+| `wp_terms` / `wp_term_taxonomy` (Kategorien) | WooCommerce categories | Genutzt via `productCategory` GraphQL field | PASS | — |
+| `wp_postmeta` (product meta: count) | WooCommerce | Genutzt via `productCategory.count` fuer `totalPages` | PASS | — |
 
 ### API Check
 
 | Endpoint | Arch Method/Variables | Slice Method/Variables | Status | Issue |
 |----------|-----------------------|------------------------|--------|-------|
-| `GET_PRODUCTS_PAGINATED` | `first: Int!, categorySlug: String, search: String, orderby: [ProductsOrderbyInput]` | `$categorySlug: String, $first: Int!, $orderby: [ProductsOrderbyInput], $search: String` | PASS | Variable-Namen stimmen ueberein |
-| `GET_PRODUCTS_PAGINATED` Response | `products { nodes { ...ProductCardFields } pageInfo { hasNextPage endCursor } }` | `products { nodes { ...ProductCardFields } }` + `productCategory { name count description slug }` | BLOCKING | Slice-Query fehlt `pageInfo { hasNextPage endCursor }` — siehe Issue 1 |
-| `GET_CATEGORY_META` | `slug: ID!` | `$slug: ID!` — `productCategory(id: $slug, idType: SLUG)` | PASS | — |
+| `GET_PRODUCTS_PAGINATED` Variablen | `first: Int!, categorySlug: String, search: String, orderby: [ProductsOrderbyInput]` | `$categorySlug: String, $first: Int!, $orderby: [ProductsOrderbyInput], $search: String` | PASS | Namen korrekt |
+| `GET_PRODUCTS_PAGINATED` Response | `products { nodes { ...ProductCardFields } pageInfo { hasNextPage endCursor } }` | `products { nodes { ...ProductCardFields } pageInfo { hasNextPage endCursor } }` + `productCategory { name count description slug }` | PASS | `pageInfo` jetzt vorhanden; `productCategory` als Combined-Query begruendet |
+| `GET_CATEGORY_META` Variablen | `slug: ID!` | `$slug: ID!` — `productCategory(id: $slug, idType: SLUG)` | PASS | — |
 | `GET_CATEGORY_META` Response | `productCategory { name description slug count image { sourceUrl altText } }` | `productCategory { name description slug count image { sourceUrl altText } }` | PASS | Vollstaendig korrekt |
+| Sort-Mapping: `products_by_category` | `orderby: [{ field: PRICE, order: ASC }]` fuer `price_asc` | `[{ field: 'PRICE', order: 'ASC' }]` | PASS | — |
+| Sort-Mapping: Default | `undefined` (WooCommerce default) | `return undefined` | PASS | — |
 
 ### Security Check
 
 | Requirement | Arch Spec | Slice Implementation | Status |
 |-------------|-----------|---------------------|--------|
-| Product queries (read) | Unauthenticated, RSC Server Client | RSC via `getClient()`, kein Session-Token | PASS |
-| URL param validation | Invalid page -> redirect page 1; invalid sort -> ignore, use default | `parsePageParam` + `parseSortParam` mit korrekter Sanitierung, Redirect bei invaliden page-Param | PASS |
-| Input sanitization (URL params) | URL params type check + allowed values — no injection possible | `validSorts.includes(sortParam)`, `parseInt()` — kein direktes SQL | PASS |
-| Search query validation | Min 2 chars, max 100 chars | Nicht in Slice 3 (Slice 5 Scope) | PASS (N/A) |
+| Product queries (read) | Unauthenticated, RSC Server Client | `getClient()` aus `lib/apollo/server-client.ts`, kein Session-Token | PASS |
+| URL param `page` Validierung | Integer >= 1; invalid -> redirect to page 1 | `parseInt()` + `isNaN` + `< 1` Guard; `redirect()` bei invalid | PASS |
+| URL param `sort` Validierung | Must be valid SortOption or empty; invalid -> ignore, use default | `validSorts.includes(sortParam)` Guard; invalid -> `''` (WooCommerce default) | PASS |
+| Input sanitization (URL params) | No injection possible (not used directly in queries) | `page` nur als `Number()` genutzt; `sort` nur via `buildOrderby()` Switch — kein SQL/GraphQL-Injection-Risiko | PASS |
 
 ---
 
@@ -103,37 +168,37 @@ Kein eigenes DB-Schema. Alle Daten aus WooCommerce. Architecture bestätigt: "Ke
 
 | Wireframe Element | Annotation | Slice Component | Status |
 |-------------------|------------|-----------------|--------|
-| `breadcrumb` | "Startseite › T-Shirts [breadcrumb]" | `BreadcrumbBlock` aus Slice 1, `category_meta` Datenquelle | PASS |
-| `page-heading` | "[page-heading]" | Bestehendes Block, erweitert mit page/sort params | PASS |
-| `filter-chips` | "[Alle] [Herren] [Damen] [Kinder] [filter-chips]" | Bestehendes Block, unveraendert | PASS |
-| `product-count` | "48 Produkte [product-count]" | Bestehendes Block, erweitert mit page/sort params | PASS |
-| `sort-bar` | "Sortieren nach: [Preis: aufsteigend] [sort-bar]" | `SortBarBlock` aus Slice 1, `currentSort` + `baseUrl` via YAML | PASS |
-| `product-grid` | "4 Spalten Desktop [product-grid]" | Bestehendes Block mit paginierten Daten | PASS |
-| `pagination` | "< 1 [2] 3 ... 8 > [pagination]" | `PaginationBlock` aus Slice 1, `woocommerceLoader` Daten | PASS |
-| `empty-state` | "Keine Produkte gefunden [empty-state]" | `EmptyStateBlock` aus Slice 1, YAML-konfiguriert | PASS |
+| `breadcrumb` | "Startseite › T-Shirts [breadcrumb]" | `BreadcrumbBlock` aus Slice 1; `category_meta` Datenquelle; WC `productCategory.name` | PASS |
+| `page-heading` | "[page-heading]" | Bestehendes Block; erweitert mit `page`/`sort` params in YAML | PASS |
+| `filter-chips` | "[Alle] [Herren] [Damen] [Kinder] [filter-chips]" | Bestehendes Block; unveraendert | PASS |
+| `product-count` | "48 Produkte [product-count]" | Bestehendes Block; erweitert mit `page`/`sort` params | PASS |
+| `sort-bar` | "Sortieren nach: [Preis: aufsteigend] [sort-bar]" | `SortBarBlock` aus Slice 1; `currentSort` + `baseUrl` via YAML inline | PASS |
+| `product-grid` | "4 Spalten Desktop [product-grid]" | Bestehendes Block; paginated data via `products_by_category` Branch | PASS |
+| `pagination` | "< 1 [2] 3 ... 8 > [pagination]" | `PaginationBlock` aus Slice 1; `woocommerceLoader` liefert `PaginationMeta` | PASS |
+| `empty-state` | "Keine Produkte gefunden [empty-state]" | `EmptyStateBlock` aus Slice 1; YAML-konfiguriert (headline, text, links) | PASS |
 
 ### State Variations
 
 | State | Wireframe | Slice | Status |
 |-------|-----------|-------|--------|
-| Normal (>0 Produkte, Seite 1) | Vollstaendige Ansicht mit allen Blocks | AC-1: 24 Produkte, Breadcrumb, Pagination, Prev disabled | PASS |
-| Seite 2 | Seite 2 aktiv, Prev enabled | AC-2: Produkte 25-48, aria-current="page", Prev klickbar | PASS |
-| Sortiert (`?sort=price_asc`) | Sort-Dropdown zeigt "Preis: aufsteigend" | AC-3: Produkte sortiert, Dropdown-Label korrekt | PASS |
-| Sort-Wechsel auf Seite 2 | URL reset zu ?sort=newest (page=1) | AC-4: Navigation zu /kategorie/t-shirts?sort=newest | PASS |
-| Empty State (0 Produkte) | EmptyStateBlock mit Links | AC-5: EmptyStateBlock sichtbar, product-grid unsichtbar | PASS |
-| Ungueltige page-Param | Redirect zu Seite 1 | AC-6: Redirect zu /kategorie/t-shirts | PASS |
-| Ungueltige sort-Param | Default-Sortierung, kein Fehler | AC-7: WooCommerce Default, kein Redirect | PASS |
-| Sort-Param bei Seitenwechsel | Sort-Param in Pagination-Links erhalten | AC-8: alle Seitenlinks enthalten ?sort=price_desc | PASS |
+| Normal (>0 Produkte, Seite 1) | Vollstaendige Ansicht, Prev-Button disabled | AC-1: 24 Produkte, Breadcrumb sichtbar, Pagination vorhanden, Prev disabled | PASS |
+| Seite 2 aktiv | Seite 2 highlighted, Prev enabled | AC-2: Produkte 25-48, `aria-current="page"` auf Seite 2, Prev klickbar | PASS |
+| Sortiert (`?sort=price_asc`) | Dropdown-Label "Preis: aufsteigend" | AC-3: Produkte sortiert, Sort-Dropdown korrekt | PASS |
+| Sort-Wechsel auf Seite 2 | URL Reset zu `?sort=newest` ohne `page=2` | AC-4: Navigation zu `/kategorie/t-shirts?sort=newest` (page auf 1 reset) | PASS |
+| Empty State (0 Produkte) | EmptyStateBlock statt product-grid | AC-5: EmptyStateBlock mit Headline + Links; product-grid unsichtbar | PASS |
+| Ungueltige `page`-Param | Redirect zu Seite 1 | AC-6: Redirect zu `/kategorie/t-shirts` | PASS |
+| Ungueltige `sort`-Param | Default-Sortierung, kein Fehler | AC-7: WooCommerce Default, kein Redirect | PASS |
+| Sort-Param bei Seitenwechsel | `?sort=price_desc` in Pagination-Links erhalten | AC-8: Alle Seitenlinks enthalten `?sort=price_desc` | PASS |
 
 ### Visual Specs
 
 | Spec | Wireframe / Discovery Value | Slice Value | Status |
 |------|-----------------------------|-------------|--------|
-| Grid Layout | 4 Spalten Desktop, 2 Mobile (Mobile-first) | `grid-cols-2 md:grid-cols-3 lg:grid-cols-4` (Abschnitt 8, skeletonMap) | PASS |
-| Produkte pro Seite | 24 (aus discovery.md "Aktuelle Probleme: fix: first: 24") | `perPage: 24` (YAML und data-loader) | PASS |
-| Pagination Format | "< 1 [2] 3 ... 8 >" | PaginationBlock Render-Regeln aus Slice 1 (Ellipsis, aria-current) | PASS |
-| Touch targets | Min. 44px (CLAUDE.md) | `--min-touch-target: 2.75rem` aus Slice 1 Blocks | PASS |
-| Nur Theme-Tokens | Alle Farben via Theme-Tokens | `bg-surface-secondary`, `rounded-card` (Abschnitt 8) | PASS |
+| Grid Layout | 4 Spalten Desktop, 2 Mobile | `grid-cols-2 md:grid-cols-3 lg:grid-cols-4` (Abschnitt 8, skeletonMap) | PASS |
+| Produkte pro Seite | 24 (aus discovery.md "fix: first: 24") | `perPage: 24` in YAML und data-loader | PASS |
+| Pagination Format | "< 1 [2] 3 ... 8 >" | PaginationBlock aus Slice 1 (Ellipsis, aria-current) | PASS |
+| Touch targets | Min. 44px (`--min-touch-target: 2.75rem`) | Slice verweist auf Slice 1 Blocks die dieses Token umsetzen | PASS |
+| Nur Theme-Tokens | Keine hardcodierten Farben | `bg-surface-secondary`, `rounded-card` im skeletonMap (Abschnitt 8) | PASS |
 
 ---
 
@@ -143,12 +208,12 @@ Kein eigenes DB-Schema. Alle Daten aus WooCommerce. Architecture bestätigt: "Ke
 
 | Resource | Source Slice | Slice Reference | Status |
 |----------|--------------|-----------------|--------|
-| `BreadcrumbBlock` Component | slice-01-cross-page-infrastruktur | Integration Contract "Requires", Abschnitt 1 UI-Anforderungen | PASS |
-| `SortBarBlock` Component | slice-01-cross-page-infrastruktur | Integration Contract "Requires", Abschnitt 2 UI-Anforderungen | PASS |
-| `PaginationBlock` Component | slice-01-cross-page-infrastruktur | Integration Contract "Requires", Abschnitt 3 UI-Anforderungen | PASS |
-| `EmptyStateBlock` Component | slice-01-cross-page-infrastruktur | Integration Contract "Requires", Abschnitt 4 UI-Anforderungen | PASS |
-| `PaginationData` Type | slice-01-cross-page-infrastruktur | Integration Contract "Requires", Kompatibilitaets-Hinweis Abschnitt 3 | PASS |
-| `SortOption` Type | slice-01-cross-page-infrastruktur | Integration Contract "Requires", WooCommerceLoaderParams Abschnitt 7 | PASS |
+| `BreadcrumbBlock` Component | slice-01-cross-page-infrastruktur | Integration Contract "Requires"; UI-Anforderungen Abschnitt 1 | PASS |
+| `SortBarBlock` Component | slice-01-cross-page-infrastruktur | Integration Contract "Requires"; UI-Anforderungen Abschnitt 2 | PASS |
+| `PaginationBlock` Component | slice-01-cross-page-infrastruktur | Integration Contract "Requires"; UI-Anforderungen Abschnitt 3 | PASS |
+| `EmptyStateBlock` Component | slice-01-cross-page-infrastruktur | Integration Contract "Requires"; UI-Anforderungen Abschnitt 4 | PASS |
+| `PaginationData` Type | slice-01-cross-page-infrastruktur | Integration Contract "Requires"; Kompatibilitaets-Hinweis Abschnitt 3 | PASS |
+| `SortOption` Type | slice-01-cross-page-infrastruktur | Integration Contract "Requires"; `WooCommerceLoaderParams` Abschnitt 7 | PASS |
 | `BreadcrumbData` Type | slice-01-cross-page-infrastruktur | Integration Contract "Requires" | PASS |
 | `EmptyStateData` Type | slice-01-cross-page-infrastruktur | Integration Contract "Requires" | PASS |
 | `SortBarData` Type | slice-01-cross-page-infrastruktur | Integration Contract "Requires" | PASS |
@@ -157,36 +222,38 @@ Kein eigenes DB-Schema. Alle Daten aus WooCommerce. Architecture bestätigt: "Ke
 
 | Resource | Consumer | Documentation | Status |
 |----------|----------|---------------|--------|
-| `GET_PRODUCTS_PAGINATED` Query | slice-05-suchseite | Integration Contract "Provides", Variablen dokumentiert | PASS |
-| `GET_CATEGORY_META` Query | slice-06-neue-pages (`collection-header`) | Integration Contract "Provides", Variablen dokumentiert | PASS |
-| `PaginatedProductsResult` DTO | slice-05-suchseite, slice-06-neue-pages | Integration Contract "Provides", Fields dokumentiert | PASS |
-| `PaginationMeta` DTO | slice-05-suchseite, slice-06-neue-pages | Integration Contract "Provides", Fields dokumentiert | PASS |
+| `GET_PRODUCTS_PAGINATED` Query | slice-05-suchseite | Integration Contract "Provides"; Variablen + Nullability dokumentiert | PASS |
+| `GET_CATEGORY_META` Query | slice-06-neue-pages (`collection-header`) | Integration Contract "Provides"; Variablen dokumentiert | PASS |
+| `PaginatedProductsResult` DTO | slice-05-suchseite, slice-06-neue-pages | Integration Contract "Provides"; Struktur dokumentiert mit Divergenz-Erklaerung | PASS |
+| `PaginationMeta` DTO | slice-05-suchseite, slice-06-neue-pages | Integration Contract "Provides"; alle Felder benannt | PASS |
 | `products_by_category` (paginated) | slice-05-suchseite | Integration Contract "Provides" | PASS |
-| `buildOrderby()` Funktion | slice-05-suchseite | Integration Contract "Provides", Signatur dokumentiert | PASS |
+| `buildOrderby()` Funktion | slice-05-suchseite | Integration Contract "Provides"; Signatur dokumentiert | PASS |
 
 ### Consumer-Deliverable-Traceability
 
-Slice 3 stellt keine neuen Page-Files bereit (es erweitert bestehende Pages). Die Outputs (`GET_PRODUCTS_PAGINATED`, `PaginatedProductsResult` etc.) sind Query/Type-Artefakte die in `lib/`-Dateien leben — keine Mount-Point-Problematik.
+Slice 3 stellt keine neuen Page-Files bereit. Die Outputs sind Query/Type-Artefakte in `lib/`-Dateien — kein Mount-Point-Problem.
 
 | Provided Resource | Consumer Page/File | In Deliverables? | Which Slice? | Status |
 |-------------------|--------------------|-------------------|--------------|--------|
-| `GET_PRODUCTS_PAGINATED` | `lib/graphql/queries.ts` | Yes | Slice 03 Deliverable | PASS |
-| `GET_CATEGORY_META` | `lib/graphql/queries.ts` | Yes | Slice 03 Deliverable | PASS |
-| `PaginatedProductsResult` | `lib/blocks/types.ts` | Yes | Slice 03 Deliverable | PASS |
-| `PaginationMeta` | `lib/blocks/types.ts` | Yes | Slice 03 Deliverable | PASS |
+| `GET_PRODUCTS_PAGINATED` | `frontend/lib/graphql/queries.ts` | Yes | Slice 03 Deliverable | PASS |
+| `GET_CATEGORY_META` | `frontend/lib/graphql/queries.ts` | Yes | Slice 03 Deliverable | PASS |
+| `PaginatedProductsResult` | `frontend/lib/blocks/types.ts` | Yes | Slice 03 Deliverable | PASS |
+| `PaginationMeta` | `frontend/lib/blocks/types.ts` | Yes | Slice 03 Deliverable | PASS |
+| `frontend/app/kategorie/[slug]/page.tsx` | Erweiterung bestehende Page | Yes — in Deliverables als Erweiterung | Slice 03 | PASS |
+| `frontend/themes/default/pages/category.yaml` | Konfiguriert die Kategorie-Page | Yes — in Deliverables | Slice 03 | PASS |
 
 ### AC-Deliverable-Konsistenz
 
 | AC # | Referenced Page / File | In Deliverables? | Status |
 |------|------------------------|-------------------|--------|
-| AC-1 | `/kategorie/t-shirts` (via `app/kategorie/[slug]/page.tsx`) | Yes — `frontend/app/kategorie/[slug]/page.tsx` in Deliverables | PASS |
-| AC-2 | `/kategorie/t-shirts?page=2` (via gleiche Page) | Yes | PASS |
-| AC-3 | `/kategorie/t-shirts?sort=price_asc` | Yes | PASS |
-| AC-4 | Sort-Dropdown in Kategorie-Page | Yes | PASS |
-| AC-5 | `/kategorie/leere-kategorie` | Yes | PASS |
-| AC-6 | `/kategorie/t-shirts?page=abc` | Yes | PASS |
-| AC-7 | `/kategorie/t-shirts?sort=invalid` | Yes | PASS |
-| AC-8 | PaginationBlock Seitenlinks | Yes | PASS |
+| AC-1 | `/kategorie/t-shirts` via `app/kategorie/[slug]/page.tsx` | Yes | PASS |
+| AC-2 | `/kategorie/t-shirts?page=2` via gleiche Page | Yes | PASS |
+| AC-3 | `/kategorie/t-shirts?sort=price_asc` via gleiche Page | Yes | PASS |
+| AC-4 | Sort-Dropdown in Kategorie-Page | Yes — SortBarBlock aus Slice 1 (Dependency), page.tsx in Deliverables | PASS |
+| AC-5 | `/kategorie/leere-kategorie` via gleiche Page | Yes | PASS |
+| AC-6 | `/kategorie/t-shirts?page=abc` redirect-Logik in page.tsx | Yes | PASS |
+| AC-7 | `/kategorie/t-shirts?sort=invalid` sanitization in page.tsx | Yes | PASS |
+| AC-8 | PaginationBlock Seitenlinks via category.yaml + PaginationBlock (Slice 1) | Yes | PASS |
 
 ---
 
@@ -194,16 +261,18 @@ Slice 3 stellt keine neuen Page-Files bereit (es erweitert bestehende Pages). Di
 
 | Code Example | Location | Complete? | Arch-Compliant? | Status |
 |--------------|----------|-----------|-----------------|--------|
-| `GET_PRODUCTS_PAGINATED` Query | Abschnitt 3 | Teilweise | No | BLOCKING (siehe Issue 1) |
+| `GET_PRODUCTS_PAGINATED` Query | Abschnitt 3 | Yes | Yes (inkl. `pageInfo { hasNextPage endCursor }`) | PASS |
 | `GET_CATEGORY_META` Query | Abschnitt 11 | Yes | Yes | PASS |
 | `buildOrderby()` Funktion | Abschnitt 4 | Yes | Yes | PASS |
 | `products_by_category` Branch (paginated) | Abschnitt 5 | Yes | Yes | PASS |
 | `category_meta` Branch | Abschnitt 10 | Yes | Yes | PASS |
-| `PaginatedProductsResult` DTO | Abschnitt 6 | Teilweise | No | BLOCKING (siehe Issue 2) |
+| `PaginatedProductsResult` DTO | Abschnitt 6 | Yes | Yes (bewusste Divergenz dokumentiert) | PASS |
 | `PaginationMeta` DTO | Abschnitt 6 | Yes | Yes | PASS |
-| `WooCommerceLoaderParams` Erweiterung | Abschnitt 7 | Teilweise | No | BLOCKING (siehe Issue 3) |
+| `WooCommerceLoaderParams` Erweiterung | Abschnitt 7 | Yes | Yes (`page?: string`, alle Felder vorhanden) | PASS |
 | `CategoryPage` page.tsx Erweiterung | Abschnitt 8 | Yes | Yes | PASS |
 | `category.yaml` Erweiterung | Abschnitt 9 | Yes | Yes | PASS |
+
+Alle 10 Code-Beispiele sind als PFLICHT-Deliverables in der "Code Examples (MANDATORY)" Section aufgefuehrt und mit Section-Referenz und Zieldatei dokumentiert.
 
 ---
 
@@ -211,22 +280,26 @@ Slice 3 stellt keine neuen Page-Files bereit (es erweitert bestehende Pages). Di
 
 N/A — Slice 03 hat keine Build-Config-Deliverables (kein vite.config, webpack.config, tsconfig etc.).
 
+| Pruef-Aspekt | Requirement | Vorhanden? | Status |
+|--------------|-------------|------------|--------|
+| Build Config Deliverables | Keine vorhanden | N/A | PASS |
+
 ---
 
 ## F) Test Coverage
 
 | Acceptance Criteria | Test Defined | Test Type | Status |
 |--------------------|--------------|-----------|--------|
-| AC-1: 24 Produkte Seite 1, Breadcrumb, Pagination | Yes — `paginate(allNodes, 1, 24, 50)` in "Over-fetch + Slice Logic" | Unit | PASS |
-| AC-2: Produkte 25-48 Seite 2, aria-current | Yes — `paginate(allNodes, 2, 24, 60)` + hasPreviousPage check | Unit | PASS |
-| AC-3: Sort price_asc, Dropdown-Label | Yes — `buildOrderby('price_asc')` + `parseSortParam` Tests | Unit | PASS |
-| AC-4: Sort-Wechsel setzt page auf 1 | Yes — `buildPageUrl` Test mit sort-Param | Unit | PASS |
-| AC-5: Empty-State bei 0 Produkten | Yes — `shouldShowEmptyState([])` Test | Unit | PASS |
-| AC-6: Redirect bei ungueltigem page-Param | Yes — `parsePageParam('abc')` -> 1 Test | Unit | PASS |
-| AC-7: Ungueltige sort ignoriert | Yes — `parseSortParam('invalid')` -> '' Test | Unit | PASS |
-| AC-8: Sort-Param in Pagination-Links | Yes — `buildPageUrl('/kategorie/t-shirts', 2, 'price_asc')` Test | Unit | PASS |
+| AC-1: 24 Produkte Seite 1, Breadcrumb, Prev-Button disabled | `paginate(allNodes25, 1, 24, 50)` — `pageNodes.length === 24`, `hasPreviousPage === false` | Unit | PASS |
+| AC-2: Produkte 25-48 Seite 2, aria-current, Prev klickbar | `paginate(allNodes49, 2, 24, 60)` — `pageNodes.length === 24`, `currentPage === 2`, `hasPreviousPage === true` | Unit | PASS |
+| AC-3: Sort price_asc, Dropdown-Label | `buildOrderby('price_asc')` + `parseSortParam('price_asc')` Tests | Unit | PASS |
+| AC-4: Sort-Wechsel setzt page auf 1 | `buildPageUrl('/kategorie/t-shirts', 1, 'newest')` === `/kategorie/t-shirts?sort=newest` | Unit | PASS |
+| AC-5: Empty-State bei 0 Produkten | `shouldShowEmptyState([]) === true`, `emptyStateConfig.headline === 'Keine Produkte gefunden'` | Unit | PASS |
+| AC-6: Redirect bei ungueltigem page-Param | `parsePageParam('abc') === 1`, `parsePageParam('0') === 1` | Unit | PASS |
+| AC-7: Ungueltige sort ignoriert | `parseSortParam('invalid') === ''`, `parseSortParam('PRICE_ASC') === ''` | Unit | PASS |
+| AC-8: Sort-Param in Pagination-Links erhalten | `buildPageUrl('/kategorie/t-shirts', 2, 'price_asc')` === `/kategorie/t-shirts?page=2&sort=price_asc` | Unit | PASS |
 
-Alle 8 ACs haben korrespondierende Unit-Tests in der Test-Spec. Tests sind in `<test_spec>` Block vollstaendig als ausfuehrbarer Vitest-Code definiert.
+Alle 8 ACs haben korrespondierende Unit-Tests im `<test_spec>` Block. Tests sind vollstaendig als ausfuehrbarer Vitest-Code definiert (inkl. Mocks, describe-Bloecke, expect-Calls). Test-Datei: `tests/slices/shop-completeness/slice-03-kategorie-page-enhancements.test.ts`.
 
 ---
 
@@ -234,176 +307,62 @@ Alle 8 ACs haben korrespondierende Unit-Tests in der Test-Spec. Tests sind in `<
 
 | Discovery Section | Element | Relevant? | Covered? | Status |
 |-------------------|---------|-----------|----------|--------|
-| UI Components | `sort-dropdown` (`closed`, `open`) | Yes | Yes — SortBarBlock aus Slice 1, states beschrieben in Abschnitt 2 | PASS |
-| UI Components | `pagination-prev` (`enabled`, `disabled`) | Yes | Yes — PaginationBlock, Prev disabled auf Seite 1 (AC-1) | PASS |
-| UI Components | `pagination-next` (`enabled`, `disabled`) | Yes | Yes — PaginationBlock Render-Regeln aus Slice 1 | PASS |
+| UI Components | `sort-dropdown` (`closed`, `open`) | Yes | Yes — SortBarBlock aus Slice 1; States in Abschnitt 2 beschrieben | PASS |
+| UI Components | `pagination-prev` (`enabled`, `disabled`) | Yes | Yes — PaginationBlock; Prev disabled auf Seite 1 (AC-1) | PASS |
+| UI Components | `pagination-next` (`enabled`, `disabled`) | Yes | Yes — PaginationBlock; Render-Regeln aus Slice 1 | PASS |
 | UI Components | `pagination-number` (`default`, `active`) | Yes | Yes — `aria-current="page"` auf aktiver Seite (AC-2) | PASS |
 | UI Components | `empty-state-suggestions` | Yes | Yes — YAML-konfigurierte Links in EmptyStateBlock (AC-5) | PASS |
-| State Machine | Sort-Bar: `no_sort` -> `sorted_*` | Yes | Yes — Abschnitt 2 "Zustaende", alle 4 States | PASS |
-| State Machine | Sort-Bar Transitions | Yes | Yes — URL-Param Update via `router.push`, page-Reset | PASS |
-| Transitions | `no_sort` → Dropdown-Auswahl → `sorted_*` | Yes | Yes — AC-3, SortBarBlock-Verhalten Abschnitt 2 | PASS |
-| Transitions | `sorted_*` → andere Auswahl → Seite 1 Reset | Yes | Yes — AC-4 | PASS |
-| Business Rules | Pagination `?page=N` 1-indexed, ungueltig -> Seite 1 | Yes | Yes — AC-6, `parsePageParam()` | PASS |
-| Business Rules | Sort `?sort=price_asc\|price_desc\|newest` | Yes | Yes — AC-3, AC-7, `parseSortParam()` | PASS |
-| Business Rules | Empty State bei 0 Produkten | Yes | Yes — AC-5, `shouldShowEmptyState()` | PASS |
-| Data | `page` URL-Param: Integer >= 1 | Yes | Yes | PASS |
-| Data | `sort` URL-Param: `price_asc\|price_desc\|newest` | Yes | Yes | PASS |
+| State Machine | Sort-Bar: `no_sort` — alle 4 States | Yes | Yes — Abschnitt 2; alle States dokumentiert | PASS |
+| State Machine | Sort-Bar Transitions: `no_sort` -> `sorted_*` | Yes | Yes — `router.push(baseUrl + '?sort=' + value)` | PASS |
+| State Machine | Sort-Wechsel setzt page zurueck auf 1 | Yes | Yes — AC-4; SortBarBlock-Verhalten Abschnitt 2 | PASS |
+| Transitions | `no_sort` → Dropdown-Auswahl → URL-Param update | Yes | Yes — AC-3, buildOrderby() | PASS |
+| Transitions | `sorted_*` → andere Auswahl → page reset | Yes | Yes — AC-4 | PASS |
+| Business Rules | Pagination `?page=N` 1-indexed; ungueltig -> Seite 1 | Yes | Yes — AC-6; `parsePageParam()` mit Redirect | PASS |
+| Business Rules | Sort `?sort=price_asc\|price_desc\|newest` | Yes | Yes — AC-3/7; `parseSortParam()` | PASS |
+| Business Rules | Empty State bei 0 Produkten | Yes | Yes — AC-5; `shouldShowEmptyState()` | PASS |
+| Data | `page` URL-Param: Integer >= 1 | Yes | Yes — `parseInt` + Guard in page.tsx | PASS |
+| Data | `sort` URL-Param: `price_asc\|price_desc\|newest` | Yes | Yes — `validSorts.includes()` Guard | PASS |
 
 ---
 
 ## Blocking Issues Summary
 
-### Issue 1: `GET_PRODUCTS_PAGINATED` Query fehlt `pageInfo` Response-Felder
+Keine Blocking Issues nach dem Re-Check. Alle 3 vorherigen Blocking Issues sind korrekt behoben.
 
-**Category:** API / Code Example
-**Severity:** BLOCKING
+### Behoben: Issue 1 (vorheriger Report) — `pageInfo` in `GET_PRODUCTS_PAGINATED`
 
-**Spec says (Slice 3, Abschnitt 3):**
-```graphql
-products(
-  first: $first
-  where: {
-    categoryIn: [$categorySlug]
-    orderby: $orderby
-    search: $search
-    status: "publish"
-  }
-) {
-  nodes {
-    ...ProductCardFields
-  }
-}
-```
+**Status:** GELOEST. `pageInfo { hasNextPage endCursor }` ist in Abschnitt 3, Zeilen 179-182, vorhanden.
 
-**Reference says (architecture.md, New GraphQL Queries):**
-> `GET_PRODUCTS_PAGINATED` Response Fields: `products { nodes { ...ProductCardFields } pageInfo { hasNextPage endCursor } }`
+### Behoben: Issue 2 (vorheriger Report) — `PaginatedProductsResult` Divergenz
 
-**Problem:**
-Die Query-Definition im Slice-Code-Beispiel (Abschnitt 3) enthält kein `pageInfo { hasNextPage endCursor }` im Response-Body. Die Architecture definiert diese Felder explizit als Teil der Response. Ohne `pageInfo` ist der Query nicht architecture-konform und koennte bei zukuenftiger Nutzung (Slice 5: Suchseite) Breaking Changes verursachen, wenn `endCursor` fuer Cursor-basierte Navigation benoetigt wird. Das Code-Beispiel ist ein PFLICHT-Deliverable (Code Examples MANDATORY Section).
+**Status:** GELOEST. Expliziter `> Architecture-Divergenz (bewusst):`-Kommentar in Abschnitt 6 erklaert die Abweichung sachlich: WooGraphQL-Konvention, Erst-Definition in Slice 3, Consumer-Slices folgen gleicher Struktur.
 
-Zusaetzlich enthaelt das Slice-Query-Beispiel `productCategory(id: $categorySlug, idType: SLUG)` — dieses Feld fehlt in den Architecture Response Fields fuer `GET_PRODUCTS_PAGINATED`. Dort ist `GET_CATEGORY_META` das fuer category-Metadaten vorgesehene Query.
+### Behoben: Issue 3 (vorheriger Report) — `WooCommerceLoaderParams.page` Typ
 
-**Resolution:**
-`GET_PRODUCTS_PAGINATED` Query-Definition in Abschnitt 3 um `pageInfo { hasNextPage endCursor }` ergaenzen:
-```graphql
-products(first: $first, where: { ... }) {
-  nodes {
-    ...ProductCardFields
-  }
-  pageInfo {
-    hasNextPage
-    endCursor
-  }
-}
-```
-Das eingebettete `productCategory`-Feld kann im Query bleiben (es ist ein pragmatisches Combined-Query fuer den Category-Page-Use-Case), muss aber in der Code-Example-Tabelle als "Combined Query" dokumentiert werden.
-
----
-
-### Issue 2: `PaginatedProductsResult` DTO weicht von Architecture-Definition ab
-
-**Category:** Schema / Code Example
-**Severity:** BLOCKING
-
-**Spec says (Slice 3, Abschnitt 6):**
-```typescript
-export interface PaginatedProductsResult {
-  products: { nodes: ProductCardData[] }
-  productCategory?: { name: string; description: string; slug: string; count: number } | null
-  pagination: PaginationMeta
-}
-```
-
-**Reference says (architecture.md, Data Transfer Objects):**
-> `PaginatedProductsResult` Fields: `products: ProductCardData[], currentPage: number, totalPages: number, hasNextPage: boolean, totalCount: number`
-
-**Problem:**
-Die Architecture definiert `PaginatedProductsResult` mit `products: ProductCardData[]` (flaches Array) und `currentPage`, `totalPages`, `hasNextPage`, `totalCount` als direkte Top-Level-Felder. Die Slice-Definition strukturiert es als `products: { nodes: ProductCardData[] }` (verschachteltes Objekt) mit einem separaten `pagination: PaginationMeta` Sub-Objekt.
-
-Zusaetzlich fuegt der Slice ein `productCategory?` Feld hinzu, das in der Architecture-DTO-Definition nicht vorhanden ist.
-
-Die Divergenz ist nicht trivial: `PaginatedProductsResult` wird als Schnittstelle zu Slice 5 (Suchseite) und Slice 6 (Collections) im Integration Contract dokumentiert. Wenn Slice 5 die Architecture-Definition implementiert und Slice 3 die Slice-Definition ausliefert, entsteht ein Typ-Konflikt.
-
-**Resolution:**
-Entscheidung treffen und dokumentieren: Entweder
-- (A) `PaginatedProductsResult` exakt wie Architecture definieren (`products: ProductCardData[]`, direkte Pagination-Felder) — dann muss `products_by_category` Branch in Abschnitt 5 entsprechend angepasst werden
-- (B) Die Slice-Definition (`products: { nodes: ProductCardData[] }`, `pagination: PaginationMeta`) als verbindlich erklaeren und die Architecture als Tippfehler korrigieren
-
-Da alle anderen Block-Components (product-grid, pagination) bereits auf `data.products.nodes` zugreifen (WooGraphQL-Konvention), ist Option (B) praxisnaher. In diesem Fall muss die Architecture-Inkonsistenz explizit als Architecture-Korrektur im Slice dokumentiert werden und das `productCategory?`-Feld begruendet werden (notwendig fuer `totalPages` via `category.count`).
-
----
-
-### Issue 3: `WooCommerceLoaderParams` — `page` Typ-Inkonsistenz (Architecture vs. Slice)
-
-**Category:** Schema / Code Example
-**Severity:** BLOCKING
-
-**Spec says (Slice 3, Abschnitt 7):**
-```typescript
-export interface WooCommerceLoaderParams {
-  ...
-  page?: number        // neu: 1-indexed Seitennummer
-  perPage?: number     // neu: Produkte pro Seite (default: 24)
-  sort?: string        // neu: SortOption-String aus URL-Param
-  search?: string      // neu: Suchbegriff (für Slice 5)
-}
-```
-
-**Reference says (architecture.md, Migration Map):**
-> `WooCommerceLoaderParams` Extended with: `page?: string, perPage?: number, sort?: string, search?: string, source?: string, productSlug?: string, customIds?: string`
-
-**Problem:**
-Die Architecture definiert `page?: string` (String), der Slice-Code definiert `page?: number` (Number). Diese Inkonsistenz ist nicht trivial:
-
-1. In der YAML-Konfiguration (`category.yaml`, Abschnitt 9) wird `page: $route.page` eingetragen — `$route.page` ist ein String (aus `searchParams`).
-2. Das `page.tsx` in Abschnitt 8 uebergibt `page: String(page)` (also explizit String-Konvertierung) an `loadPageConfig`.
-3. Der `products_by_category` Branch in Abschnitt 5 macht `const page = Number(params.page ?? 1)` — das erfordert `params.page` als `string | undefined`, nicht `number | undefined`.
-
-Die Kombination zeigt: Im Datenfluss wird `page` als String durch YAML und `loadPageConfig` weitergegeben und erst im data-loader zu einer Number konvertiert. Der Typ `page?: number` im Interface stimmt nicht mit dem tatsaechlichen Verwendungsmuster ueberein und wird beim Implementierungs-Agent zu Typ-Fehlern fuehren.
-
-Zudem fehlen im Slice-Interface die von der Architecture geforderten Felder `source?: string`, `productSlug?: string`, und `customIds?: string` (diese werden in Slice 2 benoetigt, sind aber Teil des gemeinsamen Interface).
-
-**Resolution:**
-`WooCommerceLoaderParams` in Abschnitt 7 korrigieren:
-```typescript
-export interface WooCommerceLoaderParams {
-  ...
-  page?: string        // String aus YAML/$route.page; data-loader konvertiert zu Number
-  perPage?: number     // Bleibt number (direkt aus YAML als Zahl)
-  sort?: string
-  search?: string
-  source?: string      // fuer product_recommendations (Slice 2)
-  productSlug?: string // fuer product_recommendations (Slice 2)
-  customIds?: string   // fuer product_recommendations (Slice 2)
-}
-```
+**Status:** GELOEST. `page?: string` in Abschnitt 7 (Zeile 295) mit Erklaerungskommentar. Alle drei fehlenden Felder (`source?`, `productSlug?`, `customIds?`) sind ergaenzt.
 
 ---
 
 ## Recommendations
 
-1. `GET_PRODUCTS_PAGINATED` Query-Code-Beispiel (Abschnitt 3) um `pageInfo { hasNextPage endCursor }` ergaenzen, um Architecture-Konformitaet herzustellen.
+Keine offenen Handlungsbedarfe. Alle Befunde sind PASS.
 
-2. `PaginatedProductsResult` DTO-Divergenz klaeren: Entweder Architecture-Korrektur dokumentieren (empfohlen: `{ nodes: ProductCardData[] }` Pattern beibehalten, da WooGraphQL-konform) oder Interface auf Architecture-Definition anpassen. In jedem Fall muss die Entscheidung explizit im Slice-Dokument begruendet sein.
-
-3. `WooCommerceLoaderParams.page` Typ von `number` auf `string` korrigieren, passend zum YAML-Param-Datenfluss. Fehlende Felder (`source?`, `productSlug?`, `customIds?`) aus Architecture ergaenzen.
-
-4. Optional (kein Blocking): In Abschnitt 3 erwaehnen, dass `productCategory` im `GET_PRODUCTS_PAGINATED` Query ein Combined-Query-Ansatz ist (nicht in Architecture-Definition, aber pragmatisch fuer Category-Page). Vermeidet spaetere Verwirrung bei Slice 5, das die Query ohne `productCategory` wiederverwendet.
+Optional (kein Blocking, kein Warning): In Abschnitt 3 waere es noch klarer, wenn vermerkt wuerde, dass `productCategory` beim Wiederverwenden der Query in Slice 5 (Suchseite) weggelassen werden kann (da `$categorySlug` nullable ist und `productCategory` dann null zurueckgibt). Dieser Hinweis existiert ansatzweise im "Wichtig:"-Kommentar nach der Query — ausreichend.
 
 ---
 
 ## Verdict
 
-**Status:** FAILED
+**Status:** APPROVED
 
-**Blocking Issues:** 3
+**Blocking Issues:** 0
 **Warnings:** 0
 
-**BLOCKING_ISSUES:**
-- BLOCKING-1: `GET_PRODUCTS_PAGINATED` Query fehlt `pageInfo { hasNextPage endCursor }` Response-Felder (Architecture-Abweichung in PFLICHT-Deliverable)
-- BLOCKING-2: `PaginatedProductsResult` DTO-Struktur weicht von Architecture-Definition ab (`products: { nodes: [] }` vs. `products: ProductCardData[]`) — Typ-Konflikt fuer Consumer-Slices 5 und 6
-- BLOCKING-3: `WooCommerceLoaderParams.page` ist als `number` definiert, muss laut Architecture und Datenfluss `string` sein — fuehrt zu Typ-Fehler bei Implementierung
+Alle 3 Blocking Issues aus dem vorherigen Compliance-Check (FAILED) sind korrekt behoben:
+1. `pageInfo { hasNextPage endCursor }` ist in `GET_PRODUCTS_PAGINATED` vorhanden
+2. `PaginatedProductsResult` Divergenz zur Architecture ist explizit und sachlich begruendet dokumentiert
+3. `WooCommerceLoaderParams.page` ist als `string` typisiert; `source?`, `productSlug?`, `customIds?` sind ergaenzt
 
-**Next Steps:**
-- [ ] Blocking Issues 1–3 in `slice-03-kategorie-page-enhancements.md` beheben
-- [ ] Re-run Gate 2 Compliance Check nach Fixes
+Alle weiteren Compliance-Checks (Architecture, Wireframe, Integration Contract, Code Examples, Test Coverage, Discovery) ergeben vollstaendige Konformitaet ohne Luecken.
+
+**VERDICT: APPROVED**
