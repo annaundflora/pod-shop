@@ -50,9 +50,7 @@ type Story = StoryObj<typeof CategoryShowcaseBlock>
 export const Loaded: Story = {
   args: {
     data: {
-      productCategories: {
-        nodes: mockCategories,
-      },
+      nodes: mockCategories,
     },
   },
 }
@@ -64,9 +62,7 @@ export const Loading: Story = {
 export const Empty: Story = {
   args: {
     data: {
-      productCategories: {
-        nodes: [],
-      },
+      nodes: [],
     },
   },
 }

@@ -1,5 +1,5 @@
 ---
-description: "Feature-Orchestrator mit Sub-Agent Pipeline. Implementiert Features wave-by-wave mit 4 Sub-Agent-Steps (Implementer -> Test-Writer -> Test-Validator -> Debugger), JSON-Parsing, 3 Retries und stack-agnostischer Final Validation."
+description: "Feature-Orchestrator mit Sub-Agent Pipeline. Implementiert Features wave-by-wave mit 4 Sub-Agent-Steps (Implementer -> Test-Writer -> Test-Validator -> Debugger), JSON-Parsing, 9 Retries und stack-agnostischer Final Validation."
 ---
 
 # Orchestrate Feature Implementation
@@ -11,7 +11,7 @@ Du orchestrierst die Implementierung eines Features slice-by-slice mit Sub-Agent
 2. **Exit Code ist Wahrheit:** exit_code != 0 = FEHLGESCHLAGEN. Immer.
 3. **Kein direktes Bash:** Du fuehrst KEINE Tests, Lint, Type-Check oder Build direkt aus. ALLES via Sub-Agents.
 4. **JSON-Parsing:** Jeder Sub-Agent-Output wird als JSON geparsed (letzter ```json``` Block). Bei Parse-Failure: HARD STOP.
-5. **3 Retries:** Max 3 Debugger-Retries pro Slice. Danach HARD STOP.
+5. **9 Retries:** Max 9 Debugger-Retries pro Slice. Danach HARD STOP.
 
 **Input:** $ARGUMENTS (Spec-Pfad)
 
@@ -192,8 +192,8 @@ FOR each wave IN waves:
 
     val_json = parse_agent_json(validator_result)
 
-    # ── Step 4: Retry Loop (max 3x) ──
-    MAX_RETRIES = 3
+    # ── Step 4: Retry Loop (max 9x) ──
+    MAX_RETRIES = 9
     WHILE val_json.overall_status == "failed" AND state.retry_count < MAX_RETRIES:
       state.retry_count += 1
       state.current_state = "auto_fixing"
@@ -233,7 +233,7 @@ FOR each wave IN waves:
       val_json = parse_agent_json(validator_result)
 
     IF val_json.overall_status == "failed":
-      HARD STOP: "3 Retries erschoepft fuer {slice_id}"
+      HARD STOP: "9 Retries erschoepft fuer {slice_id}"
 
     # ── Evidence speichern ──
     state.current_state = "slice_complete"
@@ -270,7 +270,7 @@ final_result = Task(
 
 final_json = parse_agent_json(final_result)
 
-# Retry bei Failure (max 3x)
+# Retry bei Failure (max 9x)
 final_retry = 0
 WHILE final_json.overall_status == "failed" AND final_retry < MAX_RETRIES:
   final_retry += 1
@@ -281,7 +281,7 @@ WHILE final_json.overall_status == "failed" AND final_retry < MAX_RETRIES:
   final_json = parse_agent_json(final_result)
 
 IF final_json.overall_status == "failed":
-  HARD STOP: "Final Validation fehlgeschlagen nach 3 Retries"
+  HARD STOP: "Final Validation fehlgeschlagen nach 9 Retries"
 ```
 
 ---

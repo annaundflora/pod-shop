@@ -11,6 +11,7 @@ import {
   GET_PRODUCTS_BY_IDS,
   GET_PRODUCT_CATEGORY,
   GET_PRODUCTS_PAGINATED,
+  GET_PRODUCTS_SEARCH,
   GET_CATEGORY_META,
 } from '@/lib/graphql/queries'
 import { gql } from '@apollo/client'
@@ -29,6 +30,42 @@ import type {
   CollectionHeaderData,
 } from './types'
 import type { ProductCardData, ProductCategory, ProductDetailData } from '@/lib/graphql/types'
+
+// ─── GraphQL Response Types (für typisierte Apollo-Queries) ─────────────────
+interface CategoryMetaResponse {
+  productCategory: {
+    name: string; description: string | null; slug: string; count: number
+    image?: { sourceUrl: string; altText: string } | null
+  } | null
+}
+
+interface PaginatedResponse {
+  products: { nodes: ProductCardData[]; pageInfo: { hasNextPage: boolean; endCursor: string } }
+  productCategory: { name: string; description: string; slug: string; count: number } | null
+}
+
+interface ProductReviewsResponse {
+  product: {
+    databaseId: number; averageRating: number; reviewCount: number; reviewsAllowed: boolean
+    reviews: { edges: Array<{ rating: number; node: { id: string; content: string; date: string; author: { node: { name: string } } } }> }
+  } | null
+}
+
+interface ProductCategoryResponse {
+  product: { databaseId: number; productCategories: { nodes: Array<{ slug: string }> } } | null
+}
+
+interface RelatedProductsResponse {
+  product: { related: { nodes: ProductCardData[] } } | null
+}
+
+interface ProductsResponse {
+  products: { nodes: ProductCardData[] }
+}
+
+interface SearchResponse {
+  products: { nodes: ProductCardData[]; pageInfo: { hasNextPage: boolean; endCursor: string } }
+}
 
 // GraphQL Query für WP Custom Fields (lokal definiert)
 const GET_PAGE_CUSTOM_FIELDS = gql`
@@ -115,9 +152,9 @@ async function woocommerceLoader(params: WooCommerceLoaderParams): Promise<WooCo
       const sort = params.sort as string | undefined
       const fetchCount = page * perPage + 1
       const orderby = buildOrderby(sort)
-      const { data } = await getClient().query({
+      const { data } = await getClient().query<PaginatedResponse>({
         query: GET_PRODUCTS_PAGINATED,
-        variables: { categorySlug: slug, first: fetchCount, orderby },
+        variables: { categorySlug: slug, categoryId: slug, first: fetchCount, orderby },
       })
       const allNodes: ProductCardData[] = data?.products?.nodes ?? []
       const pageNodes = allNodes.slice((page - 1) * perPage, page * perPage)
@@ -150,12 +187,12 @@ async function woocommerceLoader(params: WooCommerceLoaderParams): Promise<WooCo
     } else if (params.query === 'category_meta') {
       const slug = params.slug
       if (!slug) return { data: null }
-      const { data } = await getClient().query({ query: GET_CATEGORY_META, variables: { slug } })
+      const { data } = await getClient().query<CategoryMetaResponse>({ query: GET_CATEGORY_META, variables: { slug } })
       const cat = data?.productCategory
       if (!cat) return { data: null }
       return { data: { items: [{ label: 'Startseite', href: '/' }, { label: cat.name }] } }
     } else if (params.query === 'product_reviews') {
-      const { data } = await getClient().query({
+      const { data } = await getClient().query<ProductReviewsResponse>({
         query: GET_PRODUCT_REVIEWS,
         variables: { productSlug: params.slug },
       })
@@ -171,42 +208,42 @@ async function woocommerceLoader(params: WooCommerceLoaderParams): Promise<WooCo
         } satisfies ProductReviewsResult,
       }
     } else if (params.query === 'product_recommendations') {
-      const source = (params as Record<string, unknown>).source as string ?? 'related'
+      const source = params.source ?? 'related'
       const productSlug = params.slug
       const perPage = params.first ?? 4
-      const { data: productData } = await getClient().query({
+      const { data: productData } = await getClient().query<ProductCategoryResponse>({
         query: GET_PRODUCT_CATEGORY,
         variables: { slug: productSlug },
       })
       const productId = productData?.product?.databaseId
       let nodes: ProductCardData[] = []
       if (source === 'related' && productId) {
-        const { data: relData } = await getClient().query({
+        const { data: relData } = await getClient().query<RelatedProductsResponse>({
           query: GET_RELATED_PRODUCTS,
           variables: { productId: String(productId), first: perPage },
         })
         nodes = relData?.product?.related?.nodes ?? []
         if (nodes.length === 0) {
-          const { data: catData } = await getClient().query({
+          const { data: catData } = await getClient().query<ProductsResponse>({
             query: GET_FEATURED_PRODUCTS,
             variables: { first: perPage + 1 },
           })
           nodes = (catData?.products?.nodes ?? []).filter((p: ProductCardData) => p.slug !== productSlug).slice(0, perPage)
         }
       } else if (source === 'bestsellers') {
-        const { data: bsData } = await getClient().query({
+        const { data: bsData } = await getClient().query<ProductsResponse>({
           query: GET_BESTSELLER_PRODUCTS, variables: { first: perPage },
         })
         nodes = bsData?.products?.nodes ?? []
-      } else if (source === 'custom' && (params as Record<string, unknown>).customIds) {
-        const ids = String((params as Record<string, unknown>).customIds).split(',').map(Number).filter(Boolean)
-        const { data: customData } = await getClient().query({
+      } else if (source === 'custom' && params.customIds) {
+        const ids = String(params.customIds!).split(',').map(Number).filter(Boolean)
+        const { data: customData } = await getClient().query<ProductsResponse>({
           query: GET_PRODUCTS_BY_IDS, variables: { include: ids, first: perPage },
         })
         nodes = customData?.products?.nodes ?? []
       }
       if (nodes.length === 0) return { data: null }
-      const heading = (params as Record<string, unknown>).heading as string ?? 'Das könnte dir auch gefallen'
+      const heading = params.heading ?? 'Das könnte dir auch gefallen'
       return { data: { heading, products: { nodes } } satisfies ProductRecommendationsData }
     } else if (params.query === 'featured_collection') {
       // ─── Branch: featured_collection ──────────────────────────────────────
@@ -216,10 +253,10 @@ async function woocommerceLoader(params: WooCommerceLoaderParams): Promise<WooCo
 
       // Parallel fetch (async-parallel Pattern)
       const [categoryResult, productsResult] = await Promise.all([
-        getClient().query({ query: GET_CATEGORY_META, variables: { slug } }),
-        getClient().query({
+        getClient().query<CategoryMetaResponse>({ query: GET_CATEGORY_META, variables: { slug } }),
+        getClient().query<PaginatedResponse>({
           query: GET_PRODUCTS_PAGINATED,
-          variables: { categorySlug: slug, first: collectionFirst, orderby: undefined },
+          variables: { categorySlug: slug, categoryId: slug, first: collectionFirst, orderby: undefined },
         }),
       ])
 
@@ -243,7 +280,7 @@ async function woocommerceLoader(params: WooCommerceLoaderParams): Promise<WooCo
       // ─── Branch: collection_header ────────────────────────────────────────
       const slug = params.slug
       if (!slug) return { data: null }
-      const { data } = await getClient().query({
+      const { data } = await getClient().query<CategoryMetaResponse>({
         query: GET_CATEGORY_META,
         variables: { slug },
       })
@@ -260,7 +297,7 @@ async function woocommerceLoader(params: WooCommerceLoaderParams): Promise<WooCo
       }
     } else if (params.query === 'search_products') {
       // ─── Branch: search_products ──────────────────────────────────────────
-      const searchQuery = (params as Record<string, unknown>).search as string | undefined ?? ''
+      const searchQuery = params.search ?? ''
       const page = Number(params.page ?? 1)
       const perPage = Number(params.perPage ?? 24)
       const sort = params.sort as string | undefined
@@ -284,13 +321,12 @@ async function woocommerceLoader(params: WooCommerceLoaderParams): Promise<WooCo
       const fetchCount = page * perPage + 1
       const orderby = buildOrderby(sort)
 
-      const { data } = await getClient().query({
-        query: GET_PRODUCTS_PAGINATED,
+      const { data } = await getClient().query<SearchResponse>({
+        query: GET_PRODUCTS_SEARCH,
         variables: {
           search: searchQuery.trim(),
           first: fetchCount,
           orderby,
-          categorySlug: null,
         },
       })
 

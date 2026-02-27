@@ -208,16 +208,15 @@ export const GET_PRODUCTS_PAGINATED = gql`
   ${PRODUCT_CARD_FRAGMENT}
   query GetProductsPaginated(
     $categorySlug: String
+    $categoryId: ID!
     $first: Int!
     $orderby: [ProductsOrderbyInput]
-    $search: String
   ) {
     products(
       first: $first
       where: {
         categoryIn: [$categorySlug]
         orderby: $orderby
-        search: $search
         status: "publish"
       }
     ) {
@@ -229,11 +228,38 @@ export const GET_PRODUCTS_PAGINATED = gql`
         endCursor
       }
     }
-    productCategory(id: $categorySlug, idType: SLUG) {
+    productCategory(id: $categoryId, idType: SLUG) {
       name
       count
       description
       slug
+    }
+  }
+`
+
+// Query: Produkt-Suche (ohne productCategory)
+export const GET_PRODUCTS_SEARCH = gql`
+  ${PRODUCT_CARD_FRAGMENT}
+  query GetProductsSearch(
+    $search: String!
+    $first: Int!
+    $orderby: [ProductsOrderbyInput]
+  ) {
+    products(
+      first: $first
+      where: {
+        search: $search
+        orderby: $orderby
+        status: "publish"
+      }
+    ) {
+      nodes {
+        ...ProductCardFields
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
     }
   }
 `

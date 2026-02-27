@@ -1,0 +1,20 @@
+{
+  "spec_path": "specs/phase-1/2026-02-27-seed-data",
+  "status": "completed",
+  "phase": "completed",
+  "started_at": "2026-02-27T00:00:00Z",
+  "total_slices": 5,
+  "current_slice_index": 5,
+  "slices": [
+    { "number": 1, "name": "produktkatalog-definition", "status": "approved", "retries": 2 },
+    { "number": 2, "name": "seed-script-erweiterung", "status": "approved", "retries": 0 },
+    { "number": 3, "name": "motiv-definition", "status": "approved", "retries": 2 },
+    { "number": 4, "name": "bild-generierung-script", "status": "approved", "retries": 3 },
+    { "number": 5, "name": "bild-import-seed", "status": "approved", "retries": 0 }
+  ],
+  "approved_slices": [1, 2, 3, 4, 5],
+  "failed_slices": [],
+  "gate3_retries": 0,
+  "last_action": "Initialized",
+  "last_updated": "2026-02-27T00:00:00Z"
+}

@@ -16,7 +16,9 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>
 }): Promise<Metadata> {
   const { slug } = await params
-  const { data } = await getClient().query({
+  const { data } = await getClient().query<{
+    productCategory: { name: string; description: string | null; slug: string; count: number } | null
+  }>({
     query: GET_CATEGORY_META,
     variables: { slug },
   })
@@ -61,7 +63,9 @@ export default async function CollectionPage({
   }
 
   // Kategorie-Existenz prüfen (404 wenn nicht gefunden)
-  const { data } = await getClient().query({
+  const { data } = await getClient().query<{
+    productCategory: { name: string } | null
+  }>({
     query: GET_CATEGORY_META,
     variables: { slug },
   })

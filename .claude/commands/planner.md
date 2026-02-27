@@ -1,5 +1,5 @@
 ---
-description: "Slice-Planner mit Fresh Context Pattern. Erstellt alle Slices + Gate 2 (pro Slice) + Gate 3. Task Calls direkt im Command, max 3 Retries pro Gate."
+description: "Slice-Planner mit Fresh Context Pattern. Erstellt alle Slices + Gate 2 (pro Slice) + Gate 3. Task Calls direkt im Command, max 9 Retries pro Gate."
 ---
 
 # Slice Planner Command
@@ -112,7 +112,7 @@ OUTPUT: "📊 State initialisiert: {STATE_FILE}"
 **WICHTIG: DU führst die Task Calls aus, NICHT ein anderer Agent!**
 
 ```
-MAX_RETRIES = 3
+MAX_RETRIES = 9
 
 FOR each slice IN slices:
   retry_count = 0
@@ -259,7 +259,7 @@ FOR each slice IN slices:
       # ─── State Update: Slice Failed (Retry) ───
       state.slices[slice.index].status = "retrying"
       state.slices[slice.index].retries = retry_count
-      state.last_action = "Slice {slice.number} failed, retry {retry_count}/3"
+      state.last_action = "Slice {slice.number} failed, retry {retry_count}/9"
       state.last_updated = ISO_TIMESTAMP
       Write(STATE_FILE, JSON.stringify(state, indent=2))
 
@@ -268,13 +268,13 @@ FOR each slice IN slices:
         state.status = "failed"
         state.slices[slice.index].status = "failed"
         state.failed_slices.append(slice.number)
-        state.last_action = "HARD STOP: Slice {slice.number} nach 3 Versuchen"
+        state.last_action = "HARD STOP: Slice {slice.number} nach 9 Versuchen"
         state.completed_at = ISO_TIMESTAMP
         Write(STATE_FILE, JSON.stringify(state, indent=2))
 
         OUTPUT: "
         ╔════════════════════════════════════════════════════════════╗
-        ║  ❌ HARD STOP: Slice {slice.number} nach 3 Versuchen       ║
+        ║  ❌ HARD STOP: Slice {slice.number} nach 9 Versuchen       ║
         ╠════════════════════════════════════════════════════════════╣
         ║                                                            ║
         ║  Blocking Issues:                                          ║
@@ -289,7 +289,7 @@ FOR each slice IN slices:
         "
         HARD STOP  # Beende gesamten Planner
 
-      OUTPUT: "⚠️ Slice {slice.number} FAILED (Versuch {retry_count}/3) → Auto-Fix..."
+      OUTPUT: "⚠️ Slice {slice.number} FAILED (Versuch {retry_count}/9) → Auto-Fix..."
       # Loop continues mit Fix-Versuch
 ```
 
@@ -311,7 +311,7 @@ state.last_updated = ISO_TIMESTAMP
 Write(STATE_FILE, JSON.stringify(state, indent=2))
 
 retry_count = 0
-MAX_RETRIES = 3
+MAX_RETRIES = 9
 
 WHILE retry_count < MAX_RETRIES:
 
@@ -380,20 +380,20 @@ WHILE retry_count < MAX_RETRIES:
 
     # ─── State Update: Gate 3 Retry ───
     state.gate3_retries = retry_count
-    state.last_action = "Gate 3 failed, retry {retry_count}/3"
+    state.last_action = "Gate 3 failed, retry {retry_count}/9"
     state.last_updated = ISO_TIMESTAMP
     Write(STATE_FILE, JSON.stringify(state, indent=2))
 
     IF retry_count >= MAX_RETRIES:
       # ─── State Update: Gate 3 Hard Stop ───
       state.status = "failed"
-      state.last_action = "HARD STOP: Gate 3 nach 3 Versuchen"
+      state.last_action = "HARD STOP: Gate 3 nach 9 Versuchen"
       state.completed_at = ISO_TIMESTAMP
       Write(STATE_FILE, JSON.stringify(state, indent=2))
 
       OUTPUT: "
       ╔════════════════════════════════════════════════════════════╗
-      ║  ❌ HARD STOP: Gate 3 nach 3 Versuchen fehlgeschlagen      ║
+      ║  ❌ HARD STOP: Gate 3 nach 9 Versuchen fehlgeschlagen      ║
       ╠════════════════════════════════════════════════════════════╣
       ║                                                            ║
       ║  Gaps:                                                     ║
@@ -412,7 +412,7 @@ WHILE retry_count < MAX_RETRIES:
       "
       HARD STOP
 
-    OUTPUT: "⚠️ Gate 3 GAPS FOUND (Versuch {retry_count}/3) → Fixe betroffene Slices..."
+    OUTPUT: "⚠️ Gate 3 GAPS FOUND (Versuch {retry_count}/9) → Fixe betroffene Slices..."
 
     # Fixe betroffene Slices
     FOR each affected_slice IN gaps.affected_slices:
@@ -491,7 +491,7 @@ Die `.planner-state.json` ermöglicht Resume und Audit:
 |--------|-----------|
 | `in_progress` | Planning läuft, Resume möglich |
 | `completed` | Alle Slices + Gate 3 approved |
-| `failed` | HARD STOP nach 3 Retries |
+| `failed` | HARD STOP nach 9 Retries |
 
 **Resume:** Bei `status: in_progress` setzt der Planner bei `current_slice_index` fort.
 

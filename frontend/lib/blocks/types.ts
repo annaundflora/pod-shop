@@ -1,5 +1,8 @@
 // frontend/lib/blocks/types.ts
 
+export type { ProductCardData } from '@/lib/graphql/types'
+import type { ProductCardData } from '@/lib/graphql/types'
+
 export type ContentSource = 'wordpress' | 'woocommerce' | 'inline'
 
 export interface WordPressLoaderParams {
@@ -77,19 +80,6 @@ export interface WPPageContent {
 export interface CategoryWithProducts {
   products: { nodes: ProductCardData[] }
   productCategory: { name: string; description: string; slug: string }
-}
-
-// ProductCardData (minimal für CategoryWithProducts)
-export interface ProductCardData {
-  id: string
-  slug: string
-  name: string
-  price: string
-  regularPrice?: string | null
-  onSale: boolean
-  stockStatus: string
-  image?: { sourceUrl: string; altText: string } | null
-  productCategories?: { nodes: { slug: string; name: string }[] }
 }
 
 // Props für Block-Components
