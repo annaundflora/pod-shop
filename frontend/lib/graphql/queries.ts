@@ -109,3 +109,147 @@ export const GET_PAGE_CONTENT = gql`
     }
   }
 `
+
+// ============================================================
+// Slice 02 — Produkt-Page Enhancements
+// ============================================================
+
+// Query: Produkt-Bewertungen für ProductReviewsBlock
+export const GET_PRODUCT_REVIEWS = gql`
+  query GetProductReviews($productSlug: ID!) {
+    product(id: $productSlug, idType: SLUG) {
+      databaseId
+      averageRating
+      reviewCount
+      reviewsAllowed
+      reviews {
+        edges {
+          rating
+          node {
+            id
+            content
+            date
+            author {
+              node {
+                name
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
+// Query: Verwandte Produkte für Recommendations
+export const GET_RELATED_PRODUCTS = gql`
+  ${PRODUCT_CARD_FRAGMENT}
+  query GetRelatedProducts($productId: ID!, $first: Int) {
+    product(id: $productId, idType: DATABASE_ID) {
+      related(first: $first) {
+        nodes {
+          ...ProductCardFields
+        }
+      }
+    }
+  }
+`
+
+// Query: Bestseller-Produkte
+export const GET_BESTSELLER_PRODUCTS = gql`
+  ${PRODUCT_CARD_FRAGMENT}
+  query GetBestsellerProducts($first: Int) {
+    products(
+      first: $first
+      where: { orderby: [{ field: TOTAL_SALES, order: DESC }] }
+    ) {
+      nodes {
+        ...ProductCardFields
+      }
+    }
+  }
+`
+
+// Query: Produkte nach IDs
+export const GET_PRODUCTS_BY_IDS = gql`
+  ${PRODUCT_CARD_FRAGMENT}
+  query GetProductsByIds($include: [Int!]!, $first: Int) {
+    products(
+      first: $first
+      where: { include: $include }
+    ) {
+      nodes {
+        ...ProductCardFields
+      }
+    }
+  }
+`
+
+// Query: Produkt-Kategorie (schlanke Query nur für Recommendations-Loader)
+export const GET_PRODUCT_CATEGORY = gql`
+  query GetProductCategory($slug: ID!) {
+    product(id: $slug, idType: SLUG) {
+      databaseId
+      productCategories {
+        nodes {
+          slug
+        }
+      }
+    }
+  }
+`
+
+// ============================================================
+// Slice 03 — Kategorie-Page Enhancements
+// ============================================================
+
+// Query: Produkte mit Pagination fuer Kategorie-Seiten und Suchseite
+export const GET_PRODUCTS_PAGINATED = gql`
+  ${PRODUCT_CARD_FRAGMENT}
+  query GetProductsPaginated(
+    $categorySlug: String
+    $first: Int!
+    $orderby: [ProductsOrderbyInput]
+    $search: String
+  ) {
+    products(
+      first: $first
+      where: {
+        categoryIn: [$categorySlug]
+        orderby: $orderby
+        search: $search
+        status: "publish"
+      }
+    ) {
+      nodes {
+        ...ProductCardFields
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+    productCategory(id: $categorySlug, idType: SLUG) {
+      name
+      count
+      description
+      slug
+    }
+  }
+`
+
+// Query: Kategorie-Metadaten (fuer Breadcrumb und CollectionHeader)
+export const GET_CATEGORY_META = gql`
+  query GetCategoryMeta($slug: ID!) {
+    productCategory(id: $slug, idType: SLUG) {
+      name
+      description
+      slug
+      count
+      image {
+        sourceUrl
+        altText
+      }
+    }
+  }
+`

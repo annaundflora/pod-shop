@@ -1,0 +1,17 @@
+# themes/default/pages/thanks.yaml
+# Danke-Page Block-Konfiguration
+# HINWEIS: orderId wird NICHT als YAML-Prop übergeben — wird client-seitig via
+# window.location.search gelesen (verhindert Hydration-Mismatch bei SSR)
+
+sections:
+  - columns: 1
+    blocks:
+      - type: order-confirmation
+        content_source: inline
+        params:
+          props:
+            headline: "Vielen Dank fuer deine Bestellung!"
+            text: "Deine Bestellbestaetigung wurde an deine E-Mail-Adresse gesendet."
+            emailText: "Du erhaeltst in Kuerze eine Bestaetigung per E-Mail."
+            ctaText: "Weiter einkaufen"
+            ctaLink: "/"

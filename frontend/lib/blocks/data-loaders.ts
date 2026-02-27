@@ -1,6 +1,18 @@
 // frontend/lib/blocks/data-loaders.ts
 import { getClient } from '@/lib/apollo/server-client'
-import { GET_FEATURED_PRODUCTS, GET_PRODUCT_CATEGORIES, GET_CATEGORY_WITH_PRODUCTS, GET_PRODUCT, GET_PAGE_CONTENT } from '@/lib/graphql/queries'
+import {
+  GET_FEATURED_PRODUCTS,
+  GET_PRODUCT_CATEGORIES,
+  GET_PRODUCT,
+  GET_PAGE_CONTENT,
+  GET_PRODUCT_REVIEWS,
+  GET_RELATED_PRODUCTS,
+  GET_BESTSELLER_PRODUCTS,
+  GET_PRODUCTS_BY_IDS,
+  GET_PRODUCT_CATEGORY,
+  GET_PRODUCTS_PAGINATED,
+  GET_CATEGORY_META,
+} from '@/lib/graphql/queries'
 import { gql } from '@apollo/client'
 import type {
   WPCustomFieldsData,
@@ -10,11 +22,15 @@ import type {
   InlineLoaderParams,
   LoaderParams,
   ContentSource,
-  CategoryWithProducts,
+  ProductReviewsResult,
+  ProductRecommendationsData,
+  PaginatedProductsResult,
+  FeaturedCollectionData,
+  CollectionHeaderData,
 } from './types'
 import type { ProductCardData, ProductCategory, ProductDetailData } from '@/lib/graphql/types'
 
-// GraphQL Query für WP Custom Fields (lokal definiert — NICHT in lib/graphql/queries.ts)
+// GraphQL Query für WP Custom Fields (lokal definiert)
 const GET_PAGE_CUSTOM_FIELDS = gql`
   query GetPageCustomFields($slug: String!) {
     pageBy(uri: $slug) {
@@ -34,7 +50,7 @@ interface WordPressLoaderResult {
 }
 
 interface WooCommerceLoaderResult {
-  data: { products?: { nodes: ProductCardData[] } } | { productCategories?: { nodes: ProductCategory[] } } | CategoryWithProducts | { nodes: ProductCategory[]; currentSlug: string } | ProductDetailData | null
+  data: unknown
   error?: string
 }
 
@@ -42,10 +58,16 @@ interface InlineLoaderResult {
   data: Record<string, unknown>
 }
 
-/**
- * Loads WP Custom Fields or page content for a page via GraphQL.
- * Returns null data on GraphQL error (Error Boundary handles rendering).
- */
+// ─── Sort-Mapping ─────────────────────────────────────────────────────────────
+export function buildOrderby(sort: string | undefined): { field: string; order: string }[] | undefined {
+  switch (sort) {
+    case 'price_asc':  return [{ field: 'PRICE', order: 'ASC' }]
+    case 'price_desc': return [{ field: 'PRICE', order: 'DESC' }]
+    case 'newest':     return [{ field: 'DATE', order: 'DESC' }]
+    default:           return undefined
+  }
+}
+
 async function wordpressLoader(params: WordPressLoaderParams): Promise<WordPressLoaderResult> {
   try {
     if (params.query === 'page_content') {
@@ -55,14 +77,9 @@ async function wordpressLoader(params: WordPressLoaderParams): Promise<WordPress
       })
       if (!data?.pageBy) return { data: null }
       return {
-        data: {
-          title: data.pageBy.title,
-          content: data.pageBy.content,
-        } satisfies WPPageContent,
+        data: { title: data.pageBy.title, content: data.pageBy.content } satisfies WPPageContent,
       }
     }
-
-    // Default: custom_fields (bestehendes Verhalten)
     const { data } = await getClient().query<{ pageBy: WPCustomFieldsData | null }>({
       query: GET_PAGE_CUSTOM_FIELDS,
       variables: { slug: params.page_slug },
@@ -74,10 +91,6 @@ async function wordpressLoader(params: WordPressLoaderParams): Promise<WordPress
   }
 }
 
-/**
- * Loads WooCommerce product or category data via GraphQL.
- * Reuses existing GET_FEATURED_PRODUCTS and GET_PRODUCT_CATEGORIES queries.
- */
 async function woocommerceLoader(params: WooCommerceLoaderParams): Promise<WooCommerceLoaderResult> {
   try {
     const first = params.first ?? 4
@@ -93,33 +106,213 @@ async function woocommerceLoader(params: WooCommerceLoaderParams): Promise<WooCo
         variables: { first },
       })
       return {
-        data: {
-          nodes: data?.productCategories?.nodes ?? [],
-          currentSlug: params.slug ?? '',
-        }
+        data: { nodes: data?.productCategories?.nodes ?? [], currentSlug: params.slug ?? '' },
       }
     } else if (params.query === 'products_by_category') {
       const slug = params.slug
-      if (!slug) {
-        console.warn('products_by_category: missing slug param')
-        return { data: null }
-      }
-      const { data } = await getClient().query<CategoryWithProducts>({
-        query: GET_CATEGORY_WITH_PRODUCTS,
-        variables: { categorySlug: slug, categoryId: slug, first },
+      const page = Number(params.page ?? 1)
+      const perPage = Number(params.perPage ?? 24)
+      const sort = params.sort as string | undefined
+      const fetchCount = page * perPage + 1
+      const orderby = buildOrderby(sort)
+      const { data } = await getClient().query({
+        query: GET_PRODUCTS_PAGINATED,
+        variables: { categorySlug: slug, first: fetchCount, orderby },
       })
-      return { data: data ?? null }
+      const allNodes: ProductCardData[] = data?.products?.nodes ?? []
+      const pageNodes = allNodes.slice((page - 1) * perPage, page * perPage)
+      const hasNextPage = allNodes.length > page * perPage
+      const categoryCount = data?.productCategory?.count ?? 0
+      const totalPages = categoryCount > 0
+        ? Math.ceil(categoryCount / perPage)
+        : Math.ceil(allNodes.length / perPage) + (hasNextPage ? 1 : 0)
+      return {
+        data: {
+          products: { nodes: pageNodes },
+          productCategory: data?.productCategory ?? null,
+          pagination: {
+            currentPage: page,
+            totalPages: Math.max(totalPages, page),
+            hasNextPage,
+            hasPreviousPage: page > 1,
+            totalCount: categoryCount,
+          },
+        } satisfies PaginatedProductsResult,
+      }
     } else if (params.query === 'product_by_slug') {
       const slug = params.slug
-      if (!slug) {
-        console.warn('product_by_slug: missing slug param')
-        return { data: null }
-      }
+      if (!slug) return { data: null }
       const { data } = await getClient().query<{ product: ProductDetailData | null }>({
         query: GET_PRODUCT,
         variables: { slug },
       })
       return { data: data?.product ?? null }
+    } else if (params.query === 'category_meta') {
+      const slug = params.slug
+      if (!slug) return { data: null }
+      const { data } = await getClient().query({ query: GET_CATEGORY_META, variables: { slug } })
+      const cat = data?.productCategory
+      if (!cat) return { data: null }
+      return { data: { items: [{ label: 'Startseite', href: '/' }, { label: cat.name }] } }
+    } else if (params.query === 'product_reviews') {
+      const { data } = await getClient().query({
+        query: GET_PRODUCT_REVIEWS,
+        variables: { productSlug: params.slug },
+      })
+      if (!data?.product) return { data: null }
+      const product = data.product
+      return {
+        data: {
+          averageRating: product.averageRating ?? 0,
+          reviewCount: product.reviewCount ?? 0,
+          reviewsAllowed: product.reviewsAllowed ?? false,
+          reviews: { edges: product.reviews?.edges ?? [] },
+          productId: product.databaseId,
+        } satisfies ProductReviewsResult,
+      }
+    } else if (params.query === 'product_recommendations') {
+      const source = (params as Record<string, unknown>).source as string ?? 'related'
+      const productSlug = params.slug
+      const perPage = params.first ?? 4
+      const { data: productData } = await getClient().query({
+        query: GET_PRODUCT_CATEGORY,
+        variables: { slug: productSlug },
+      })
+      const productId = productData?.product?.databaseId
+      let nodes: ProductCardData[] = []
+      if (source === 'related' && productId) {
+        const { data: relData } = await getClient().query({
+          query: GET_RELATED_PRODUCTS,
+          variables: { productId: String(productId), first: perPage },
+        })
+        nodes = relData?.product?.related?.nodes ?? []
+        if (nodes.length === 0) {
+          const { data: catData } = await getClient().query({
+            query: GET_FEATURED_PRODUCTS,
+            variables: { first: perPage + 1 },
+          })
+          nodes = (catData?.products?.nodes ?? []).filter((p: ProductCardData) => p.slug !== productSlug).slice(0, perPage)
+        }
+      } else if (source === 'bestsellers') {
+        const { data: bsData } = await getClient().query({
+          query: GET_BESTSELLER_PRODUCTS, variables: { first: perPage },
+        })
+        nodes = bsData?.products?.nodes ?? []
+      } else if (source === 'custom' && (params as Record<string, unknown>).customIds) {
+        const ids = String((params as Record<string, unknown>).customIds).split(',').map(Number).filter(Boolean)
+        const { data: customData } = await getClient().query({
+          query: GET_PRODUCTS_BY_IDS, variables: { include: ids, first: perPage },
+        })
+        nodes = customData?.products?.nodes ?? []
+      }
+      if (nodes.length === 0) return { data: null }
+      const heading = (params as Record<string, unknown>).heading as string ?? 'Das könnte dir auch gefallen'
+      return { data: { heading, products: { nodes } } satisfies ProductRecommendationsData }
+    } else if (params.query === 'featured_collection') {
+      // ─── Branch: featured_collection ──────────────────────────────────────
+      const slug = params.slug
+      if (!slug) return { data: null }
+      const collectionFirst = Number(params.first ?? 4)
+
+      // Parallel fetch (async-parallel Pattern)
+      const [categoryResult, productsResult] = await Promise.all([
+        getClient().query({ query: GET_CATEGORY_META, variables: { slug } }),
+        getClient().query({
+          query: GET_PRODUCTS_PAGINATED,
+          variables: { categorySlug: slug, first: collectionFirst, orderby: undefined },
+        }),
+      ])
+
+      const cat = categoryResult.data?.productCategory
+      const products = productsResult.data?.products?.nodes ?? []
+
+      if (!cat || products.length === 0) return { data: null }
+
+      return {
+        data: {
+          category: {
+            name: cat.name,
+            description: cat.description ?? '',
+            slug: cat.slug,
+            image: cat.image ?? null,
+          },
+          products: { nodes: products.slice(0, collectionFirst) },
+        } satisfies FeaturedCollectionData,
+      }
+    } else if (params.query === 'collection_header') {
+      // ─── Branch: collection_header ────────────────────────────────────────
+      const slug = params.slug
+      if (!slug) return { data: null }
+      const { data } = await getClient().query({
+        query: GET_CATEGORY_META,
+        variables: { slug },
+      })
+      const cat = data?.productCategory
+      if (!cat) return { data: null }
+      return {
+        data: {
+          name: cat.name,
+          description: cat.description ?? '',
+          image: cat.image
+            ? { sourceUrl: cat.image.sourceUrl, altText: cat.image.altText ?? cat.name ?? '' }
+            : undefined,
+        } satisfies CollectionHeaderData,
+      }
+    } else if (params.query === 'search_products') {
+      // ─── Branch: search_products ──────────────────────────────────────────
+      const searchQuery = (params as Record<string, unknown>).search as string | undefined ?? ''
+      const page = Number(params.page ?? 1)
+      const perPage = Number(params.perPage ?? 24)
+      const sort = params.sort as string | undefined
+
+      // Business Rule: Min. 2 Zeichen für Query-Ausführung
+      if (searchQuery.trim().length < 2) {
+        return {
+          data: {
+            products: { nodes: [] },
+            pagination: {
+              currentPage: page,
+              totalPages: 0,
+              hasNextPage: false,
+              hasPreviousPage: false,
+              totalCount: 0,
+            },
+          } satisfies PaginatedProductsResult,
+        }
+      }
+
+      const fetchCount = page * perPage + 1
+      const orderby = buildOrderby(sort)
+
+      const { data } = await getClient().query({
+        query: GET_PRODUCTS_PAGINATED,
+        variables: {
+          search: searchQuery.trim(),
+          first: fetchCount,
+          orderby,
+          categorySlug: null,
+        },
+      })
+
+      const allNodes = data?.products?.nodes ?? []
+      const pageNodes = allNodes.slice((page - 1) * perPage, page * perPage)
+      const hasNextPage = allNodes.length > page * perPage
+      const totalPages = hasNextPage
+        ? page + 1
+        : Math.ceil(allNodes.length / perPage) || (page > 1 ? page : 0)
+
+      return {
+        data: {
+          products: { nodes: pageNodes },
+          pagination: {
+            currentPage: page,
+            totalPages: Math.max(totalPages, page),
+            hasNextPage,
+            hasPreviousPage: page > 1,
+            totalCount: allNodes.length,
+          },
+        } satisfies PaginatedProductsResult,
+      }
     }
     return { data: null, error: `Unknown woocommerce query: ${params.query}` }
   } catch (error) {
@@ -128,16 +321,10 @@ async function woocommerceLoader(params: WooCommerceLoaderParams): Promise<WooCo
   }
 }
 
-/**
- * Returns inline props directly from YAML config — no network request.
- */
 function inlineLoader(params: InlineLoaderParams): InlineLoaderResult {
   return { data: params.props }
 }
 
-/**
- * Dispatches to the correct loader based on content_source.
- */
 export async function loadBlockData(
   contentSource: ContentSource,
   params: LoaderParams

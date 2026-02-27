@@ -4,12 +4,22 @@
 sections:
   - columns: 1
     blocks:
+      - type: breadcrumb
+        content_source: woocommerce
+        params:
+          query: category_meta
+          slug: $route.slug
+
+  - columns: 1
+    blocks:
       - type: page-heading
         content_source: woocommerce
         params:
           query: products_by_category
           slug: $route.slug
-          first: 24
+          page: $route.page
+          perPage: 24
+          sort: $route.sort
 
   - columns: 1
     blocks:
@@ -26,7 +36,18 @@ sections:
         params:
           query: products_by_category
           slug: $route.slug
-          first: 24
+          page: $route.page
+          perPage: 24
+          sort: $route.sort
+
+  - columns: 1
+    blocks:
+      - type: sort-bar
+        content_source: inline
+        params:
+          props:
+            currentSort: $route.sort
+            baseUrl: /kategorie/$route.slug
 
   - columns: 1
     blocks:
@@ -35,4 +56,31 @@ sections:
         params:
           query: products_by_category
           slug: $route.slug
-          first: 24
+          page: $route.page
+          perPage: 24
+          sort: $route.sort
+
+  - columns: 1
+    blocks:
+      - type: pagination
+        content_source: woocommerce
+        params:
+          query: products_by_category
+          slug: $route.slug
+          page: $route.page
+          perPage: 24
+          sort: $route.sort
+
+  - columns: 1
+    blocks:
+      - type: empty-state
+        content_source: inline
+        params:
+          props:
+            headline: "Keine Produkte gefunden"
+            text: "In dieser Kategorie sind aktuell keine Produkte verfügbar."
+            links:
+              - label: "Alle Kategorien"
+                href: "/"
+              - label: "Neuheiten"
+                href: "/kategorie/neuheiten"

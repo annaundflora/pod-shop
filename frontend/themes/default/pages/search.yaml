@@ -1,0 +1,64 @@
+# themes/default/pages/search.yaml
+# Suchseite Block-Konfiguration
+
+sections:
+  - columns: 1
+    blocks:
+      - type: search-bar
+        content_source: inline
+        params:
+          props:
+            placeholder: "Was suchst du?"
+            currentQuery: "$route.q"
+  - columns: 1
+    blocks:
+      - type: product-count
+        content_source: woocommerce
+        params:
+          query: search_products
+          search: "$route.q"
+          page: "$route.page"
+          perPage: 24
+          sort: "$route.sort"
+  - columns: 1
+    blocks:
+      - type: sort-bar
+        content_source: inline
+        params:
+          props:
+            currentSort: "$route.sort"
+            baseUrl: "/suche"
+            currentQuery: "$route.q"
+  - columns: 1
+    blocks:
+      - type: search-results
+        content_source: woocommerce
+        params:
+          query: search_products
+          search: "$route.q"
+          page: "$route.page"
+          perPage: 24
+          sort: "$route.sort"
+  - columns: 1
+    blocks:
+      - type: pagination
+        content_source: woocommerce
+        params:
+          query: search_products
+          search: "$route.q"
+          page: "$route.page"
+          perPage: 24
+          sort: "$route.sort"
+  - columns: 1
+    blocks:
+      - type: empty-state
+        content_source: inline
+        params:
+          props:
+            headline: "Keine Ergebnisse gefunden"
+            text: "Versuche es mit einem anderen Suchbegriff oder stöbere in unseren Kategorien."
+            links:
+              - label: "Alle Produkte"
+                href: "/kategorie/alle"
+              - label: "Neue Produkte"
+                href: "/kategorie/neue-produkte"

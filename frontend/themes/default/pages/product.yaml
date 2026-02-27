@@ -25,3 +25,36 @@ sections:
         params:
           query: product_by_slug
           slug: "$route.slug"
+
+  - columns: 1
+    blocks:
+      - type: trust-badges
+        content_source: inline
+        params:
+          props:
+            items:
+              - icon: truck
+                text: "Versand in 3–5 Werktagen"
+              - icon: shield
+                text: "30 Tage Rückgabe"
+              - icon: lock
+                text: "Sichere Zahlung"
+
+  - columns: 1
+    blocks:
+      - type: product-reviews
+        content_source: woocommerce
+        params:
+          query: product_reviews
+          slug: "$route.slug"
+
+  - columns: 1
+    blocks:
+      - type: product-recommendations
+        content_source: woocommerce
+        params:
+          query: product_recommendations
+          source: related
+          slug: "$route.slug"
+          first: 4
+          heading: "Das könnte dir auch gefallen"

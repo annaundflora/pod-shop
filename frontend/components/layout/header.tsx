@@ -1,5 +1,6 @@
 // frontend/components/layout/header.tsx
 import Link from 'next/link'
+import { Search } from 'lucide-react'
 import { getClient } from '@/lib/apollo/server-client'
 import { GET_PRODUCT_CATEGORIES } from '@/lib/graphql/queries'
 import { MobileMenu } from './mobile-menu'
@@ -51,8 +52,15 @@ export async function Header() {
           ))}
         </nav>
 
-        {/* Warenkorb-Icon */}
+        {/* Suche + Warenkorb */}
         <div className="flex items-center gap-3">
+          <Link
+            href="/suche"
+            aria-label="Suche öffnen"
+            className="text-text-secondary hover:text-text-primary focus-visible:ring-2 focus-visible:ring-primary rounded"
+          >
+            <Search className="h-5 w-5" aria-hidden={true} />
+          </Link>
           <CartIcon />
         </div>
       </div>
