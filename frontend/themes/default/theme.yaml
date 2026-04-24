@@ -1,14 +1,24 @@
 # themes/default/theme.yaml
 
 colors:
-  primary: "oklch(0.45 0.18 150)" 
+  primary: "oklch(0.45 0.18 150)"
   primary-hover: "oklch(0.38 0.2 270)"
+  # NEU (Design-E-Slot): explizite dunklere Brand-Variante, neutraler Default (leicht dunkler als primary)
+  primary-dark: "oklch(0.35 0.18 150)"
   accent: "oklch(0.65 0.15 270)"
   surface: "oklch(1 0 0)"
   surface-elevated: "oklch(0.98 0 0)"
+  # NEU (Design-E-Slot): warme Alternativ-Surface, neutraler Default (sehr helles Grau)
+  surface-alt: "oklch(0.97 0 0)"
   text-primary: "oklch(0.15 0 0)"
   text-secondary: "oklch(0.45 0 0)"
+  # NEU (Design-E-Slot): tertiäre Textstufe, aus text-secondary mit leicht höherer L abgeleitet
+  text-tertiary: "oklch(0.55 0 0)"
+  # NEU (Design-E-Slot): Muted/Disabled, deutlich heller als tertiary
+  text-muted: "oklch(0.72 0 0)"
   border: "oklch(0.88 0 0)"
+  # NEU (Design-E-Slot): kräftigere Border-Variante (leicht dunkler als border)
+  border-strong: "oklch(0.82 0 0)"
   # NEU: Status-Tokens
   error: "oklch(0.55 0.2 25)"
   success: "oklch(0.55 0.15 145)"
@@ -23,10 +33,16 @@ fonts:
 radius:
   card: "0.75rem"
   button: "0.5rem"
+  # NEU (Design-E-Slot)
+  card-lg: "0.75rem"
+  hero: "0.875rem"
+  pill: "999px"
 
 shadows:
   card: "0 1px 3px oklch(0 0 0 / 0.08)"
   card-hover: "0 8px 25px oklch(0 0 0 / 0.12)"
+  # NEU (Design-E-Slot): Sticky-Shadow (nach oben gerichtet, z.B. Sticky-ATC)
+  sticky: "0 -4px 16px oklch(0 0 0 / 0.06)"
 
 aspect-ratios:
   product: "2 / 3"

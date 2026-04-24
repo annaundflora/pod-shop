@@ -3,12 +3,17 @@
 :root {
   --theme-color-primary: oklch(0.45 0.18 150);
   --theme-color-primary-hover: oklch(0.38 0.2 270);
+  --theme-color-primary-dark: oklch(0.35 0.18 150);
   --theme-color-accent: oklch(0.65 0.15 270);
   --theme-color-surface: oklch(1 0 0);
   --theme-color-surface-elevated: oklch(0.98 0 0);
+  --theme-color-surface-alt: oklch(0.97 0 0);
   --theme-color-text-primary: oklch(0.15 0 0);
   --theme-color-text-secondary: oklch(0.45 0 0);
+  --theme-color-text-tertiary: oklch(0.55 0 0);
+  --theme-color-text-muted: oklch(0.72 0 0);
   --theme-color-border: oklch(0.88 0 0);
+  --theme-color-border-strong: oklch(0.82 0 0);
   --theme-color-error: oklch(0.55 0.2 25);
   --theme-color-success: oklch(0.55 0.15 145);
   --theme-color-warning: oklch(0.7 0.15 85);
@@ -17,7 +22,11 @@
   --theme-font-body: Inter;
   --theme-radius-card: 0.75rem;
   --theme-radius-button: 0.5rem;
+  --theme-radius-card-lg: 0.75rem;
+  --theme-radius-hero: 0.875rem;
+  --theme-radius-pill: 999px;
   --theme-shadow-card: 0 1px 3px oklch(0 0 0 / 0.08);
   --theme-shadow-card-hover: 0 8px 25px oklch(0 0 0 / 0.12);
+  --theme-shadow-sticky: 0 -4px 16px oklch(0 0 0 / 0.06);
   --theme-aspect-product: 2 / 3;
 }
