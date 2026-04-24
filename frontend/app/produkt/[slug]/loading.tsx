@@ -5,7 +5,7 @@ export default function ProductPageLoading() {
       <div className="lg:grid lg:grid-cols-2 lg:gap-16">
         {/* Bild-Skeleton */}
         <div
-          className="aspect-square bg-surface-elevated rounded-[var(--radius-card,0.75rem)] animate-pulse"
+          className="aspect-product bg-surface-elevated rounded-[var(--radius-card,0.75rem)] animate-pulse"
           style={{ boxShadow: 'var(--shadow-card)' }}
         />
 

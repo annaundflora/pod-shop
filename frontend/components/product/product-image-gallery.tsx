@@ -19,7 +19,7 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
   if (images.length === 0) {
     return (
       <div
-        className="aspect-square bg-[var(--color-surface-elevated)] rounded-[var(--radius-card,0.75rem)] flex items-center justify-center text-text-secondary"
+        className="aspect-product bg-[var(--color-surface-elevated)] rounded-[var(--radius-card,0.75rem)] flex items-center justify-center text-text-secondary"
         style={{ boxShadow: 'var(--shadow-card)' }}
       >
         Kein Bild vorhanden
@@ -50,7 +50,7 @@ export function ProductImageGallery({ images, productName }: ProductImageGallery
     <div>
       {/* Hauptbild mit Touch-Swipe-Unterstuetzung (Mobile) */}
       <div
-        className="relative aspect-square rounded-[var(--radius-card,0.75rem)] overflow-hidden bg-[var(--color-surface-elevated)] transition-shadow duration-300 hover:[box-shadow:var(--shadow-card-hover)]"
+        className="relative aspect-product rounded-[var(--radius-card,0.75rem)] overflow-hidden bg-[var(--color-surface-elevated)] transition-shadow duration-300 hover:[box-shadow:var(--shadow-card-hover)]"
         style={{ boxShadow: 'var(--shadow-card)' }}
         role="region"
         aria-label="Produktbilder"

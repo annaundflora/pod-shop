@@ -19,4 +19,5 @@
   --theme-radius-button: 0.5rem;
   --theme-shadow-card: 0 1px 3px oklch(0 0 0 / 0.08);
   --theme-shadow-card-hover: 0 8px 25px oklch(0 0 0 / 0.12);
+  --theme-aspect-product: 2 / 3;
 }

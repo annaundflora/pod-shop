@@ -7,7 +7,7 @@ import type { ProductDetailData } from '@/lib/graphql/types'
 export function ProductGalleryBlock({ data }: BlockComponentProps<ProductDetailData | null>) {
   if (!data) {
     return (
-      <div className="aspect-square bg-surface-elevated rounded-card flex items-center justify-center text-text-secondary">
+      <div className="aspect-product bg-surface-elevated rounded-card flex items-center justify-center text-text-secondary">
         Produkt nicht gefunden
       </div>
     )
@@ -28,6 +28,6 @@ export function ProductGalleryBlock({ data }: BlockComponentProps<ProductDetailD
 
 export function ProductGalleryBlockSkeleton() {
   return (
-    <div className="aspect-square bg-surface-elevated rounded-card animate-pulse" />
+    <div className="aspect-product bg-surface-elevated rounded-card animate-pulse" />
   )
 }

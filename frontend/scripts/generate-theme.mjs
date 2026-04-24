@@ -109,6 +109,15 @@ function validateConfig(config) {
       }
     }
   }
+
+  if (config['aspect-ratios']) {
+    for (const [key, value] of Object.entries(config['aspect-ratios'])) {
+      if (!value || typeof value !== 'string' || value.trim() === '') {
+        process.stderr.write(`Aspect-ratio value required for ${key}\n`)
+        process.exit(1)
+      }
+    }
+  }
 }
 
 /**
@@ -144,6 +153,12 @@ function generateCSS(config, themeName) {
   if (config.shadows) {
     for (const [key, value] of Object.entries(config.shadows)) {
       lines.push(`  --theme-shadow-${key}: ${value};`)
+    }
+  }
+
+  if (config['aspect-ratios']) {
+    for (const [key, value] of Object.entries(config['aspect-ratios'])) {
+      lines.push(`  --theme-aspect-${key}: ${value};`)
     }
   }
 

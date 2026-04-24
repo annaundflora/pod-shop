@@ -60,7 +60,7 @@ export function FeaturedCollectionBlockSkeleton() {
       <div className="h-6 w-48 bg-surface-sunken rounded animate-pulse" />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map(i => (
-          <div key={i} className="aspect-square bg-surface-sunken rounded-card animate-pulse" />
+          <div key={i} className="aspect-product bg-surface-sunken rounded-card animate-pulse" />
         ))}
       </div>
     </div>

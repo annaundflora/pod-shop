@@ -35,6 +35,9 @@
   --shadow-card: var(--theme-shadow-card);
   --shadow-card-hover: var(--theme-shadow-card-hover);
 
+  /* NEU: Aspect-Ratio-Tokens */
+  --aspect-product: var(--theme-aspect-product);
+
   /* NEU: Font-CSS-Variables (für next/font Integration) */
   /* next/font setzt --font-heading / --font-body via variable-Prop auf <html>.
      Der @theme Block macht sie als Tailwind-Utility-Klassen verfügbar (font-heading, font-body). */

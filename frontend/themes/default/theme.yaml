@@ -27,3 +27,6 @@ radius:
 shadows:
   card: "0 1px 3px oklch(0 0 0 / 0.08)"
   card-hover: "0 8px 25px oklch(0 0 0 / 0.12)"
+
+aspect-ratios:
+  product: "2 / 3"

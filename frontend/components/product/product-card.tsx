@@ -15,7 +15,7 @@ export function ProductCard({ product }: ProductCardProps) {
     <Card variant="interactive" asChild>
       <Link href={`/produkt/${product.slug}`} className="group block">
         {/* Produktbild */}
-        <div className="relative aspect-square bg-surface-elevated overflow-hidden">
+        <div className="relative aspect-product bg-surface-elevated overflow-hidden">
           {product.image ? (
             <Image
               src={product.image.sourceUrl}
