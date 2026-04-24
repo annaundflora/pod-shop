@@ -82,7 +82,7 @@
 
   h1, h2, h3, h4, h5, h6 {
     text-wrap: balance;
-    @apply font-semibold tracking-tight;
+    @apply font-heading font-semibold tracking-tight;
   }
 
   /* Touch-Targets für Mobile-first (Pinterest-Traffic) */
