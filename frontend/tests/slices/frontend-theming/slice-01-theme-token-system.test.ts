@@ -85,8 +85,8 @@ describe('Theme Token System — generate-theme.mjs', () => {
     it('should include font tokens', () => {
       execSync(`node ${SCRIPT_PATH}`, { cwd: FRONTEND_ROOT, env: defaultEnv })
       const css = readFileSync(GENERATED_CSS, 'utf-8')
-      expect(css).toContain('--theme-font-heading: Inter')
-      expect(css).toContain('--theme-font-body: Inter')
+      expect(css).toContain('--theme-font-heading: Source Serif 4')
+      expect(css).toContain('--theme-font-body: Work Sans')
     })
 
     it('should wrap all tokens in :root block', () => {
