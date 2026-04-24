@@ -1,0 +1,21 @@
+{
+  "spec_path": "specs/2026-04-16-kleinstadtpflanze-design-e",
+  "feature_name": "kleinstadtpflanze-design-e",
+  "status": "in_progress",
+  "current_state": "implementing",
+  "current_slice_id": "slice-01",
+  "retry_count": 0,
+  "lint_retry_count": 0,
+  "completed_slices": [],
+  "slim_spec_written": true,
+  "stack": {
+    "stack_name": "TypeScript",
+    "indicator_file": "frontend/tsconfig.json",
+    "lint_autofix_cmd": null,
+    "lint_check_cmd": null,
+    "typecheck_cmd": "cd frontend && npx tsc --noEmit",
+    "test_cmd": "cd frontend && pnpm test"
+  },
+  "branch": "kleinstadtpflanze-design-e",
+  "worktree_path": "/home/dev/pod-shop/.claude/worktrees/kleinstadtpflanze-design-e"
+}
