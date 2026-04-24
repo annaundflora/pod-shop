@@ -1,15 +1,15 @@
-import { Inter } from 'next/font/google'
+import { Work_Sans, Source_Serif_4 } from 'next/font/google'
 
-export const headingFont = Inter({
+export const bodyFont = Work_Sans({
   subsets: ['latin'],
-  variable: '--font-heading',
-  display: 'swap',
   weight: ['400', '500', '600', '700'],
-})
-
-export const bodyFont = Inter({
-  subsets: ['latin'],
   variable: '--font-body',
   display: 'swap',
-  weight: ['400', '500'],
+})
+
+export const headingFont = Source_Serif_4({
+  subsets: ['latin'],
+  weight: ['600', '700'],
+  variable: '--font-heading',
+  display: 'swap',
 })

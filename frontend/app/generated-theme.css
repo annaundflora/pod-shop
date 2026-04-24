@@ -18,8 +18,8 @@
   --theme-color-success: oklch(0.55 0.15 145);
   --theme-color-warning: oklch(0.7 0.15 85);
   --theme-color-overlay: oklch(0 0 0 / 0.5);
-  --theme-font-heading: Inter;
-  --theme-font-body: Inter;
+  --theme-font-heading: Source Serif 4;
+  --theme-font-body: Work Sans;
   --theme-radius-card: 0.75rem;
   --theme-radius-button: 0.5rem;
   --theme-radius-card-lg: 0.75rem;
