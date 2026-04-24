@@ -1,8 +1,8 @@
 {
   "spec_path": "specs/2026-04-16-kleinstadtpflanze-design-e",
   "feature_name": "kleinstadtpflanze-design-e",
-  "status": "in_progress",
-  "current_state": "final_validation",
+  "status": "completed",
+  "current_state": "completed",
   "current_slice_id": null,
   "retry_count": 0,
   "lint_retry_count": 0,
@@ -17,5 +17,10 @@
     "test_cmd": "cd frontend && pnpm test"
   },
   "branch": "kleinstadtpflanze-design-e",
-  "worktree_path": "/home/dev/pod-shop/.claude/worktrees/kleinstadtpflanze-design-e"
+  "worktree_path": "/home/dev/pod-shop/.claude/worktrees/kleinstadtpflanze-design-e",
+  "final_validation": {
+    "feature_tests": "45 passed across 4 slice files",
+    "baseline_note": "Pre-existing failures unrelated to feature: 8 in tests/slices/block-page-migration/* and 3 in tests/slices/frontend-theming/slice-05 zweiter-shop/pages/home.yaml schema (blocks vs sections). Baseline on 0d76264 had 35 failures; after this feature 11 remain. Feature introduced 0 regressions; fixed 20+ latent failures by adding missing token slots.",
+    "typecheck_note": "Pre-existing TypeScript errors in tests/slices/shop-completeness/* (ProductCardData type mismatches) — existed on base commit, unrelated to this design-token feature."
+  }
 }
