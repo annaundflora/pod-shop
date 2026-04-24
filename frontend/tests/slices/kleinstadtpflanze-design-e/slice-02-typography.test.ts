@@ -3,21 +3,29 @@
 // Slice-02: Typografie-Integration (Work Sans + Source Serif 4)
 // Spec: specs/2026-04-16-kleinstadtpflanze-design-e/slim-spec.md (Section: Slice 2)
 //
+// REVISION (manual QA finding): fonts.ts now dispatches on
+// process.env.NEXT_PUBLIC_THEME — only the kleinstadtpflanze theme switches
+// to Work Sans + Source Serif 4. The default theme keeps Inter (its
+// historical font), so existing shops do not regress.
+//
 // Acceptance Criteria:
-//   AC-1: lib/theme/fonts.ts imports Work_Sans + Source_Serif_4 from next/font/google
-//         with correct weights, variables and display:'swap'.
-//   AC-2: Runtime browser check — bodyFont.variable === '--font-body' assertion
-//         (structural equivalent; getComputedStyle cannot run reliably in
-//         Vitest/JSDOM for next/font).
+//   AC-1: lib/theme/fonts.ts imports Work_Sans + Source_Serif_4 from
+//         next/font/google with correct weights, variables and display:'swap'
+//         (kleinstadtpflanze branch). Inter is the default-theme branch.
+//   AC-2: Runtime browser check — bodyFont.variable === '--font-body'
+//         assertion (structural equivalent; getComputedStyle cannot run
+//         reliably in Vitest/JSDOM for next/font).
 //   AC-3: Runtime browser check — headingFont.variable === '--font-heading'
 //         assertion (structural equivalent; Tailwind font-heading utility
 //         cannot be exercised in JSDOM).
-//   AC-4: themes/default/theme.yaml contains fonts.body='Work Sans' and
-//         fonts.heading='Source Serif 4'.
-//   AC-5: No Inter import in lib/theme/fonts.ts. The `pnpm build` side of the
-//         AC was verified manually by the implementer — running a full Next.js
-//         build inside Vitest is too slow to be practical. The structural
-//         "no Inter import" assertion stands in.
+//   AC-4: themes/kleinstadtpflanze/theme.yaml documents fonts.body='Work Sans'
+//         and fonts.heading='Source Serif 4'. The default theme YAML keeps
+//         "Inter" (font choice is theme-scoped after the conditional dispatch).
+//   AC-5: lib/theme/fonts.ts dispatches body/heading exports based on
+//         NEXT_PUBLIC_THEME — Inter for the default theme, Work Sans +
+//         Source Serif 4 for kleinstadtpflanze. The `pnpm build` half of the
+//         AC was verified manually; the structural dispatch logic is the
+//         testable piece here.
 //
 // Testing strategy: no-mocks. Read real source files via fs.readFileSync and
 // regex-grep them. `next/font/google` is NOT executed at test time because it
@@ -32,6 +40,10 @@ import { parse as parseYaml } from 'yaml'
 const FRONTEND_ROOT = resolve(__dirname, '..', '..', '..')
 const FONTS_TS = resolve(FRONTEND_ROOT, 'lib/theme/fonts.ts')
 const DEFAULT_THEME_YAML = resolve(FRONTEND_ROOT, 'themes/default/theme.yaml')
+const KLEINSTADTPFLANZE_THEME_YAML = resolve(
+  FRONTEND_ROOT,
+  'themes/kleinstadtpflanze/theme.yaml',
+)
 
 describe('Slice-02: Typografie-Integration (Work Sans + Source Serif 4)', () => {
   describe('AC-1: fonts.ts exports headingFont + bodyFont with correct next/font/google config', () => {
@@ -53,15 +65,14 @@ describe('Slice-02: Typografie-Integration (Work Sans + Source Serif 4)', () => 
       expect(source).toMatch(/\bSource_Serif_4\b/)
     })
 
-    it('exports bodyFont via Work_Sans() call', () => {
-      // Match `export const bodyFont = Work_Sans(` (allow whitespace variance)
-      expect(source).toMatch(/export\s+const\s+bodyFont\s*=\s*Work_Sans\s*\(/)
+    it('instantiates Work_Sans() somewhere in the module (kleinstadtpflanze branch)', () => {
+      // After the conditional dispatch refactor, the call lives in an
+      // internal const (e.g. workSansBody) rather than directly on the export.
+      expect(source).toMatch(/=\s*Work_Sans\s*\(/)
     })
 
-    it('exports headingFont via Source_Serif_4() call', () => {
-      expect(source).toMatch(
-        /export\s+const\s+headingFont\s*=\s*Source_Serif_4\s*\(/,
-      )
+    it('instantiates Source_Serif_4() somewhere in the module (kleinstadtpflanze branch)', () => {
+      expect(source).toMatch(/=\s*Source_Serif_4\s*\(/)
     })
 
     it('body font declares weights 400, 500, 600, 700', () => {
@@ -171,62 +182,86 @@ describe('Slice-02: Typografie-Integration (Work Sans + Source Serif 4)', () => 
     })
   })
 
-  describe('AC-4: themes/default/theme.yaml documents new font names', () => {
+  describe('AC-4: theme YAMLs document the per-theme font names', () => {
     // GIVEN die Font-Dokumentation liegt in YAML
-    // WHEN frontend/themes/default/theme.yaml geladen wird
-    // THEN fonts.body == "Work Sans" UND fonts.heading == "Source Serif 4"
-    //      (dokumentarisch, Laufzeit-Effekt kommt aus fonts.ts).
+    // WHEN frontend/themes/<theme>/theme.yaml geladen wird
+    // THEN default behaelt fonts.body/heading == "Inter" (kein Regress fuer
+    //      Bestands-Shops) UND kleinstadtpflanze.fonts.body == "Work Sans"
+    //      sowie kleinstadtpflanze.fonts.heading == "Source Serif 4"
+    //      (dokumentarisch — Laufzeit-Effekt kommt aus fonts.ts).
 
-    const yamlSource = readFileSync(DEFAULT_THEME_YAML, 'utf-8')
-    const config = parseYaml(yamlSource) as {
+    const defaultYaml = parseYaml(readFileSync(DEFAULT_THEME_YAML, 'utf-8')) as {
       fonts?: { body?: string; heading?: string }
     }
+    const kleinstadtpflanzeYaml = parseYaml(
+      readFileSync(KLEINSTADTPFLANZE_THEME_YAML, 'utf-8'),
+    ) as { fonts?: { body?: string; heading?: string } }
 
-    it('fonts.body equals "Work Sans"', () => {
-      expect(config.fonts).toBeDefined()
-      expect(config.fonts?.body).toBe('Work Sans')
+    it('default theme keeps fonts.body="Inter"', () => {
+      expect(defaultYaml.fonts).toBeDefined()
+      expect(defaultYaml.fonts?.body).toBe('Inter')
     })
 
-    it('fonts.heading equals "Source Serif 4"', () => {
-      expect(config.fonts).toBeDefined()
-      expect(config.fonts?.heading).toBe('Source Serif 4')
+    it('default theme keeps fonts.heading="Inter"', () => {
+      expect(defaultYaml.fonts).toBeDefined()
+      expect(defaultYaml.fonts?.heading).toBe('Inter')
+    })
+
+    it('kleinstadtpflanze theme sets fonts.body="Work Sans"', () => {
+      expect(kleinstadtpflanzeYaml.fonts).toBeDefined()
+      expect(kleinstadtpflanzeYaml.fonts?.body).toBe('Work Sans')
+    })
+
+    it('kleinstadtpflanze theme sets fonts.heading="Source Serif 4"', () => {
+      expect(kleinstadtpflanzeYaml.fonts).toBeDefined()
+      expect(kleinstadtpflanzeYaml.fonts?.heading).toBe('Source Serif 4')
     })
   })
 
-  describe('AC-5: no Inter import remains in lib/theme/fonts.ts', () => {
+  describe('AC-5: fonts.ts dispatches on NEXT_PUBLIC_THEME (Inter for default, Work Sans + Source Serif 4 for kleinstadtpflanze)', () => {
     // GIVEN pnpm build wird nach dem Font-Umbau ausgefuehrt
     // WHEN der Build durchlaeuft
     // THEN Exit-Code ist 0, es erscheint kein next/font-Fehler bezueglich
-    //      nicht-verfuegbarer Font-Weights, UND kein Import von Inter ist
-    //      mehr in lib/theme/fonts.ts vorhanden.
+    //      nicht-verfuegbarer Font-Weights.
     //
-    // Decision: The `pnpm build` half of this AC was verified manually by
+    // Decision: The `pnpm build` half of this AC is verified manually by
     // the implementer. Running a full Next.js production build inside the
-    // Vitest suite (40s+ single assertion) is impractical and would
-    // re-verify work Next itself already validates on every build.
-    // The structural half — "no Inter import" — is the testable piece.
+    // Vitest suite is impractical. The testable structural pieces are:
+    //  - fonts.ts imports all three fonts (Inter + Work_Sans + Source_Serif_4)
+    //  - fonts.ts inspects process.env.NEXT_PUBLIC_THEME for the dispatch
+    //  - bodyFont/headingFont are conditional ternaries on the theme flag
 
     const source = readFileSync(FONTS_TS, 'utf-8')
 
-    it('does not import Inter from next/font/google', () => {
-      // Catch both `import { Inter }` and `import { Inter as ...}` shapes.
-      expect(source).not.toMatch(/\bInter\b/)
-    })
-
-    it('only imports Work_Sans and Source_Serif_4 as font identifiers', () => {
-      // Assert the import line declares exactly these two identifiers
-      // (either as a single combined import or two adjacent imports).
+    it('imports Inter, Work_Sans and Source_Serif_4 from next/font/google', () => {
       const importLines = source
         .split('\n')
         .filter((line) => /from\s+['"]next\/font\/google['"]/.test(line))
       expect(importLines.length).toBeGreaterThan(0)
-
       const importedSymbols = importLines.join(' ')
-      expect(importedSymbols).toMatch(/Work_Sans/)
-      expect(importedSymbols).toMatch(/Source_Serif_4/)
-      // Assert nothing else snuck in (defensive regression guard).
-      expect(importedSymbols).not.toMatch(/\bInter\b/)
-      expect(importedSymbols).not.toMatch(/\bRoboto\b/)
+      expect(importedSymbols).toMatch(/\bInter\b/)
+      expect(importedSymbols).toMatch(/\bWork_Sans\b/)
+      expect(importedSymbols).toMatch(/\bSource_Serif_4\b/)
+    })
+
+    it('reads NEXT_PUBLIC_THEME to decide between Inter and the kleinstadtpflanze fonts', () => {
+      expect(source).toMatch(
+        /process\.env\.NEXT_PUBLIC_THEME\s*===\s*['"]kleinstadtpflanze['"]/,
+      )
+    })
+
+    it('exports bodyFont as a conditional choice between Work_Sans and Inter', () => {
+      // Body export is a ternary using the theme flag and pointing at the two
+      // pre-instantiated font objects.
+      expect(source).toMatch(
+        /export\s+const\s+bodyFont\s*=\s*\w+\s*\?\s*\w+\s*:\s*\w+/,
+      )
+    })
+
+    it('exports headingFont as a conditional choice between Source_Serif_4 and Inter', () => {
+      expect(source).toMatch(
+        /export\s+const\s+headingFont\s*=\s*\w+\s*\?\s*\w+\s*:\s*\w+/,
+      )
     })
   })
 })

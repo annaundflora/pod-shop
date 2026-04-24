@@ -104,7 +104,7 @@ describe('generate-theme.mjs — Deep Merge Logik', () => {
     // Shop has only overridden heading
     expect(css).toContain('--theme-font-heading: Playfair Display')
     // body remains default
-    expect(css).toContain('--theme-font-body: Work Sans')
+    expect(css).toContain('--theme-font-body: Inter')
   })
 
   it('AC-1: should keep all radius and shadow tokens from default when not overridden', () => {
@@ -193,7 +193,7 @@ describe('generate-theme.mjs — deepMerge() Unit Tests', () => {
 
     const css = readFileSync(GENERATED_CSS, 'utf-8')
     expect(css).toContain('--theme-font-heading: Merriweather')
-    expect(css).toContain('--theme-font-body: Work Sans')
+    expect(css).toContain('--theme-font-body: Inter')
   })
 
   it('AC-2: should merge empty shop config — all defaults kept (null config graceful)', () => {
@@ -220,7 +220,7 @@ describe('generate-theme.mjs — deepMerge() Unit Tests', () => {
     const defaultPrimary = primaryMatch?.[1] ?? ''
     // All default colors are in the output
     expect(css).toContain(`--theme-color-primary: ${defaultPrimary}`)
-    expect(css).toContain('--theme-font-heading: Source Serif 4')
+    expect(css).toContain('--theme-font-heading: Inter')
   })
 
   it('should fail validation if shop overrides a color with invalid format', () => {

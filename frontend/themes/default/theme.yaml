@@ -27,8 +27,8 @@ colors:
   overlay: "oklch(0 0 0 / 0.5)"
 
 fonts:
-  heading: "Source Serif 4"
-  body: "Work Sans"
+  heading: "Inter"
+  body: "Inter"
 
 radius:
   card: "0.75rem"
