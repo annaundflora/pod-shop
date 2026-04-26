@@ -7,7 +7,7 @@ export function ProductCardSkeleton() {
       className="rounded-[var(--radius-card,0.75rem)] overflow-hidden border border-border bg-surface"
       aria-label="Produkt wird geladen"
     >
-      <Skeleton className="aspect-square w-full rounded-none" />
+      <Skeleton className="aspect-product w-full rounded-none" />
       <div className="p-3 space-y-2">
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-4 w-1/3" />

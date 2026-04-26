@@ -86,7 +86,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
             'product-grid': (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="aspect-square bg-surface-secondary animate-pulse rounded-card" />
+                  <div key={i} className="aspect-product bg-surface-secondary animate-pulse rounded-card" />
                 ))}
               </div>
             ),

@@ -61,7 +61,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           'search-results': (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="aspect-square bg-gray-100 rounded-card animate-pulse" />
+                <div key={i} className="aspect-product bg-gray-100 rounded-card animate-pulse" />
               ))}
             </div>
           ),

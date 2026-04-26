@@ -6,12 +6,17 @@
   /* Farben aus generated-theme.css via var() */
   --color-primary: var(--theme-color-primary);
   --color-primary-hover: var(--theme-color-primary-hover);
+  --color-primary-dark: var(--theme-color-primary-dark);
   --color-accent: var(--theme-color-accent);
   --color-surface: var(--theme-color-surface);
   --color-surface-elevated: var(--theme-color-surface-elevated);
+  --color-surface-alt: var(--theme-color-surface-alt);
   --color-text-primary: var(--theme-color-text-primary);
   --color-text-secondary: var(--theme-color-text-secondary);
+  --color-text-tertiary: var(--theme-color-text-tertiary);
+  --color-text-muted: var(--theme-color-text-muted);
   --color-border: var(--theme-color-border);
+  --color-border-strong: var(--theme-color-border-strong);
   /* NEU: Status-Tokens */
   --color-error: var(--theme-color-error);
   --color-success: var(--theme-color-success);
@@ -30,10 +35,17 @@
   /* NEU: Radius-Tokens (aus [data-theme] in @theme verschoben) */
   --radius-card: var(--theme-radius-card);
   --radius-button: var(--theme-radius-button);
+  --radius-card-lg: var(--theme-radius-card-lg);
+  --radius-hero: var(--theme-radius-hero);
+  --radius-pill: var(--theme-radius-pill);
 
   /* NEU: Shadow-Tokens (aus [data-theme] in @theme verschoben) */
   --shadow-card: var(--theme-shadow-card);
   --shadow-card-hover: var(--theme-shadow-card-hover);
+  --shadow-sticky: var(--theme-shadow-sticky);
+
+  /* NEU: Aspect-Ratio-Tokens */
+  --aspect-product: var(--theme-aspect-product);
 
   /* NEU: Font-CSS-Variables (für next/font Integration) */
   /* next/font setzt --font-heading / --font-body via variable-Prop auf <html>.
@@ -64,11 +76,13 @@
 @layer base {
   body {
     @apply antialiased text-text-primary bg-surface;
+    font-size: 15px;
+    line-height: 1.55;
   }
 
   h1, h2, h3, h4, h5, h6 {
     text-wrap: balance;
-    @apply font-semibold tracking-tight;
+    @apply font-heading font-semibold tracking-tight;
   }
 
   /* Touch-Targets für Mobile-first (Pinterest-Traffic) */

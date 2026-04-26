@@ -1,0 +1,52 @@
+# themes/kleinstadtpflanze/theme.yaml
+# Kleinstadtpflanze — Design E Overrides (Phase 1: Style-Tokens).
+# NUR Deltas gegenüber themes/default/theme.yaml. Fehlende Werte fallen via Deep-Merge
+# auf Default zurück. OKLCH-Werte wurden deterministisch aus den Hex-Referenzen
+# (siehe `specs/2026-04-16-kleinstadtpflanze-design-e/discovery.md`, Abschnitt
+# "Token Mapping") via sRGB→Linear→OKLab→OKLCh berechnet. Der Hex-Wert ist jeweils
+# zur Traceability neben dem OKLCH-Wert dokumentiert.
+
+colors:
+  # Brand (Forest) — hex: #2E5A3E
+  primary: "oklch(0.4273 0.068 154.42)"
+  # Brand dark hover — hex: #204430
+  primary-hover: "oklch(0.3532 0.0549 157.61)"
+  # Explizite dunklere Brand-Variante (gleicher Wert wie primary-hover) — hex: #204430
+  primary-dark: "oklch(0.3532 0.0549 157.61)"
+  # Terracotta-Akzent — hex: #C97E3C
+  accent: "oklch(0.6603 0.1232 59.28)"
+  # Sale/Error-Reuse (DTC-typisches Rot) — hex: #C0392B
+  error: "oklch(0.5433 0.174 29.7)"
+  # Success (Availability-Dot, Verified) — hex: #3A8152
+  success: "oklch(0.5446 0.1028 152.54)"
+  # Warme Alt-Surface (Cream) — hex: #F7F5F1
+  surface-alt: "oklch(0.9706 0.0057 84.57)"
+  # Ink (Haupt-Text, fast-schwarz mit grünlichem Stich) — hex: #1F2322
+  text-primary: "oklch(0.2517 0.0061 179.16)"
+  # Ink-70 (Sekundärtext, Meta) — hex: #4A4F4D
+  text-secondary: "oklch(0.4224 0.0072 170.13)"
+  # Ink-50 (Small Caps, Category-Meta) — hex: #7A807D
+  text-tertiary: "oklch(0.5939 0.0084 164.77)"
+  # Ink-30 (Disabled, Placeholder) — hex: #B5B8B5
+  text-muted: "oklch(0.7793 0.0054 145.52)"
+  # Line (Standard-Hairlines) — hex: #E4E1DA
+  border: "oklch(0.9101 0.01 87.47)"
+  # Line-2 (1.5px-Borders auf Inputs, Pills) — hex: #D4D0C6
+  border-strong: "oklch(0.858 0.0143 88.7)"
+
+radius:
+  button: "0.5rem"
+  card: "0.625rem"
+  card-lg: "0.75rem"
+  hero: "0.875rem"
+  pill: "999px"
+
+shadows:
+  card: "0 4px 12px oklch(0 0 0 / 0.04)"
+  card-hover: "0 6px 18px oklch(0 0 0 / 0.06)"
+  sticky: "0 -4px 16px oklch(0 0 0 / 0.06)"
+
+fonts:
+  # Dokumentarisch — Laufzeit-Effekt kommt aus lib/theme/fonts.ts (hardcoded)
+  body: "Work Sans"
+  heading: "Source Serif 4"
