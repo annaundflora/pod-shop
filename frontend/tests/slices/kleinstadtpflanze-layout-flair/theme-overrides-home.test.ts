@@ -240,27 +240,40 @@ describe('Slice 01: Homepage-Stack — YAML, registry, skeleton map, isolation, 
     )
   })
 
-  describe('AC-1.22: Test setup defaults NEXT_PUBLIC_THEME=kleinstadtpflanze', () => {
+  describe('AC-1.22: Test setup does not globally pollute NEXT_PUBLIC_THEME', () => {
+    // Slice 01 originally set NEXT_PUBLIC_THEME=kleinstadtpflanze globally in
+    // tests/setup.ts, which broke pre-existing tests in block-page-migration and
+    // frontend-theming that rely on the unset/default theme. The fix: keep
+    // tests/setup.ts theme-agnostic and have layout-flair tests opt-in per-file
+    // when they actually need the env (e.g. for fonts.ts gating). Pure YAML/fs
+    // assertions and direct component rendering do not require the env.
     it(
       'AC-1.22a: GIVEN tests/setup.ts is loaded by Vitest ' +
-        'WHEN process.env.NEXT_PUBLIC_THEME is read at the start of any test in this dir ' +
-        'THEN it equals "kleinstadtpflanze"',
+        'WHEN scanned ' +
+        'THEN it does NOT set process.env.NEXT_PUBLIC_THEME globally ' +
+        '(prevents regressions in pre-existing tests under block-page-migration / frontend-theming)',
       () => {
-        expect(process.env.NEXT_PUBLIC_THEME).toBe('kleinstadtpflanze')
+        const source = readFileSync(SETUP_TS, 'utf-8')
+        expect(
+          source.match(/process\.env\.NEXT_PUBLIC_THEME\s*=/),
+          'tests/setup.ts must not assign NEXT_PUBLIC_THEME globally — ' +
+            'scope theme env per-test-file via beforeAll() if needed',
+        ).toBeNull()
       },
     )
 
     it(
       'AC-1.22b: GIVEN tests/setup.ts source ' +
         'WHEN scanned ' +
-        'THEN it contains the defaulting line for NEXT_PUBLIC_THEME=kleinstadtpflanze ' +
-        '(structural guard against accidental removal)',
+        'THEN it sets up only test-runtime concerns (e.g. localStorage mock) ' +
+        'without leaking shop-specific theme defaults',
       () => {
         const source = readFileSync(SETUP_TS, 'utf-8')
-        expect(source).toMatch(/NEXT_PUBLIC_THEME/)
-        expect(source).toContain('kleinstadtpflanze')
-        // Default-only assignment (overridable via env) — both `?? '...'` (nullish-coalesce)
-        // and explicit env-already-set guards count. Just assert kleinstadtpflanze is there.
+        // Structural guard: setup.ts must not contain a hard-coded shop name.
+        expect(source).not.toContain('kleinstadtpflanze')
+        // Sanity: it should still install the localStorage mock that other
+        // tests in the suite implicitly depend on.
+        expect(source).toContain('localStorage')
       },
     )
   })
