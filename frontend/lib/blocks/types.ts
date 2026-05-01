@@ -252,3 +252,45 @@ export interface OrderConfirmationData {
   ctaLink: string
   // orderId wird NICHT hier definiert — wird client-seitig aus window.location.search gelesen
 }
+
+// ============================================================
+// Slice 07 — Kleinstadtpflanze Layout-Flair: Types
+// ============================================================
+
+export interface EditorialMiniData {
+  tag?: string                                    // Optional pill label
+  headline: string                                // Required h2
+  text: string                                    // Required body (1-3 sentences)
+  cta?: { text: string; href: string }            // Optional CTA
+  image_url?: string                              // Optional left image URL
+  image_alt?: string                              // Optional alt text (default: '')
+}
+
+export interface FaqAccordionItem {
+  q: string                                       // Question
+  a: string                                       // Answer (PLAIN STRING — no Markdown render)
+}
+
+export interface FaqAccordionData {
+  headline?: string                               // Optional section headline
+  items: FaqAccordionItem[]                       // Min 1
+  defaultOpen?: number                            // Optional initial open index (default: -1 = all closed)
+}
+
+export interface MotifGridItem {
+  name: string                                    // Tile label
+  image_url: string                               // Tile image
+  image_alt?: string
+  href: string                                    // Internal route, MUST start with "/"
+}
+
+export interface MotifGridData {
+  headline?: string
+  items: MotifGridItem[]                          // Min 4
+}
+
+export interface BrandRecapData {
+  logoText?: string                               // Default: process.env.NEXT_PUBLIC_SHOP_NAME
+  tagline: string                                 // Required, 1 sentence
+  href?: string                                   // Default: "/"
+}
