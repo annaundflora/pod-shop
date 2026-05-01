@@ -171,10 +171,10 @@ describe('FeaturedCollectionBlock', () => {
       },
       products: {
         nodes: [
-          { id: '1', slug: 'shirt-1', name: 'Shirt 1', price: '19.99', onSale: false, stockStatus: 'IN_STOCK', image: { sourceUrl: '/1.jpg', altText: 'Shirt 1' } },
-          { id: '2', slug: 'shirt-2', name: 'Shirt 2', price: '24.99', onSale: false, stockStatus: 'IN_STOCK', image: { sourceUrl: '/2.jpg', altText: 'Shirt 2' } },
-          { id: '3', slug: 'shirt-3', name: 'Shirt 3', price: '19.99', onSale: false, stockStatus: 'IN_STOCK', image: { sourceUrl: '/3.jpg', altText: 'Shirt 3' } },
-          { id: '4', slug: 'shirt-4', name: 'Shirt 4', price: '29.99', onSale: false, stockStatus: 'IN_STOCK', image: { sourceUrl: '/4.jpg', altText: 'Shirt 4' } },
+          { id: '1', slug: 'shirt-1', name: 'Shirt 1', price: '19.99', regularPrice: '19.99', onSale: false, stockStatus: 'IN_STOCK' as const, image: { sourceUrl: '/1.jpg', altText: 'Shirt 1', mediaDetails: { width: 800, height: 800 } }, productCategories: { nodes: [] } },
+          { id: '2', slug: 'shirt-2', name: 'Shirt 2', price: '24.99', regularPrice: '24.99', onSale: false, stockStatus: 'IN_STOCK' as const, image: { sourceUrl: '/2.jpg', altText: 'Shirt 2', mediaDetails: { width: 800, height: 800 } }, productCategories: { nodes: [] } },
+          { id: '3', slug: 'shirt-3', name: 'Shirt 3', price: '19.99', regularPrice: '19.99', onSale: false, stockStatus: 'IN_STOCK' as const, image: { sourceUrl: '/3.jpg', altText: 'Shirt 3', mediaDetails: { width: 800, height: 800 } }, productCategories: { nodes: [] } },
+          { id: '4', slug: 'shirt-4', name: 'Shirt 4', price: '29.99', regularPrice: '29.99', onSale: false, stockStatus: 'IN_STOCK' as const, image: { sourceUrl: '/4.jpg', altText: 'Shirt 4', mediaDetails: { width: 800, height: 800 } }, productCategories: { nodes: [] } },
         ],
       },
     }
@@ -188,7 +188,7 @@ describe('FeaturedCollectionBlock', () => {
     const data = {
       category: { name: 'T-Shirts', description: '', slug: 't-shirts', image: null },
       products: {
-        nodes: [{ id: '1', slug: 'shirt-1', name: 'Shirt 1', price: '19.99', onSale: false, stockStatus: 'IN_STOCK', image: null }],
+        nodes: [{ id: '1', slug: 'shirt-1', name: 'Shirt 1', price: '19.99', regularPrice: '19.99', onSale: false, stockStatus: 'IN_STOCK' as const, image: null, productCategories: { nodes: [] } }],
       },
     }
     render(React.createElement(FeaturedCollectionBlock, { data }))

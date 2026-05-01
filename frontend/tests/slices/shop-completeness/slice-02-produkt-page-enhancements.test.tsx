@@ -253,7 +253,7 @@ describe('ProductRecommendationsBlock', () => {
 
   beforeEach(async () => {
     const mod = await import('@/components/blocks/product-recommendations-block')
-    ProductRecommendationsBlock = mod.ProductRecommendationsBlock
+    ProductRecommendationsBlock = mod.ProductRecommendationsBlock as React.ComponentType<{ data: unknown }>
   })
 
   const makeProduct = (id: string, name: string) => ({

@@ -287,8 +287,8 @@ describe('SearchResultsBlock', () => {
         price: '24.99',
         regularPrice: '24.99',
         onSale: false,
-        stockStatus: 'IN_STOCK',
-        image: { sourceUrl: '/img.jpg', altText: 'Shirt' },
+        stockStatus: 'IN_STOCK' as const,
+        image: { sourceUrl: '/img.jpg', altText: 'Shirt', mediaDetails: { width: 800, height: 800 } },
         productCategories: { nodes: [] },
       },
     ]
