@@ -1,11 +1,17 @@
 'use client'
 
 import { ProductVariantSelector } from '@/app/produkt/[slug]/product-variant-selector'
+import { ServiceBoxBlock } from '@/components/blocks/service-box-block'
 import { extractVariantOptions } from '@/lib/product/variant-utils'
-import type { BlockComponentProps } from '@/lib/blocks/types'
+import type { BlockComponentProps, ServiceBoxData } from '@/lib/blocks/types'
 import type { ProductDetailData } from '@/lib/graphql/types'
 
-export function ProductPurchaseBlock({ data }: BlockComponentProps<ProductDetailData | null>) {
+type ProductPurchaseData = ProductDetailData & {
+  withDescription?: boolean
+  serviceBox?: ServiceBoxData
+}
+
+export function ProductPurchaseBlock({ data }: BlockComponentProps<ProductPurchaseData | null>) {
   if (!data) {
     return (
       <div className="text-text-secondary">Produkt nicht gefunden</div>
@@ -15,6 +21,11 @@ export function ProductPurchaseBlock({ data }: BlockComponentProps<ProductDetail
   const variantOptions = data.variations
     ? extractVariantOptions(data.variations.nodes)
     : { sizes: [], colors: [] }
+
+  const hasDescription = Boolean(data.withDescription) && Boolean(data.description)
+  const hasServiceBox = Boolean(
+    data.serviceBox && Array.isArray(data.serviceBox.items) && data.serviceBox.items.length > 0
+  )
 
   return (
     <div className="mt-8 md:mt-0">
@@ -35,6 +46,19 @@ export function ProductPurchaseBlock({ data }: BlockComponentProps<ProductDetail
         product={data}
         variantOptions={variantOptions}
       />
+
+      {hasDescription && (
+        <div
+          className="mt-8 prose prose-sm text-text-secondary max-w-none"
+          dangerouslySetInnerHTML={{ __html: data.description }}
+        />
+      )}
+
+      {hasServiceBox && (
+        <div className="mt-8">
+          <ServiceBoxBlock data={data.serviceBox ?? null} />
+        </div>
+      )}
     </div>
   )
 }

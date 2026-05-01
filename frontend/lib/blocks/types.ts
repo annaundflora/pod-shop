@@ -34,6 +34,10 @@ export interface WooCommerceLoaderParams {
   productSlug?: string // Produkt-Slug fuer related/category Fallback
   customIds?: string   // Komma-getrennte WC-Produkt-IDs fuer source=custom
   heading?: string     // Ueberschrift fuer Recommendations-Block
+  // Slice 2 (PDP-Refactor + Flair) — passthrough merge into product data
+  layout?: string                          // 'default' | 'vertical-thumbs' for product-gallery
+  withDescription?: boolean                // Toggle inline description in product-purchase
+  serviceBox?: { items: { icon: string; label: string; detail: string }[]; source?: 'inline' | 'category' | 'product' }
 }
 
 export interface InlineLoaderParams {
@@ -293,4 +297,30 @@ export interface BrandRecapData {
   logoText?: string                               // Default: process.env.NEXT_PUBLIC_SHOP_NAME
   tagline: string                                 // Required, 1 sentence
   href?: string                                   // Default: "/"
+}
+
+// Slice 2 (PDP-Refactor + Flair) additions:
+
+export interface ServiceBoxItem {
+  icon: string                                    // ICON_MAP key (lucide-react)
+  label: string                                   // Bold label
+  detail: string                                  // 1-line detail
+}
+
+export interface ServiceBoxData {
+  source?: 'inline' | 'category' | 'product'      // Default 'inline'; non-inline deferred
+  items: ServiceBoxItem[]                         // Min 2
+}
+
+export interface MotifCrossSellTile {
+  productName: string                             // e.g. "Helgoland Print"
+  productType: string                             // e.g. "Tasse" | "Beutel" | "Shirt"
+  image_url: string
+  image_alt?: string
+  href: string                                    // "/produkt/{slug}"
+}
+
+export interface MotifCrossSellData {
+  heading?: string                                // Default: "Dieses Motiv auch auf …"
+  tiles: MotifCrossSellTile[] | null              // null OR [] -> block renders null
 }
