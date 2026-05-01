@@ -92,6 +92,10 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
             ),
             'pagination': null,
             'empty-state': null,
+            // Slice 07 — Kleinstadtpflanze Layout-Flair (Category bottom):
+            'product-recommendations': null,
+            'faq-accordion': null,
+            'brand-recap': null,
           }}
         />
       </div>

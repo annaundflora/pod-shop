@@ -1,0 +1,128 @@
+# themes/kleinstadtpflanze/pages/category.yaml
+# Kleinstadtpflanze Category — Layout & Components Phase 2 (ehrlich-klein).
+# Sections 1-8 mirror themes/default/pages/category.yaml (block-type order verbatim).
+# Sections 9-11 are NEW for Slice 3 (under Pagination/Empty-State):
+#   9. Product-Recommendations (cross-category, source: bestsellers)
+#  10. Mini-FAQ (3 Items)
+#  11. Brand-Recap
+
+sections:
+  # === Sections 1-8 — mirror themes/default/pages/category.yaml ===
+  - columns: 1
+    blocks:
+      - type: breadcrumb
+        content_source: woocommerce
+        params:
+          query: category_meta
+          slug: $route.slug
+
+  - columns: 1
+    blocks:
+      - type: page-heading
+        content_source: woocommerce
+        params:
+          query: products_by_category
+          slug: $route.slug
+          page: $route.page
+          perPage: 24
+          sort: $route.sort
+
+  - columns: 1
+    blocks:
+      - type: filter-chips
+        content_source: woocommerce
+        params:
+          query: product_categories
+          slug: $route.slug
+
+  - columns: 1
+    blocks:
+      - type: product-count
+        content_source: woocommerce
+        params:
+          query: products_by_category
+          slug: $route.slug
+          page: $route.page
+          perPage: 24
+          sort: $route.sort
+
+  - columns: 1
+    blocks:
+      - type: sort-bar
+        content_source: inline
+        params:
+          props:
+            currentSort: $route.sort
+            baseUrl: /kategorie/$route.slug
+
+  - columns: 1
+    blocks:
+      - type: product-grid
+        content_source: woocommerce
+        params:
+          query: products_by_category
+          slug: $route.slug
+          page: $route.page
+          perPage: 24
+          sort: $route.sort
+
+  - columns: 1
+    blocks:
+      - type: pagination
+        content_source: woocommerce
+        params:
+          query: products_by_category
+          slug: $route.slug
+          page: $route.page
+          perPage: 24
+          sort: $route.sort
+
+  - columns: 1
+    blocks:
+      - type: empty-state
+        content_source: inline
+        params:
+          props:
+            headline: "Keine Produkte gefunden"
+            text: "In dieser Kategorie sind aktuell keine Produkte verfügbar."
+            links:
+              - label: "Alle Kategorien"
+                href: "/"
+              - label: "Neuheiten"
+                href: "/kategorie/neuheiten"
+
+  # === NEW for kleinstadtpflanze (Slice 3) ===
+
+  - columns: 1
+    blocks:
+      - type: product-recommendations
+        content_source: woocommerce
+        params:
+          query: product_recommendations
+          source: bestsellers
+          first: 4
+          heading: "Vielleicht auch was für dich"
+
+  - columns: 1
+    blocks:
+      - type: faq-accordion
+        content_source: inline
+        params:
+          props:
+            headline: "Häufige Fragen"
+            items:
+              - q: "Wie lange dauert der Versand?"
+                a: "Innerhalb Deutschlands 3–5 Werktage nach Druckfreigabe."
+              - q: "Kann ich umtauschen?"
+                a: "Ja — 30 Tage Rückgaberecht. Bitte unbenutzt und in Originalverpackung zurücksenden."
+              - q: "Wie pflege ich mein Produkt?"
+                a: "Pflegehinweise stehen auf jeder Produktseite."
+
+  - columns: 1
+    blocks:
+      - type: brand-recap
+        content_source: inline
+        params:
+          props:
+            tagline: "Kleine Drucke aus Schleswig-Holstein."
+            href: "/"
