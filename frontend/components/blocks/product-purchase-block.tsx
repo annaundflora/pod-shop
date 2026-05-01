@@ -2,6 +2,7 @@
 
 import { ProductVariantSelector } from '@/app/produkt/[slug]/product-variant-selector'
 import { ServiceBoxBlock } from '@/components/blocks/service-box-block'
+import { formatPrice } from '@/lib/format-price'
 import { extractVariantOptions } from '@/lib/product/variant-utils'
 import type { BlockComponentProps, ServiceBoxData } from '@/lib/blocks/types'
 import type { ProductDetailData } from '@/lib/graphql/types'
@@ -35,7 +36,7 @@ export function ProductPurchaseBlock({ data }: BlockComponentProps<ProductPurcha
 
       <div className="mt-4 flex items-baseline gap-3">
         <p className="text-3xl font-bold text-accent">
-          {data.price}
+          {formatPrice(data.price)}
         </p>
       </div>
       <p className="mt-1 text-sm text-text-secondary">inkl. Versandkosten</p>

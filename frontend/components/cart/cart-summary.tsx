@@ -2,6 +2,7 @@
 
 import { useCart } from '@/contexts/cart-context'
 import { checkoutRedirect } from '@/lib/cart/checkout-redirect'
+import { formatPrice } from '@/lib/format-price'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
 
@@ -16,13 +17,13 @@ export function CartSummary() {
         {/* Zwischensumme */}
         <div className="flex justify-between text-sm">
           <span className="text-text-secondary">Zwischensumme</span>
-          <span className="tabular-nums">{subtotal}</span>
+          <span className="tabular-nums">{formatPrice(subtotal)}</span>
         </div>
 
         {/* Versandkosten */}
         <div className="flex justify-between text-sm">
           <span className="text-text-secondary">Versandkosten</span>
-          <span className="tabular-nums">{shippingTotal}</span>
+          <span className="tabular-nums">{formatPrice(shippingTotal)}</span>
         </div>
 
         {/* Trennlinie */}
@@ -31,7 +32,7 @@ export function CartSummary() {
         {/* Gesamtpreis */}
         <div className="flex justify-between font-semibold text-lg">
           <span>Gesamt</span>
-          <span className="tabular-nums">{total}</span>
+          <span className="tabular-nums">{formatPrice(total)}</span>
         </div>
       </CardContent>
 

@@ -2,6 +2,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
+import { formatPrice } from '@/lib/format-price'
 import type { ProductCardData } from '@/lib/graphql/types'
 
 interface ProductCardProps {
@@ -46,7 +47,7 @@ export function ProductCard({ product }: ProductCardProps) {
             {product.name}
           </h3>
           <p className="mt-1 text-sm font-semibold text-text-primary tabular-nums">
-            {product.price ?? '—'}
+            {product.price ? formatPrice(product.price) : '—'}
           </p>
         </CardContent>
       </Link>
