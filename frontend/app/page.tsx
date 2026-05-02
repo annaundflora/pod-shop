@@ -19,6 +19,12 @@ const SKELETON_MAP: Record<string, React.ReactNode> = {
   'testimonials': null,           // inline, kein async — kein Skeleton nötig
   'newsletter-signup': null,      // inline, kein async — kein Skeleton nötig
   'featured-collection': <FeaturedCollectionBlockSkeleton />,
+  // Slice 07 — Kleinstadtpflanze Layout-Flair:
+  'editorial-mini': null,         // inline-sync, kein Skeleton nötig
+  'faq-accordion': null,          // inline-sync, kein Skeleton nötig
+  'motif-grid': null,             // inline-sync, kein Skeleton nötig
+  'brand-recap': null,            // inline-sync, kein Skeleton nötig
+  'trust-badges': null,           // inline-sync, kein Skeleton nötig
 }
 
 export default function HomePage() {

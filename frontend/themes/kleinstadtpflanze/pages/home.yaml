@@ -1,0 +1,132 @@
+# themes/kleinstadtpflanze/pages/home.yaml
+# Kleinstadtpflanze Homepage — Layout & Components Phase 2 (ehrlich-klein).
+# Section order per discovery.md §"Screen: Homepage":
+#   1. Hero (variant two-col)  2. Categories  3. Products  4. Motif-Grid
+#   5. Editorial-Mini  6. FAQ  7. Trust-Badges  8. Brand-Recap
+
+sections:
+  - columns: 1
+    blocks:
+      - type: hero
+        content_source: inline
+        params:
+          props:
+            variant: "two-col"
+            tag: "Aus Schleswig-Holstein"
+            heroHeadline: "Stadt-Motive für jeden Tag"
+            heroSubline: "Kleine Drucke, persönlich gewählt — Tassen, Beutel, Shirts."
+            heroCtaText: "Kollektion ansehen"
+            heroCtaLink: "/kategorie/tassen"
+            ctaSecondary:
+              text: "Was ist Kleinstadtpflanze?"
+              href: "#editorial-mini-heading"
+            trustItems:
+              - icon: truck
+                text: "Versand DE 3–5 Werktage"
+              - icon: refresh
+                text: "30 Tage Rückgabe"
+              - icon: lock
+                text: "Sichere Zahlung"
+            visual:
+              imageUrl: ""
+              alt: ""
+
+  - columns: 1
+    blocks:
+      - type: category-showcase
+        content_source: woocommerce
+        params:
+          query: product_categories
+          first: 6
+
+  - columns: 1
+    blocks:
+      - type: product-grid
+        content_source: woocommerce
+        params:
+          query: featured_products
+          first: 4
+
+  - columns: 1
+    blocks:
+      - type: motif-grid
+        content_source: inline
+        params:
+          props:
+            headline: "Motive entdecken"
+            items:
+              - name: "Helgoland"
+                image_url: "/motifs/helgoland.jpg"
+                href: "/suche?q=helgoland"
+              - name: "Husum"
+                image_url: "/motifs/husum.jpg"
+                href: "/suche?q=husum"
+              - name: "Glückstadt"
+                image_url: "/motifs/glueckstadt.jpg"
+                href: "/suche?q=glueckstadt"
+              - name: "Eckernförde"
+                image_url: "/motifs/eckernfoerde.jpg"
+                href: "/suche?q=eckernfoerde"
+              - name: "Friedrichstadt"
+                image_url: "/motifs/friedrichstadt.jpg"
+                href: "/suche?q=friedrichstadt"
+              - name: "Tönning"
+                image_url: "/motifs/toenning.jpg"
+                href: "/suche?q=toenning"
+
+  - columns: 1
+    blocks:
+      - type: editorial-mini
+        content_source: inline
+        params:
+          props:
+            tag: "Über Kleinstadtpflanze"
+            headline: "Was ist Kleinstadtpflanze?"
+            text: "Eine kleine Auswahl Stadt-Motive aus Schleswig-Holstein, gedruckt auf Alltagsdingen. Auf Bestellung produziert — kein Lager, keine Massenware."
+            cta:
+              text: "Alle Kategorien"
+              href: "/"
+            image_url: ""
+            image_alt: ""
+
+  - columns: 1
+    blocks:
+      - type: faq-accordion
+        content_source: inline
+        params:
+          props:
+            headline: "Häufige Fragen"
+            items:
+              - q: "Wie lange dauert der Versand?"
+                a: "Innerhalb Deutschlands 3–5 Werktage nach Druckfreigabe. Wir produzieren auf Bestellung."
+              - q: "Wer druckt die Produkte?"
+                a: "Unsere Drucke werden bei einem etablierten Print-on-Demand-Partner in Europa hergestellt."
+              - q: "Wie pflege ich mein Produkt?"
+                a: "Tassen sind spülmaschinenfest. Shirts und Beutel bei 30 °C auf links waschen, nicht in den Trockner."
+              - q: "Kann ich umtauschen?"
+                a: "Ja — 30 Tage Rückgaberecht. Bitte unbenutzt und in der Originalverpackung zurücksenden."
+              - q: "Welche Größen gibt es?"
+                a: "Shirts gibt es in S–XXL. Die Größentabelle findet sich auf jeder Produktseite."
+
+  - columns: 1
+    blocks:
+      - type: trust-badges
+        content_source: inline
+        params:
+          props:
+            items:
+              - icon: truck
+                text: "Versand DE 3–5 Werktage"
+              - icon: refresh
+                text: "30 Tage Rückgabe"
+              - icon: lock
+                text: "Sichere Zahlung"
+
+  - columns: 1
+    blocks:
+      - type: brand-recap
+        content_source: inline
+        params:
+          props:
+            tagline: "Kleine Drucke aus Schleswig-Holstein."
+            href: "/"

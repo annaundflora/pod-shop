@@ -13,7 +13,9 @@
 //         (forest-greenish primary: L in [0.35, 0.55] AND hue in [145, 160])
 //   AC-4: Covered structurally by AC-3 (browser-level check is not viable in Vitest).
 //   AC-5: generate-theme.mjs exits 0 (no page-config conflict) AND
-//         themes/kleinstadtpflanze/pages/ directory does NOT exist (3-tier fallback)
+//         themes/kleinstadtpflanze/pages/{home,product,category}.yaml exist and parse
+//         as valid YAML (positive assertion — replaces the previous "directory does
+//         NOT exist" assertion retired in Slice 07).
 //   AC-6: .env.local.example mentions `kleinstadtpflanze` in themes-comment line
 //
 // Testing strategy: no-mocks. Parse real YAML, read real generated CSS,
@@ -416,15 +418,38 @@ describe('slice-03: Kleinstadtpflanze-Theme-YAML + Aktivierung', () => {
     )
 
     it(
-      'AC-5b: GIVEN the 3-tier page-config fallback must load themes/default/pages/home.yaml, ' +
+      'AC-5b: GIVEN Slice 07 (Layout-Flair) introduces theme-level page overrides, ' +
         'WHEN the kleinstadtpflanze theme directory is inspected, ' +
-        'THEN themes/kleinstadtpflanze/pages/ does NOT exist ' +
-        '(ensures no override masks the default home.yaml)',
+        'THEN themes/kleinstadtpflanze/pages/{home,product,category}.yaml exist and parse as valid YAML ' +
+        '(positive assertion — replaces the retired "directory does NOT exist" check)',
       () => {
+        // Directory must exist (the previous Slice-03 assertion `toBe(false)` is retired).
         expect(
           existsSync(KLEINSTADTPFLANZE_PAGES_DIR),
-          `themes/kleinstadtpflanze/pages/ should NOT exist to force 3-tier fallback`,
-        ).toBe(false)
+          `themes/kleinstadtpflanze/pages/ should exist (theme-level page overrides for Slice 07)`,
+        ).toBe(true)
+
+        // Each of the three YAML files must exist and parse to a `sections`-shaped config.
+        const expectedFiles = ['home.yaml', 'product.yaml', 'category.yaml']
+        for (const fileName of expectedFiles) {
+          const filePath = resolve(KLEINSTADTPFLANZE_PAGES_DIR, fileName)
+          expect(
+            existsSync(filePath),
+            `themes/kleinstadtpflanze/pages/${fileName} should exist`,
+          ).toBe(true)
+
+          const raw = readFileSync(filePath, 'utf-8')
+          const parsed = parseYaml(raw) as { sections?: unknown[] } | null
+          expect(parsed, `${fileName} did not parse to a YAML object`).not.toBeNull()
+          expect(
+            Array.isArray(parsed?.sections),
+            `${fileName} must define a sections[] array`,
+          ).toBe(true)
+          expect(
+            (parsed?.sections ?? []).length,
+            `${fileName} sections[] must be non-empty`,
+          ).toBeGreaterThan(0)
+        }
       },
     )
   })

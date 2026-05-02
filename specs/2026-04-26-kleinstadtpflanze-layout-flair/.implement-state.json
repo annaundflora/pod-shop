@@ -1,0 +1,30 @@
+{
+  "spec_path": "specs/2026-04-26-kleinstadtpflanze-layout-flair",
+  "feature_name": "kleinstadtpflanze-layout-flair",
+  "status": "completed",
+  "current_state": "completed",
+  "current_slice_id": null,
+  "retry_count": 0,
+  "lint_retry_count": 0,
+  "completed_slices": ["slice-01", "slice-02", "slice-03"],
+  "slim_spec_written": true,
+  "stack": {
+    "stack_name": "TypeScript",
+    "indicator_file": "frontend/tsconfig.json",
+    "lint_autofix_cmd": null,
+    "lint_check_cmd": null,
+    "typecheck_cmd": "cd frontend && pnpm exec tsc --noEmit",
+    "test_cmd": "cd frontend && pnpm test"
+  },
+  "branch": "kleinstadtpflanze-layout-flair",
+  "worktree_path": "/home/dev/pod-shop/.claude/worktrees/kleinstadtpflanze-layout-flair",
+  "final_validation": {
+    "typecheck": "clean (0 errors)",
+    "feature_tests": "175 passed (kleinstadtpflanze-layout-flair + design-e)",
+    "full_suite": {
+      "passed": 1069,
+      "failed": 11,
+      "comparison_to_master": "master baseline: 12 failed / 942 passed. Net delta: +127 passing, -1 failing. All 11 remaining failures predate this feature (block-page-migration + frontend-theming/slice-05) and exist on master too."
+    }
+  }
+}

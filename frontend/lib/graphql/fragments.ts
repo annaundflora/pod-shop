@@ -44,6 +44,12 @@ export const PRODUCT_DETAIL_FRAGMENT = gql`
     name
     description
     shortDescription
+    ... on SimpleProduct {
+      price(format: FORMATTED)
+      regularPrice(format: FORMATTED)
+      onSale
+      stockStatus
+    }
     ... on VariableProduct {
       price(format: FORMATTED)
       regularPrice(format: FORMATTED)

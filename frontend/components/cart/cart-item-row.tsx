@@ -5,6 +5,7 @@ import { useCart } from '@/contexts/cart-context'
 import { QuantityStepper } from './quantity-stepper'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { formatPrice } from '@/lib/format-price'
 import type { CartItem } from '@/contexts/cart-context.types'
 
 interface CartItemRowProps {
@@ -63,9 +64,9 @@ export function CartItemRow({ item, isLoading }: CartItemRowProps) {
 
         {/* Zeilenpreis */}
         <div className="flex-shrink-0 text-right">
-          <p className="font-medium tabular-nums">{item.subtotal}</p>
+          <p className="font-medium tabular-nums">{formatPrice(item.subtotal)}</p>
           {item.quantity > 1 && (
-            <p className="text-xs text-text-secondary tabular-nums mt-1">{item.price} / Stk.</p>
+            <p className="text-xs text-text-secondary tabular-nums mt-1">{formatPrice(item.price)} / Stk.</p>
           )}
         </div>
       </CardContent>

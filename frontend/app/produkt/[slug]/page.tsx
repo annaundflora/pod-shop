@@ -43,6 +43,13 @@ const SKELETON_MAP: Record<string, React.ReactNode> = {
   'product-gallery': <ProductGalleryBlockSkeleton />,
   'product-purchase': <ProductPurchaseBlockSkeleton />,
   'product-description': <ProductDescriptionBlockSkeleton />,
+  // Slice 07 — Kleinstadtpflanze Layout-Flair (PDP):
+  'trust-badges': null,           // inline-sync
+  'service-box': null,            // inline-sync
+  'motif-cross-sell': null,       // inline-sync (graceful-null)
+  'product-recommendations': null,
+  'faq-accordion': null,          // inline-sync
+  'brand-recap': null,            // inline-sync
 }
 
 interface ProductPageProps {

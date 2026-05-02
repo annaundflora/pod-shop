@@ -1,0 +1,99 @@
+# themes/kleinstadtpflanze/pages/product.yaml
+# Kleinstadtpflanze PDP — Layout & Components Phase 2 (ehrlich-klein).
+# Section order per discovery.md §"Screen: PDP":
+#   1. Hauptbereich (2-col gallery vertical-thumbs | purchase + description + service-box)
+#   2. Trust-Badges  3. Motif-Cross-Sell  4. Product-Recommendations
+#   5. Mini-FAQ  6. Brand-Recap
+#
+# product-description als eigene Section ENTFERNT — integriert in product-purchase via withDescription.
+# product-reviews ENTFERNT — keine Reviews-Basis fuer den Launch.
+
+sections:
+  - columns: 2
+    gap: "gap-16"
+    blocks:
+      - type: product-gallery
+        content_source: woocommerce
+        params:
+          query: product_by_slug
+          slug: "$route.slug"
+          layout: "vertical-thumbs"
+
+      - type: product-purchase
+        content_source: woocommerce
+        params:
+          query: product_by_slug
+          slug: "$route.slug"
+          withDescription: true
+          serviceBox:
+            items:
+              - icon: package
+                label: "Versand DE 3–5 Werktage"
+                detail: "Auf Bestellung produziert, neutrales Paket"
+              - icon: refresh
+                label: "30 Tage Rückgabe"
+                detail: "Unbenutzt in Originalverpackung"
+              - icon: ruler
+                label: "Größen / Maße"
+                detail: "Siehe Größentabelle in den FAQ"
+
+  - columns: 1
+    blocks:
+      - type: trust-badges
+        content_source: inline
+        params:
+          props:
+            items:
+              - icon: truck
+                text: "Versand DE 3–5 Werktage"
+              - icon: refresh
+                text: "30 Tage Rückgabe"
+              - icon: lock
+                text: "Sichere Zahlung"
+
+  - columns: 1
+    blocks:
+      - type: motif-cross-sell
+        content_source: inline
+        params:
+          props:
+            heading: "Dieses Motiv auch auf …"
+            tiles: null
+            # tiles: null -> graceful-null contract: block rendert null.
+            # Wenn Motiv-Daten landen: content_source: woocommerce,
+            # query: products_by_motif, slug: $route.slug.
+
+  - columns: 1
+    blocks:
+      - type: product-recommendations
+        content_source: woocommerce
+        params:
+          query: product_recommendations
+          source: related
+          slug: "$route.slug"
+          first: 4
+          heading: "Vielleicht auch was für dich"
+
+  - columns: 1
+    blocks:
+      - type: faq-accordion
+        content_source: inline
+        params:
+          props:
+            headline: "Häufige Fragen"
+            items:
+              - q: "Wie lange dauert der Versand?"
+                a: "Innerhalb Deutschlands 3–5 Werktage nach Druckfreigabe."
+              - q: "Wie pflege ich mein Produkt?"
+                a: "Tassen sind spülmaschinenfest. Textilien bei 30 °C auf links waschen, nicht in den Trockner."
+              - q: "Kann ich umtauschen?"
+                a: "Ja — 30 Tage Rückgaberecht. Bitte unbenutzt und in Originalverpackung zurücksenden."
+
+  - columns: 1
+    blocks:
+      - type: brand-recap
+        content_source: inline
+        params:
+          props:
+            tagline: "Kleine Drucke aus Schleswig-Holstein."
+            href: "/"

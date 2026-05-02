@@ -183,7 +183,22 @@ async function woocommerceLoader(params: WooCommerceLoaderParams): Promise<WooCo
         query: GET_PRODUCT,
         variables: { slug },
       })
-      return { data: data?.product ?? null }
+      const product = data?.product ?? null
+      if (!product) return { data: null }
+      // Slice 2: Passthrough merge of YAML-only params (layout, withDescription, serviceBox)
+      // into the returned product so PDP blocks can read them off `data` without
+      // schema changes to GraphQL. Each field is only added if the YAML provided it.
+      const merged: Record<string, unknown> = { ...product }
+      if (typeof params.layout === 'string') {
+        merged.layout = params.layout
+      }
+      if (typeof params.withDescription === 'boolean') {
+        merged.withDescription = params.withDescription
+      }
+      if (params.serviceBox && typeof params.serviceBox === 'object') {
+        merged.serviceBox = params.serviceBox
+      }
+      return { data: merged }
     } else if (params.query === 'category_meta') {
       const slug = params.slug
       if (!slug) return { data: null }

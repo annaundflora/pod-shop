@@ -32,6 +32,13 @@ import { SearchResultsBlock } from '@/components/blocks/search-results-block'
 // Slice 06 — Neue Pages:
 import { CollectionHeaderBlock } from '@/components/blocks/collection-header-block'
 import { OrderConfirmationBlock } from '@/components/blocks/order-confirmation-block'
+// Slice 07 — Kleinstadtpflanze Layout-Flair:
+import { EditorialMiniBlock } from '@/components/blocks/editorial-mini-block'
+import { FaqAccordionBlock } from '@/components/blocks/faq-accordion-block'
+import { MotifGridBlock } from '@/components/blocks/motif-grid-block'
+import { BrandRecapBlock } from '@/components/blocks/brand-recap-block'
+import { ServiceBoxBlock } from '@/components/blocks/service-box-block'
+import { MotifCrossSellBlock } from '@/components/blocks/motif-cross-sell-block'
 
 type BlockComponent = ComponentType<BlockComponentProps<unknown>>
 
@@ -67,6 +74,13 @@ const registry: Record<string, BlockComponent> = {
   // Slice 06:
   'collection-header': CollectionHeaderBlock as BlockComponent,
   'order-confirmation': OrderConfirmationBlock as BlockComponent,
+  // Slice 07 — Kleinstadtpflanze Layout-Flair:
+  'editorial-mini': EditorialMiniBlock as BlockComponent,
+  'faq-accordion': FaqAccordionBlock as BlockComponent,
+  'motif-grid': MotifGridBlock as BlockComponent,
+  'brand-recap': BrandRecapBlock as BlockComponent,
+  'service-box': ServiceBoxBlock as BlockComponent,
+  'motif-cross-sell': MotifCrossSellBlock as BlockComponent,
 }
 
 export function resolveBlock(type: string): BlockComponent | null {
