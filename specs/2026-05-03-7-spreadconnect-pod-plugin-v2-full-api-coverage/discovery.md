@@ -43,8 +43,9 @@
 | Inline-Erweiterungen: Product-Edit Meta-Box, Product-Liste-Spalten (Cost+Marge), Order-Edit Meta-Box, Order-Liste-Spalten, Bulk-Actions |
 | Hybrid-Stock-Sync: Live-Cache (5min) + Periodisch (4x/Tag, threshold-basiert) + Webhook (`Article.updated`) |
 | Pricing: WC-Preis bleibt manuell, SC-Cost als Meta + **Margenanzeige** auf Edit-Page + Liste |
+| Default-Shipping-Type-Setting (gates Auto-Confirm: Auto-Confirm-Modi sind nur wählbar, wenn ein Default gesetzt ist) |
 | Failure-Recovery: Auto-Retry (3x exp. Backoff), Dead-Letter-Queue UI mit Resend-Button, Email-Benachrichtigung, Order-Note + Admin-Notice |
-| Auto-Webhook-Subscription-Registrierung bei Plugin-Aktivierung mit HMAC-Secret-Generierung |
+| Auto-Webhook-Subscription-Registrierung bei **Settings-Save mit gültiger Connection** (nicht bei Plugin-Activation, weil dann der API-Key noch fehlt). HMAC-Secret wird beim Save einmalig generiert + angezeigt. |
 | HPOS-Kompatibilität (Pflicht-Declare via `FeaturesUtil::declare_compatibility('custom_order_tables', ...)`) |
 | Single-Shop pro WP-Installation, Settings via `wp_options` (Multi-Shop = mehrere WPs) |
 | i18n: Englischer Source-Code + `de_DE.po`-Translation |
@@ -152,7 +153,7 @@
 2. WC-Hook `woocommerce_order_status_processing`: Plugin schedult `spreadconnect/create_order {orderId}` (async)
 3. Job: `POST /orders` mit Items (sku/quantity), Shipping-Address, Billing → SC-OrderID returned
 4. Plugin schreibt `_spreadconnect_order_id`, `_spreadconnect_state` = `NEW`, Order-Note "Submitted to Spreadconnect (#SC-ID)"
-5. Admin → Order-Edit-Page → Spreadconnect Meta-Box zeigt: SC-OrderID (Link zum SC-Backend), State `NEW`, Shipping-Type-Dropdown (`STANDARD`/`PREMIUM`/`EXPRESS` aus `GET /orders/{id}/shippingTypes`), Buttons: [Confirm] [Cancel] [Refresh State]
+5. Admin → Order-Edit-Page → Spreadconnect Meta-Box zeigt: SC-OrderID (Link zum SC-Backend), State `NEW`, Shipping-Type-Dropdown (dynamische Liste aus `GET /orders/{id}/shippingTypes`; pro Eintrag: `name`, `company`, `description`, `price` wie in der SC-API-Response — ohne Lead-Time, denn die Response liefert keine ETA), Buttons: [Confirm] [Cancel] [Refresh State]
 6. Admin wählt Shipping-Type → `POST /orders/{id}/shippingType` → State bleibt `NEW`
 7. Admin klickt [Confirm] → `POST /orders/{id}/confirm` → State wechselt `NEW` → `CONFIRMED`
 8. Webhook `Order.processed` (von SC empfangen) → Plugin updated `_spreadconnect_state` = `PROCESSED`
@@ -178,7 +179,13 @@
 
 ### Flow F — Stock-Sync (Hybrid)
 
-1. **Live-Cache** (5min TTL): Bei Aufruf einer Product-Edit-Page → falls Cache stale: `GET /stock/{sku}` (für jede Variation parallel) → Anzeige "Live Stock: N/A | Available | Low (X) | Out"
+1. **Live-Cache** (5min TTL): Bei Aufruf einer Product-Edit-Page mit linked Article:
+   - Page rendert sofort mit gecachten Stock-Werten + Skeleton-Indicator für stale/missing Variations (kein blocking Fetch).
+   - Async-Refresh nach Render: ein einziger `GET /stock` (Bulk-Endpoint, gefiltert per `productTypeId` oder per query nach den gewünschten SKUs falls API das unterstützt; sonst Bulk-Pull + client-side filter auf die Variations-SKUs).
+   - Per-Variation-Updates werden via JS in die Tabelle ge-swappt (Skeleton → Wert) und Cache geschrieben.
+   - **Niemals** parallele `GET /stock/{sku}`-Calls pro Variation (würde bei Produkten mit 20+ Variations Rate-Limit-Cascade auslösen).
+   - `[Refresh Stock]` triggert denselben Bulk-Pfad, ignoriert Cache.
+   - Anzeige pro Variation: "Live Stock: N/A | Available | Low (X) | Out".
 2. **Periodisch**: Action Scheduler `spreadconnect/scheduled_stock_sync` alle 6h:
    - `GET /stock` (Bulk) → für Articles mit Stock < Threshold (Default 10): Update WC-Variation-Stock + setze `outofstock` falls 0
    - Articles mit Stock ≥ Threshold: WC-Stock-Mgmt bleibt off (POD-Default unlimited)
@@ -324,7 +331,8 @@
   - Display: HMAC Secret (zeigt nur zuletzt-generiert, sonst "•••• [Regenerate]")
   - Action: [Regenerate Secret] (Confirm-Dialog: "Will require updating SC subscriptions")
 - Section "Order Behavior":
-  - Field: Auto-Confirm (Off / Immediately / After X minutes — default Off)
+  - Field: Default Shipping-Type (Dropdown, default `None`). Optionen werden dynamisch aus SC bezogen (siehe `spreadconnect_default_shipping_type`-Notes) — kein hartcodierter Enum. Wird beim `create_order` automatisch übergeben; pro-Order Override bleibt im Order-Edit Meta-Box möglich.
+  - Field: Auto-Confirm (Off / Immediately / After X minutes — default Off). **Disabled solange Default Shipping-Type = None**, mit inline Hinweis "Set a default shipping type to enable".
   - Field: Auto-Cancel-Mirror (Toggle, default On)
 - Section "Catalog Sync":
   - Field: Pull Images on Sync (Toggle, default On)
@@ -391,7 +399,7 @@
   - Last-Action-Timestamp
   - [Refresh State]-Button
 - Block "Shipping" (nur State NEW):
-  - Dropdown: Shipping-Type (STANDARD/PREMIUM/EXPRESS) aus `GET /orders/{id}/shippingTypes`
+  - Dropdown: Shipping-Type — dynamische Liste aus `GET /orders/{id}/shippingTypes`. Pro Option zeigt UI: `name` (z.B. "International Standard"), `company` (z.B. "DHL"), `price.amount price.currency`, `description`. **Keine Lead-Time/ETA**, weil die SC-Response keine liefert.
   - [Save Shipping-Type]-Button
 - Block "Actions":
   - [Confirm Order] (nur State NEW, sendet `POST /confirm`)
@@ -436,6 +444,17 @@
 | `webhook_log_row` | Tablerow | Webhook-Log | `success`, `error`, `hmac_failed` | Click → expand JSON-Payload |
 | `failure_admin_notice` | WP-Notice | Wherever WP loads admin | `dismissible`, `permanent` | Bleibt bis Admin "Mark as resolved" |
 | `low_margin_notice_in_list` | Inline-Cell | Product-List | `red badge` bei <20% | Statisch, sortierbar |
+| `cancel_sync_button` | Button | Catalog-Page (during sync) | `hidden`, `idle`, `confirming` (modal open), `canceling` (job draining) | Click → Confirm-Modal → `as_unschedule_action()` für queued + remaining per-article actions; in-flight Worker beendet aktuellen Article. Sync-History bekommt Row mit `canceled` + processed/skipped Counts. |
+| `article_picker` | Searchable Dropdown (with thumbnails) | Product-Edit Meta-Box (unlinked state) | `loading`, `ready`, `searching`, `no_results`, `linking`, `link_error` | 300ms-debounced Suche über `GET /articles?search=…` (oder paginiert `?page=…&size=20` ohne Suchterm). Click auf Result → `_spreadconnect_article_id` schreiben + `spreadconnect/sync_article` schedulen. |
+| `dismiss_resolution_modal` | Modal | Failed-Ops (only `create_order` rows) | `choice_view` (3 radios), `manual_input_required` (after "Submitted manually" picked, until SC-OrderID entered), `submitting` | Erzwingt eine von 3 Resolutions: Resend / Cancel WC order / Submitted manually (mit externer SC-OrderID-Eingabe). |
+| `save_success_panel` | Inline-Panel | Settings (after Save) | `hidden`, `success_full` (alle Steps grün), `success_partial` (mind. 1 Step ⚠), `acknowledged` | Stepwise-Result mit ✓/⚠ pro Side-Effect (auth check / secret generated / N-of-M subscriptions registered). Enthält bei Erstinstallation den `initial_secret_reveal_panel` als nested Sub-Panel. Verschwindet erst nach [Acknowledge]. |
+| `initial_secret_reveal_panel` | Inline-Panel (sub-element) | Settings (`save_success_panel`, first-time only) | `hidden`, `visible_once`, `acknowledged` | Zeigt das frisch generierte HMAC-Secret im Klartext genau einmal; [Copy] + [Done] (ack lockt persistent gegen erneutes Anzeigen — danach nur noch via `regenerate_secret_button`). |
+| `auto_confirm_pending_indicator` | Inline-Element | Order-Edit Meta-Box | `hidden`, `visible` (when timer active) | Zeigt verbleibende Minuten bis Auto-Confirm; aktualisiert via Page-Reload (kein Live-Tick nötig). |
+| `cancel_auto_confirm_button` | Button | Order-Edit Meta-Box (when `auto_confirm_pending_indicator` visible) | `idle`, `loading`, `success` | Click → `as_unschedule_action('spreadconnect/confirm_order', ['order_id' => $id])` → Indicator verschwindet. |
+| `dashboard_failure_breakdown` | Inline-Cell-Group | Hub-Dashboard (Failed-Ops Card) | `zero`, `orders_only`, `catalog_only`, `webhooks_only`, `mixed` | Zeigt Per-Op-Type-Counts mit Severity-Color (orders=red, catalog=yellow, webhooks=outlined); surfaced "Most recent" inline mit Direkt-Link. |
+| `bulk_resend_outcome_panel` | Inline-Panel | Order-List (HPOS + Legacy) | `hidden`, `in_progress`, `complete_with_counts`, `no_eligible` | Pre-Flight zeigt "Will re-send: N · Will skip: M"; Ergebnis-Banner zeigt explizit "X of Y re-queued · Z skipped (reason)" mit [Show details ▾] für Per-Row-Tabelle. Refused mit Banner falls 0 eligible Rows. |
+| `default_shipping_type_radio` | Radio Group / Dropdown | Settings → Order Behavior | `none` plus dynamische Optionen aus SC (`shippingType.id`-Liste, gepullt aus letzter `GET /orders/{id}/shippingTypes`-Response oder global vorgepullt — Architecture-Phase) | Keine Selection (`none`) lockt `auto_confirm_radio` (siehe `auto_confirm_radio`-Eintrag). UI-Component bleibt Radio nur, wenn Optionsanzahl ≤ 4; sonst Dropdown. |
+| `auto_confirm_radio` | Radio Group | Settings → Order Behavior | `locked` (Default-Shipping-Type = none), `off`, `immediate`, `after_minutes` | Wenn `default_shipping_type_radio` = `none`: gesamtes Radio greyed + inline Hint "Set a default shipping type to enable auto-confirm." Server-side: bei Save erzwungen `off` falls Default fehlt. |
 
 ---
 
@@ -512,7 +531,7 @@
 | WC-Order `processing` | `woocommerce_order_status_processing` | Order-Note "Submitting…" | `submitting` | Idempotent: Skip wenn `_spreadconnect_order_id` existiert |
 | `submitting` | `POST /orders` 201 | Order-Note "Submitted #SC-N" | `NEW` | Speichert SC-OrderID + State |
 | `submitting` | `POST /orders` 4xx | Order-Note + Failed-Ops + Notice | `failed_to_submit` | Kein Auto-Retry bei 4xx |
-| `submitting` | `POST /orders` 5xx | -- | `submitting` (retry) | Auto-Retry 3x exp. Backoff |
+| `submitting` | `POST /orders` 5xx / Network / Timeout | -- | `submitting` (retry) | Auto-Retry via Action Scheduler 3x mit 1min/5min/15min Backoff (Single Retry-Layer) |
 | `NEW` | Admin clickt Confirm | Loading → Success-Toast | `CONFIRMED` | Pre-Check: Shipping-Type gesetzt? Falls nein: Error |
 | `NEW` | Admin clickt Cancel | Loading → Success-Toast | `CANCELLED` | -- |
 | `NEW` | WC-Order auf `cancelled` gesetzt + Auto-Cancel-Mirror On | Order-Note "Auto-cancelled in SC" | `CANCELLED` | Nur wenn State NEW |
@@ -535,7 +554,11 @@
 - **Regenerate Secret** invalidiert alle existierenden Subscriptions → muss diese neu registrieren (System macht das automatisch im Repair-Flow).
 - **Bearer-Token**-Authentication via `Authorization: Bearer <api_key>` für alle ausgehenden API-Calls.
 - **Rate-Limit-Awareness**: bei `X-RateLimit-Remaining ≤ 5` proaktiv 1s sleep, bei HTTP 429 `X-RateLimit-Retry-After-Seconds` respektieren.
-- **3x Retry mit Exponential-Backoff** (1s/2s/4s) für 5xx und Network-Errors, **kein** Retry bei 4xx (außer 429).
+- **Single Retry-Layer (Entscheidung)**: Retries leben **nur** auf der Job-Ebene (Action Scheduler), nicht auf der HTTP-Ebene. Begründung: Action-Scheduler-Jobs sind DB-persistent und überleben Worker-Crashes, in-process HTTP-Retries nicht. Inner-HTTP verhält sich daher fail-fast:
+    - **HTTP 2xx** → Erfolg.
+    - **HTTP 429** → einmalig `X-RateLimit-Retry-After-Seconds` warten, danach **ein** erneuter Versuch im selben Job (kein voller 3x-Backoff). Bei zweitem 429 → Job-Failure → Action-Scheduler-Retry.
+    - **HTTP 4xx (außer 429)** → sofort permanenter Fehler; Job-Failure ohne Retry, direkt in `wp_spreadconnect_failed_ops`.
+    - **HTTP 5xx / Network-Error / Timeout** → Job-Failure; Action Scheduler retried 3× mit 1min/5min/15min Backoff (s. Failure Handling). **Kein** zusätzlicher 1s/2s/4s-Inner-Retry.
 
 ### HPOS-Compliance
 - Plugin **muss** vor `before_woocommerce_init` deklarieren: `FeaturesUtil::declare_compatibility('custom_order_tables', __FILE__, true)`.
@@ -548,6 +571,13 @@
 - WC-Preis (`_regular_price`, `_sale_price`) wird **niemals** vom Sync überschrieben — Admin behält volle Margen-Kontrolle.
 - WC-Variation-Stock-Mgmt bleibt **off** (POD = unlimited), außer Stock-Sync-Job setzt `outofstock` bei Threshold-Unterschreitung.
 - **Bilder**-Sideload nur beim ersten Sync pro Article. Bei Re-Sync werden Bilder **nicht** neu gezogen (Performance + Mediathek-Bloat-Vermeidung), außer Admin-Toggle "Force re-pull images" gesetzt.
+- **Cron-Context-Includes für `media_sideload_image()`**: Die `sync_article`-Action läuft im Action-Scheduler-Worker (CRON-Request, **nicht** Admin-Context). `media_sideload_image()` ist normalerweise nur in `wp-admin/` definiert. Der Action-Handler **muss** vor dem ersten Image-Pull explizit laden:
+    ```php
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    ```
+    Andernfalls scheitert der Sideload silent (Funktion undefined → fataler Error im Worker, von AS als Job-Failure behandelt → nach 3× Retry in Failed-Ops). Architecture-Doc legt diese Includes als Boilerplate-Block für alle Action-Handler fest, die Media-Funktionen nutzen.
 - Article-Removal (`Article.removed`-Webhook) setzt WC-Produkt-Status auf `draft`. **Niemals** `delete` (würde Order-Historie verletzen).
 - Attribut-Slugs **fix**: `pa_groesse`, `pa_farbe` (CLAUDE.md-Konvention). Werden vom Plugin angelegt falls nicht vorhanden.
 - SKU-Format: SC-SKU 1:1 als WC-Variation-SKU.
@@ -555,17 +585,38 @@
 ### Order Lifecycle
 - WC-Order wird **automatisch** bei Übergang zu `processing` an SC gesendet (idempotent: Skip wenn `_spreadconnect_order_id` bereits gesetzt).
 - SC-Order wird im State `NEW` erstellt — **nicht automatisch** confirmed (außer Setting "Auto-Confirm" aktiviert).
-- **Confirm-Pre-Check**: Shipping-Type muss gewählt sein. Default-Shipping-Type-Setting könnte Auto-Pick (Out-of-Scope für MVP).
+- **Confirm-Pre-Check**: Shipping-Type muss gewählt sein.
+- **Default-Shipping-Type-Setting** (`spreadconnect_default_shipping_type`): Wenn gesetzt, wird beim `create_order` automatisch als Shipping-Type übergeben; entfällt manuelles Setzen pro Order (Override pro Order via Order-Edit Meta-Box weiterhin möglich, solange State = `NEW`).
+- **Auto-Confirm-Gating**: Auto-Confirm (`immediate` / `after_minutes`) ist nur aktivierbar, wenn `spreadconnect_default_shipping_type` gesetzt ist. UI in Settings disabled die Auto-Confirm-Optionen mit inline Hinweis "Set a default shipping type to enable", solange das Setting leer ist. Plugin erzwingt diese Bedingung server-side bei Save (sonst zurück zu `off`).
+- **Auto-Confirm-Pre-Check-Failure-Handling**: Falls trotz Gating eine Auto-Confirm-Action ohne Shipping-Type feuert (z.B. Default-Setting wurde nach Schedule entfernt), wird die Action **nicht** in Failed-Ops generisch eingereiht. Stattdessen: dedizierte persistente Admin-Notice "Auto-confirm could not run for order #X — no shipping type set" + Order-Note; SC-Order bleibt im State `NEW`.
 - **Cancel** ist nur möglich solange SC-State = `NEW`.
 - WC-Cancel-Mirror: WC-Order auf `cancelled` triggert SC-Cancel automatisch **nur wenn** SC-State = `NEW`. Sonst Notice + Order-Note.
+- **WC-Cancel ↔ Auto-Confirm Race-Schutz**: Bei Übergang einer WC-Order auf `cancelled` ruft das Plugin **vor** dem Schedule des Cancel-Mirror-Jobs `as_unschedule_action('spreadconnect/confirm_order', ['order_id' => $id])` auf, um eine eventuell ausstehende deferred Auto-Confirm-Action zu entfernen. Erst danach wird `spreadconnect/cancel_order_mirror` geschedult. Damit ist die Reihenfolge deterministisch.
 - **Order-Update-Detection** (Items, Address geändert nach Submit): Out-of-Scope MVP. Plugin warnt bei Edit-Versuch via Order-Note.
 
 ### Webhooks
 - Webhook-Endpoint: `POST /wp-json/spreadconnect/v1/webhook` (REST API, public route mit `permission_callback` = HMAC-Check).
+- **HMAC-Signatur (verifiziert via SC-Doku)**: Header `X-SPRD-SIGNATURE` enthält SHA256-HMAC über den **raw Request-Body**, **Base64**-encoded (kein `sha256=`-Präfix). Verifizierung mit `hash_equals()` (constant-time-compare). Signatur ist nur gesetzt, wenn Subscription mit Secret registriert wurde — Plugin **muss** Secret beim `POST /subscriptions` übergeben.
 - Bei HMAC-Mismatch: HTTP 401, Log-Eintrag mit Source-IP + Headers (kein Payload-Log bei invalid).
-- Bei Empfang: Event-Log-Eintrag in `wp_spreadconnect_webhook_log` (mit Payload, schemavalidiert), dann **async-Schedule** der Verarbeitung via Action Scheduler. Webhook-Response: HTTP 202 sofort.
-- **Idempotency**: Webhook-Eindeutigkeit per `eventId` (falls von SC geliefert) oder Hash(eventType+entityId+timestamp). Duplikate werden geloggt + ignoriert.
+- **ACK-Contract (verifiziert via SC-Doku)**: Antwort innerhalb **8 s** mit HTTP **202** und Body **`[accepted]`** (literal). Sonst gilt Notification als nicht zugestellt → SC-seitiger Retry. Bedeutet: Verarbeitung **muss** asynchron sein (Log-Insert + Action-Scheduler-Schedule + sofortige 202-Antwort).
+- Bei Empfang: Event-Log-Eintrag in `wp_spreadconnect_webhook_log` (mit Payload, schemavalidiert), dann **async-Schedule** der Verarbeitung via Action Scheduler. Webhook-Response: HTTP 202 + `[accepted]` sofort.
+- **Payload-Shape (verifiziert via SC-Doku)**: `{ "eventType": string, "data": { "pointOfSaleId": string, "entity": object } }`. Bei `Order.needs-action` zusätzlich `errorReason: string`. Event-Types: `Article.added/updated/removed`, `Order.cancelled/processed/needs-action`, `Shipment.sent`.
+- **Idempotency-Strategie (entschieden — SC liefert keine `eventId`)**: SC-Webhooks haben kein eigenes Idempotency-Token. Plugin generiert deterministischen `event_id`-Hash beim Empfang aus `sha256(eventType + ":" + entity.id + ":" + sha256(raw_body))`. Hash-Kollision = Duplikat → Log-Eintrag mit `processing_status='duplicate'`, kein erneutes Schedule. **Zusätzliche Schutzschicht**: Action-Scheduler-Single-Worker-Claim (ein konkreter Action-Hash kann nur einmal gleichzeitig prozessiert werden, default in AS) verhindert Race bei zwei parallelen Webhook-Empfängen desselben Events. Spalte `wp_spreadconnect_webhook_log.event_id` bekommt UNIQUE-Constraint, damit ein DB-Insert-Conflict zweite Einlieferung deterministisch ablehnt.
 - Subscription-Repair löscht **nur** orphan Subscriptions deren URL = unsere aktuelle Webhook-URL (nie fremde URLs anderer Systeme).
+
+### Race Protection (Last-Write-Wins + Idempotency-Skip)
+
+Übergreifende Strategie für konkurrierende State-Mutationen (Webhooks ↔ Outbound-Jobs ↔ Manual-Actions). Pragmatischer Default: **Last-Write-Wins**, abgesichert durch Webhook-Idempotency (siehe oben) und das bereits in Order Lifecycle definierte `as_unschedule_action`-Pattern für die Auto-Confirm-vs-WC-Cancel-Race.
+
+| Race | Beteiligte | Verhalten |
+|------|-----------|-----------|
+| `Order.processed`-Webhook während `_spreadconnect_state = submitting` | Inbound-Webhook ↔ `POST /orders`-Response | Webhook setzt `_spreadconnect_state` auf `PROCESSED` direkt; spätere `POST /orders`-Erfolgsantwort schreibt nur dann `NEW` wenn `_spreadconnect_state` noch `submitting` ist (Compare-and-Set in `update_meta_data`-Wrapper). Bereits geschriebener `PROCESSED` bleibt — **last write wins** im Sinne von "der späteste Lifecycle-Schritt gewinnt". |
+| Doppelter `cancel_order_mirror`-Job (z.B. WC-Cancel + manueller Cancel-Click) | Zwei AS-Actions | Action-Scheduler-Single-Worker-Claim verhindert Parallel-Execution; zweiter Job sieht `_spreadconnect_state = CANCELLED` und ist no-op (idempotent). Plus: `as_unschedule_action` beim ersten Trigger entfernt Duplicate. |
+| `Article.updated`-Webhook während `sync_article`-Job für denselben Article | Inbound-Webhook ↔ Outbound-Job | Beide schreiben WC-Product-Meta. Last-Write-Wins. Stock-Cache-Werte sind ohnehin transient, Title/Variants werden vom späteren Write überschrieben. Kein Lock nötig. |
+| Doppelter `processing`-Hook (Mollie-Webhook + manueller Order-Status-Change) | Zwei `create_order`-Actions | Idempotency-Check: Job startet nur, wenn `_spreadconnect_order_id` leer ist. Zweiter Job sieht den von Job 1 geschriebenen Wert und ist no-op. AS-Single-Worker-Claim als zusätzliche Schutzschicht. |
+| Webhook-Duplikat für denselben Event (SC sendet at-least-once) | Zwei Webhook-Receives | UNIQUE-Constraint auf `wp_spreadconnect_webhook_log.event_id` + Plugin-seitiger Hash-Key (siehe Webhook-Idempotency); zweiter Insert schlägt fehl → `processing_status='duplicate'`, kein Schedule. |
+
+**Implementierungs-Pattern**: Alle State-Mutationen auf `_spreadconnect_state` und `_spreadconnect_order_id` gehen durch einen zentralen Meta-Update-Wrapper, der bei Bedarf einen Compare-and-Set per `$wpdb->query("UPDATE ... WHERE meta_value = :expected")` durchführt (für die Order.processed-Race). Sonstige Felder (Tracking, Stock-Cache) sind unproblematisch unter Last-Write-Wins.
 
 ### Stock Sync
 - **Hybrid**: Live-Cache (5min TTL) für Backend-Anzeige + Periodisch (Setting-Intervall, default 6h) für Threshold-basierten WC-Stock-Update + Webhook-Reaktion auf `Article.updated`.
@@ -573,10 +624,20 @@
 - Live-Cache-TTL ist in Settings konfigurierbar (1min / 5min / 15min, default 5min).
 
 ### Failure Handling
-- **Auto-Retry** via Action Scheduler 3x mit 1min/5min/15min Backoff für transient Errors (5xx, network).
+- **Auto-Retry** via Action Scheduler 3x mit 1min/5min/15min Backoff für transient Errors (5xx, network, timeout). Dies ist der **einzige** Retry-Layer (kein zusätzlicher Inner-HTTP-Retry — siehe API & Security).
 - **Permanent Failure** nach 3 Retries → Eintrag in `wp_spreadconnect_failed_ops` Custom Table.
 - **Email-Notification** an Empfänger-Liste (Setting), nur bei Permanent Failure.
 - **Order-Failure** triggert zusätzlich: Order-Note + persistente Admin-Notice (dismissible nur per "Mark as resolved" oder Resend-Success).
+- **Dismiss-Semantik (per Op-Type)**: Plain `Dismiss` ist **nicht** generisch erlaubt für Operationen, die ohne Resolution einen unfulfillten Customer-Order-Zustand hinterlassen würden. Konkret:
+    - `create_order` (WC-Order existiert, aber SC-Submission fehlt): `Dismiss` öffnet einen 3-Choice-Modal "Resolve order #X — no SC submission yet":
+        - **Resend now** — Re-queue der `create_order`-Action.
+        - **Cancel WC order** — setzt WC-Order auf `cancelled` (Plugin verlinkt zur WC-Refund-Doku, führt Refund **nicht** automatisch aus).
+        - **Submitted manually outside plugin** — Admin bestätigt, dass die Order extern (z.B. SC-Backend manuell) angelegt wurde; gibt Eingabefeld für externe SC-OrderID, schreibt diese in `_spreadconnect_order_id`, setzt State `NEW`, schreibt Order-Note "Submitted manually outside plugin (SC-OrderID: …)".
+        - "Plain Dismiss without resolution" ist für `create_order` **nicht verfügbar**.
+        - Persistente Admin-Notice und Failed-Ops-Eintrag bleiben bestehen, bis eine der drei Optionen gewählt wurde.
+    - `confirm_order`, `cancel_order`, `set_shipping`: Plain `Dismiss` ist erlaubt; SC-State bleibt unverändert; Admin-Notice wird gelöscht; Order-Note "Operation manually dismissed".
+    - `sync_article`, `handle_article_removed`, `handle_webhook`: Plain `Dismiss` ist erlaubt; Operation gilt als nicht ausgeführt; Failed-Ops-Eintrag wird mit `dismissed` markiert (im Audit-Log behalten).
+- **Bulk-Dismiss** in Failed-Ops respektiert die per-Op-Type-Regel: enthält die Selection ein `create_order`, wird der Bulk gestoppt mit Hinweis "X create_order entries require explicit resolution — open them individually".
 - Failed-Ops-Retention: Default 90 Tage (auto-purge via Action Scheduler).
 
 ### i18n
@@ -604,8 +665,9 @@
 | `spreadconnect_api_key` | string | Yes | non-empty, format check | Bearer-Token, masked in UI |
 | `spreadconnect_use_staging` | bool | No (default false) | -- | Staging URL: `https://staging.spreadconnect.com`, Prod: `https://api.spreadconnect.com` |
 | `spreadconnect_webhook_secret` | string | Auto-generated | base64, ≥32 bytes | HMAC Secret |
-| `spreadconnect_auto_confirm` | string | No | enum `off`/`immediate`/`after_minutes` | Default `off` |
+| `spreadconnect_auto_confirm` | string | No | enum `off`/`immediate`/`after_minutes` | Default `off`. **Dependency:** Nur wählbar, wenn `spreadconnect_default_shipping_type` gesetzt ist (gated; sonst forced `off`). |
 | `spreadconnect_auto_confirm_minutes` | int | No | ≥0 | Nur wenn `after_minutes` |
+| `spreadconnect_default_shipping_type` | string | No | non-empty SC `shippingType.id` (siehe `_spreadconnect_shipping_type`-Meta) | Default leer; wenn gesetzt: wird beim `create_order` als initialer Shipping-Type übergeben (sofern API das zulässt — siehe Open Question 11; sonst Fallback via `POST /shippingType` direkt nach Submit). Voraussetzung für Auto-Confirm. UI: Dropdown listet alle vom letzten Order-Submit bekannten ShippingTypes (Architecture-Phase entscheidet, ob global vorgepullt oder lazy gefüllt). |
 | `spreadconnect_auto_cancel_mirror` | bool | No (default true) | -- | -- |
 | `spreadconnect_pull_images` | bool | No (default true) | -- | -- |
 | `spreadconnect_stock_sync_interval` | string | No | enum `1h`/`4h`/`6h`/`12h`/`24h` | Default `6h` |
@@ -645,8 +707,8 @@
 | Meta Key | Required | Validation | Notes |
 |----------|----------|------------|-------|
 | `_spreadconnect_order_id` | Conditional | non-empty | Set nach POST /orders Success |
-| `_spreadconnect_state` | Conditional | enum NEW/CONFIRMED/PROCESSED/CANCELLED | -- |
-| `_spreadconnect_shipping_type` | No | enum STANDARD/PREMIUM/EXPRESS | -- |
+| `_spreadconnect_state` | Conditional | enum `submitting`/`NEW`/`CONFIRMED`/`PROCESSED`/`CANCELLED`/`failed_to_submit` | Persistiert sechs der acht Lifecycle-States. `pending` hat keinen Persistenz-Anker (= Pre-Submit, Meta nicht gesetzt). `needs_action` ist orthogonaler Overlay-Flag via `_spreadconnect_needs_action`, kein eigener Enum-Wert (kann mit jedem der sechs States koexistieren). |
+| `_spreadconnect_shipping_type` | No | string (SC shippingType `id`, siehe Notes) | SC liefert die zulässigen IDs dynamisch via `GET /orders/{id}/shippingTypes` (Response-Shape: `{id, company, name, description, price: {amount, taxRate, taxAmount, currency}}`). Plugin speichert die `id` (z.B. `"29"` oder Enum-Bezeichner wie `"STANDARD"`, je nach SC-Konvention pro ProductType), nicht eine festkodierte Enum. Validierung beim Save: Wert muss in der zuletzt von SC zurückgelieferten Liste vorkommen. |
 | `_spreadconnect_tracking_number` | No | string | -- |
 | `_spreadconnect_tracking_url` | No | URL | -- |
 | `_spreadconnect_needs_action` | No | bool | gesetzt durch Webhook |
@@ -658,7 +720,7 @@
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | bigint PK auto-inc | |
-| `op_type` | varchar(64) | enum `create_order`/`confirm_order`/`cancel_order`/`set_shipping`/`sync_article`/`handle_webhook` |
+| `op_type` | varchar(64) | enum `create_order`/`confirm_order`/`cancel_order`/`set_shipping`/`sync_article`/`handle_article_removed`/`handle_webhook` |
 | `related_entity_type` | varchar(32) | `order`/`article`/`webhook` |
 | `related_entity_id` | varchar(64) | |
 | `payload` | longtext (JSON) | |
@@ -669,19 +731,30 @@
 | `last_attempt_at` | datetime | |
 | `state` | varchar(16) | `unresolved`/`resolved`/`dismissed` |
 
+Indexes:
+- `idx_state_op_type` on (`state`, `op_type`) — Hub-Dashboard-Counts und Failed-Ops-Filter
+- `idx_related_entity` on (`related_entity_type`, `related_entity_id`) — Per-Order-/Per-Article-Lookup (z.B. `cancel_order_mirror`-Resolution-Pfad, Order-Edit-Failed-Ops-Anzeige)
+- `idx_created_at` on (`created_at`) — Retention-Purge-Job
+
 **`wp_spreadconnect_webhook_log`**
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | bigint PK auto-inc | |
 | `event_type` | varchar(64) | |
-| `event_id` | varchar(64) | für Idempotency |
-| `related_entity_type` | varchar(32) | |
-| `related_entity_id` | varchar(64) | |
+| `event_id` | varchar(64) | Plugin-seitig generierter deterministischer Hash `sha256(eventType+":"+entity.id+":"+sha256(raw_body))` (SC liefert keinen). Siehe Business Rules → Webhooks → Idempotency-Strategie. |
+| `related_entity_type` | varchar(32) | `order`/`article`/`shipment` (aus `eventType`-Prefix) |
+| `related_entity_id` | varchar(64) | SC-Entity-ID (sc_order_id / sc_article_id / sc_shipment_id) |
 | `payload` | longtext (JSON) | |
 | `hmac_status` | varchar(16) | `valid`/`invalid` |
-| `processing_status` | varchar(16) | `success`/`error`/`pending` |
+| `processing_status` | varchar(16) | `success`/`error`/`pending`/`duplicate` |
 | `processing_error` | text | |
-| `received_at` | datetime | indexed |
+| `received_at` | datetime | |
+
+Indexes:
+- `uniq_event_id` UNIQUE on (`event_id`) — Idempotency-Enforcement (DB-Insert-Conflict bei Duplikat)
+- `idx_received_at` on (`received_at`) — Listenansicht (Screen 4) + Retention-Purge
+- `idx_related_entity` on (`related_entity_type`, `related_entity_id`, `received_at`) — Webhook-Activity-Last-5 auf Order-Edit (Screen 11 ⑩); composite Index liefert Sortierung gratis
+- `idx_processing_status` on (`processing_status`) — Filter "errors only"
 
 **`wp_spreadconnect_sync_history`**
 | Column | Type | Notes |
@@ -695,7 +768,30 @@
 | `skipped_count` | int | |
 | `error_count` | int | |
 | `state` | varchar(16) | `pending`/`in_progress`/`complete`/`failed`/`canceled` |
-| `details` | longtext (JSON) | per-article-summary |
+| `details` | longtext (JSON) | per-article-summary, Schema unten |
+
+Indexes:
+- `idx_state_started_at` on (`state`, `started_at`) — Listenansicht (Screen 2 ⑤) + In-Progress-Lookup für Hub-Dashboard
+- `idx_started_at` on (`started_at`) — Pagination + Retention
+
+**`wp_spreadconnect_sync_history.details` JSON-Schema**
+
+Array von Objekten, ein Eintrag pro im Run berührtem Article (matched die Wireframe-Tabelle Screen 2 ⑧):
+
+```json
+[
+  {
+    "article_id": "string (SC article id)",
+    "title": "string",
+    "status": "created" | "updated" | "skipped" | "error" | "partial",
+    "notes": "string | null"
+  }
+]
+```
+
+- `status='partial'` z.B. wenn Stamm-Article gesynced, aber `media_sideload_image()` für ein Bild fehlgeschlagen ist (deckungsgleich mit Article-Sync-State `sync_partial`).
+- `notes` enthält bei `error`/`partial` die Fehlermeldung; bei `skipped` den Skip-Grund (z.B. "no design configured in SC").
+- Reihenfolge = Verarbeitungsreihenfolge im Run (deterministisch für Pagination).
 
 ---
 
@@ -734,8 +830,8 @@
 | `GET /productTypes/categories` | dito |
 | `GET /productTypes/{id}/hotspots/design/{designId}` | Job `sync_article` |
 | `POST /productTypes/{id}/previews` | Job `sync_article` (für Bilder-Pull) |
-| `GET /stock` | Job `scheduled_stock_sync` (Bulk) |
-| `GET /stock/{sku}` | Live-Cache-Refresh (Product-Edit-Page) |
+| `GET /stock` | Job `scheduled_stock_sync` (Bulk) **+ Live-Cache-Refresh auf Product-Edit-Page (Bulk, gefiltert auf die Variations-SKUs des Produkts; deferred async nach Page-Render)** |
+| `GET /stock/{sku}` | Optional: einzelner SKU-Refresh (selten genutzt; primärer Pfad ist `GET /stock` Bulk) |
 | `GET /stock/productType/{id}` | Optional |
 | `POST /designs/upload` | -- (out of scope MVP) |
 
@@ -750,6 +846,17 @@
 | `Order.cancelled` | Update `_spreadconnect_state` = CANCELLED + WC-Status `cancelled` |
 | `Order.needs-action` | Set `_spreadconnect_needs_action` = true + Admin-Notice + Order-Note |
 | `Shipment.sent` | Schedule `fetch_tracking` → schreibt Tracking + WC-Status `completed` |
+
+**Webhook → WC-Order Mapping**: Eingehende Order/Shipment-Webhooks tragen `data.entity.orderReference` (= SC-OrderID). Das Plugin findet die zugehörige WC-Order via Reverse-Lookup auf das Meta-Feld `_spreadconnect_order_id` (HPOS-konform via `wc_get_orders(['meta_query' => ...])` oder Custom-Helper). Trifft kein WC-Order zu (z.B. extern angelegte SC-Order), wird der Webhook geloggt mit `processing_status='error'` und `processing_error='no matching WC-order'`.
+
+### Internal Read-Queries (Lese-Pfade ohne API-Call)
+
+| Read | Triggered by | Source |
+|------|--------------|--------|
+| Webhook-Activity (last 5) für eine Order | Order-Edit-Page-Render (Screen 11 ⑩) | `SELECT event_type, received_at, processing_status FROM wp_spreadconnect_webhook_log WHERE related_entity_type='order' AND related_entity_id = $sc_order_id ORDER BY received_at DESC LIMIT 5`. Nutzt `idx_related_entity` aus den Custom-Table-Indexes. |
+| Failed-Ops für eine Order | Order-Edit-Page-Render (Failure-Banner) + `cancel_order_mirror`-Resolution | `SELECT * FROM wp_spreadconnect_failed_ops WHERE related_entity_type='order' AND related_entity_id = $wc_order_id AND state='unresolved'`. Nutzt `idx_related_entity`. |
+| Hub-Dashboard-Counts (Failed-Ops, Subscriptions, In-Progress-Sync) | Hub-Page-Render (Screen 1, alle Sub-Pages via Hub-Header) | Aggregat-Queries auf `wp_spreadconnect_failed_ops.state`, `wp_spreadconnect_sync_history.state` (siehe Indexes). |
+| Webhook-Log-Liste mit Filter | Screen 4 Page-Render | `wp_spreadconnect_webhook_log` mit Filter auf `event_type` / `hmac_status` / `processing_status` / Date-Range. Nutzt `idx_received_at` + `idx_processing_status`. |
 
 ### WC-Hooks (consumed)
 
@@ -880,6 +987,10 @@ Slice 1 (Foundation) → Slice 2 (API-Client) → Slice 3 (Webhook-Receiver) →
 | 5 | Soll Plugin auch `GET /productTypes/categories` für ein Catalog-Browser-UI nutzen (Browse SC-Catalog im Backend ohne Article anzulegen)? | A) Ja MVP; B) Out-of-Scope | Out-of-Scope MVP, kann Slice 11+ sein | Implementation |
 | 6 | Sollen Auto-Confirm und Auto-Cancel-Mirror jeweils per-Order overridable sein (Order-Meta-Flag)? | A) Ja (Power-User); B) Nein (nur global Setting) | Nein für MVP, einfacher | -- |
 | 7 | Encryption für API-Key in `wp_options`? | A) Plain (default); B) `wp_options` + Sodium-Encrypted (key from `wp-config.php` SECURE_AUTH_KEY) | Plain MVP, Encryption als optionales Slice 11 | Architecture |
+| 8 | Welcher HTTP-Header trägt Spreadconnects Webhook-HMAC-Signatur? Welche Bytes werden signiert? Welches Format? | A) Aus OpenAPI/Webhook-Doku ableitbar; B) Validierung im Staging-Env via Simulate-Endpoint nötig | Annahme: SC-Konvention dokumentiert in OpenAPI; sonst Staging-Test bevor Architecture freigegeben wird | **RESOLVED** (rest.spod.com/docs): Header `X-SPRD-SIGNATURE`, SHA256-HMAC über raw Request-Body, Base64-encoded (kein Präfix). Plus: 8s/HTTP-202/`[accepted]`-ACK-Contract. Plus: SC liefert **keine** `eventId` → Idempotency per Plugin-seitigem deterministischem Hash. Eingearbeitet in Business Rules → Webhooks. |
+| 9 | Unterstützt `GET /articles?search=…` server-side filter (für Article-Picker im Product-Edit Meta-Box)? | A) Ja → server-side Suche; B) Nein → client-side Filter auf paginierter Liste | Annahme A (saubere UX), Fallback B muss als Implementierungs-Path definiert sein | Architecture |
+| 10 | Ist `GET /stock` ein Bulk-Endpoint mit Filter-Param oder Listing-Endpoint mit Pagination? Akzeptiert er `productTypeId` oder eine SKU-Liste? | A) Bulk mit Filter; B) Listing + client-side filter; C) Mixed | OpenAPI-Spec konsultieren; Flow F.1 ist auf Bulk-Annahme aufgebaut, Fallback wäre paginierter Pull | Architecture |
+| 11 | Akzeptiert `POST /orders` einen `shippingType` im Initial-Request, oder muss er zwingend per `POST /shippingType` nachgereicht werden? | A) Inline akzeptiert; B) Nur per separater Folgerequest | Annahme A für Default-Shipping-Type-Setting (Flow C); Fallback B = Pre-Confirm-Schritt zwischen `submitting` und `NEW` | Architecture |
 
 ---
 
