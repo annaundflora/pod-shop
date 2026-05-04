@@ -28,32 +28,53 @@ final class Slice01CleanupV1Test extends TestCase
     }
 
     // -------------------------------------------------------------------
-    // AC-1: GIVEN Repository mit v1-Plugin unter wordpress/plugins/spreadconnect-pod/
-    //       WHEN Slice 01 abgeschlossen
-    //       THEN existiert das gesamte Verzeichnis nicht mehr.
+    // AC-1 (slice-02-aware): GIVEN Repository mit v1-Plugin unter wordpress/plugins/spreadconnect-pod/
+    //       WHEN Slice 01 abgeschlossen UND Slice 02 hat das Verzeichnis fuer das v2-Plugin neu erstellt
+    //       THEN existieren keine v1-Klassendateien mehr (class-spreadconnect-*.php Pattern).
+    //       Hinweis: Die Spec-AC-1 sagt "Verzeichnis nicht mehr existiert" — das gilt nur unmittelbar
+    //       nach Slice 01. Slice 02 erstellt das Verzeichnis legitim wieder fuer v2-Bootstrap.
     // -------------------------------------------------------------------
-    public function test_v1_plugin_directory_does_not_exist(): void
+    public function test_v1_class_files_do_not_exist(): void
     {
-        $pluginDir = self::repoRoot() . '/wordpress/plugins/spreadconnect-pod';
+        $pluginDir   = self::repoRoot() . '/wordpress/plugins/spreadconnect-pod';
+        $includesDir = $pluginDir . '/includes';
 
-        $this->assertDirectoryDoesNotExist(
-            $pluginDir,
-            sprintf(
-                'AC-1: v1-Plugin-Verzeichnis "%s" muss vollstaendig entfernt sein. '
-                . 'Slice 02 erstellt das Verzeichnis und seine composer.json neu.',
-                $pluginDir
-            )
-        );
+        // Die 4 v1-Klassendateien (laut Slice-01 Spec, Reuse-Section).
+        // Sie MUESSEN fehlen — egal ob das Plugin-Verzeichnis durch Slice 02
+        // bereits wieder neu (mit v2-Inhalt) angelegt wurde oder nicht.
+        $v1ClassFiles = [
+            $includesDir . '/class-spreadconnect-api-client.php',
+            $includesDir . '/class-spreadconnect-order-service.php',
+            $includesDir . '/class-spreadconnect-tracking-service.php',
+            $includesDir . '/class-spreadconnect-settings.php',
+        ];
 
-        // Zusaetzlich: file_exists() faengt auch dangling Symlinks ab,
-        // die assertDirectoryDoesNotExist() unter Umstaenden nicht erkennt.
-        $this->assertFalse(
-            file_exists($pluginDir),
-            sprintf(
-                'AC-1: Kein Eintrag (auch kein Symlink/File) darf unter "%s" existieren.',
-                $pluginDir
-            )
-        );
+        foreach ($v1ClassFiles as $v1File) {
+            $this->assertFileDoesNotExist(
+                $v1File,
+                sprintf(
+                    'AC-1 (slice-02-aware): v1-Klassendatei "%s" muss entfernt sein. '
+                    . 'Slice 01 ist anti-Reuse — keine v1-Klasse darf in das v2-Plugin uebernommen werden.',
+                    $v1File
+                )
+            );
+        }
+
+        // Defensive Pruefung: KEINE Datei in includes/ darf dem legacy
+        // class-spreadconnect-*.php-Pattern entsprechen. Das v2-Plugin
+        // verwendet PSR-4-Namespaces, keine WordPress-class-*-Files.
+        if (is_dir($includesDir)) {
+            $legacyMatches = glob($includesDir . '/class-spreadconnect-*.php') ?: [];
+            $this->assertSame(
+                [],
+                $legacyMatches,
+                sprintf(
+                    'AC-1 (slice-02-aware): includes/-Verzeichnis darf KEINE Datei mit '
+                    . 'legacy-Pattern "class-spreadconnect-*.php" enthalten. Gefunden: %s',
+                    implode(', ', $legacyMatches)
+                )
+            );
+        }
 
         // Sanity-Check: Andere Plugins duerfen NICHT geloescht werden
         // (Constraint: "Slice 01 entfernt keine anderen Plugins").
