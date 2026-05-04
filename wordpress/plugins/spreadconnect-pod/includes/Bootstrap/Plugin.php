@@ -36,6 +36,7 @@ use SpreadconnectPod\Order\OrderHandler;
 use SpreadconnectPod\Order\OrderStateMachine;
 use SpreadconnectPod\Order\OrderSubmitJob;
 use SpreadconnectPod\Subscription\SubscriptionManager;
+use SpreadconnectPod\Webhook\ProcessWebhookEventJob;
 use SpreadconnectPod\Webhook\WebhookController;
 
 /**
@@ -264,6 +265,26 @@ final class Plugin
 		// avoiding duplicate hook entries keeps `has_action()` introspection
 		// truthful.
 		add_action( 'rest_api_init', [ WebhookController::class, 'register' ] );
+
+		// slice-17: Register the `spreadconnect/process_webhook_event`
+		// Action-Scheduler dispatcher. Slice 16 enqueues the hook with
+		// `as_enqueue_async_action(..., [$logId], 'spreadconnect')` after
+		// a fresh INSERT into `wp_spreadconnect_webhook_log`; this listener
+		// loads the row, parses the JSON payload and dispatches per
+		// `eventType`-prefix to either `Webhook\OrderEventHandler` or
+		// `Webhook\ArticleEventHandler` (architecture.md Z. 449 + Z. 553).
+		// Argument-shape MUST be exactly one positional `int $logId` —
+		// AS reaches the array element directly through the
+		// `accepted_args=1` channel; passing 2 would be a bug.
+		// Idempotency is provided by the `self::$initialized` static
+		// guard above (slice-02 AC-5 pattern); a second `init()` call
+		// returns early and the `add_action` line never runs twice.
+		add_action(
+			'spreadconnect/process_webhook_event',
+			[ ProcessWebhookEventJob::class, 'handle' ],
+			10,
+			1
+		);
 
 		// slice-18: Wire the subscription-lifecycle listeners. Three hooks:
 		//   - `spreadconnect/webhook_secret_rotated` (slice-14 producer) →
