@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace SpreadconnectPod\Bootstrap;
 
+use Automattic\WooCommerce\Utilities\FeaturesUtil;
+
 /**
  * Central bootstrap for the Spreadconnect POD plugin.
  *
@@ -60,14 +62,43 @@ final class Plugin
 		self::$initialized = true;
 		self::$pluginFile  = $plugin_file;
 
-		// Hook registrations are intentionally empty in slice-02.
+		// Hook registrations.
 		//
 		// Follow-up slices will extend this method:
-		//   - slice-03: HPOS compatibility declare on `before_woocommerce_init`.
 		//   - slice-04: `register_activation_hook()` -> Schema::dbDelta().
 		//   - slice-05: Options defaults via activation hook.
 		//   - slice-06: `plugins_loaded` -> load_plugin_textdomain().
 		//   - slice-09+: REST routes, webhook controller, AS handlers, etc.
+
+		// slice-03: Declare HPOS (Custom Order Tables) compatibility before
+		// WooCommerce initialises its feature flags. Must run inside the
+		// idempotency guard so duplicate `init()` calls cannot register the
+		// listener twice (`add_action` does not dedupe static-method callables
+		// on identical classes).
+		add_action( 'before_woocommerce_init', [ self::class, 'declareHposCompatibility' ] );
+	}
+
+	/**
+	 * Declare HPOS (Custom Order Tables) compatibility with WooCommerce.
+	 *
+	 * Hooked to `before_woocommerce_init`. Guarded by `class_exists()` so the
+	 * callback is a safe no-op when WooCommerce is inactive or its
+	 * `FeaturesUtil` helper has not been loaded yet (e.g. very old WC
+	 * versions).
+	 *
+	 * @return void
+	 */
+	public static function declareHposCompatibility(): void
+	{
+		if ( ! class_exists( FeaturesUtil::class ) ) {
+			return;
+		}
+
+		FeaturesUtil::declare_compatibility(
+			'custom_order_tables',
+			self::pluginFile(),
+			true
+		);
 	}
 
 	/**
