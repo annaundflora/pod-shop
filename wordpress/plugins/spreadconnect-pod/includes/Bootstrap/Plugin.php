@@ -20,6 +20,7 @@ use SpreadconnectPod\Catalog\AttributeProvisioner;
 use SpreadconnectPod\Catalog\SyncArticleJob;
 use SpreadconnectPod\Catalog\SyncCatalogJob;
 use SpreadconnectPod\Failure\AdminNoticeStore;
+use SpreadconnectPod\Failure\BulkResendCoordinator;
 use SpreadconnectPod\Failure\FailedOpsRepo;
 use SpreadconnectPod\Failure\FailureNotifier;
 use SpreadconnectPod\Failure\RetryPolicyListener;
@@ -918,6 +919,39 @@ final class Plugin
 			'wp_ajax_spreadconnect_resolve_create_order',
 			static function () use ( $failedOpsAjaxLazy ): void {
 				$failedOpsAjaxLazy( 'resolve' );
+			}
+		);
+
+		// slice-40: Wire the two NEW Bulk-AJAX-Hooks
+		// (`spreadconnect_bulk_resend_failed_op`,
+		// `spreadconnect_bulk_dismiss_failed_op`). The class itself is
+		// constructor-DI on `Failure\FailedOpsRepo` (optional);
+		// production wiring constructs both objects inside a lazy closure
+		// that fires on the admin-ajax dispatch path so `$wpdb` is always
+		// live (mirrors the slice-37 / slice-38 lazy-listener pattern).
+		//
+		// Idempotency: the `self::$initialized` guard above keeps the two
+		// `add_action` calls at exactly one per request; `add_action()`
+		// further de-duplicates identical closure pairs, so a re-entrant
+		// `init()` cannot double-register the hooks (slice-40 AC-15).
+		$bulkAjaxLazy = static function ( string $method ): void {
+			global $wpdb;
+
+			$repo        = new FailedOpsRepo( $wpdb );
+			$coordinator = new BulkResendCoordinator( $repo );
+			$coordinator->{$method}();
+		};
+
+		add_action(
+			'wp_ajax_spreadconnect_bulk_resend_failed_op',
+			static function () use ( $bulkAjaxLazy ): void {
+				$bulkAjaxLazy( 'handleBulkResendAjax' );
+			}
+		);
+		add_action(
+			'wp_ajax_spreadconnect_bulk_dismiss_failed_op',
+			static function () use ( $bulkAjaxLazy ): void {
+				$bulkAjaxLazy( 'handleBulkDismissAjax' );
 			}
 		);
 	}

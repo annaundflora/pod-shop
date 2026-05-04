@@ -69,9 +69,22 @@ final class FailedOps
 	public const JS_HANDLE = 'spreadconnect-failed-ops';
 
 	/**
+	 * Asset handle for the slice-40 bulk-action JS (separate from
+	 * {@see self::JS_HANDLE} so the two scripts can evolve independently).
+	 */
+	public const JS_HANDLE_BULK = 'spreadconnect-failed-ops-bulk';
+
+	/**
 	 * Asset version pin.
 	 */
 	private const JS_VERSION = '1.0.0';
+
+	/**
+	 * Slice-40 AC-11 / AC-12: bulk-action literals (single source of truth
+	 * for both the View and the JS asset).
+	 */
+	public const BULK_ACTION_RESEND  = 'spreadconnect_bulk_resend_failed_op';
+	public const BULK_ACTION_DISMISS = 'spreadconnect_bulk_dismiss_failed_op';
 
 	/**
 	 * AJAX nonce-action (single, shared by all three handlers from Slice 38
@@ -123,8 +136,66 @@ final class FailedOps
 			return;
 		}
 
+		self::renderBulkActionBar();
+		self::renderBulkOutcomePanel();
 		self::renderTable( $rows );
 		self::renderModalContainer();
+	}
+
+	// =========================================================================
+	// Slice-40 Bulk-UI helpers
+	// =========================================================================
+
+	/**
+	 * Render the Bulk-Action-Bar above the table (slice-40 AC-11).
+	 *
+	 *   - `<select name="bulk_action">` mit zwei Options
+	 *     (`spreadconnect_bulk_resend_failed_op`, `spreadconnect_bulk_dismiss_failed_op`).
+	 *   - `<button data-action="bulk-apply">` — Apply-Trigger.
+	 *   - Inline-Hilfetext fuer Screenreader.
+	 *
+	 * KEIN Inline-`onclick` — alle Handler in `assets/js/failed-ops-bulk.js`.
+	 */
+	private static function renderBulkActionBar(): void
+	{
+		echo '<div class="spreadconnect-failed-ops__bulk-bar tablenav top">';
+
+		echo '<label class="screen-reader-text" for="spreadconnect-failed-ops-bulk-action">'
+			. esc_html__( 'Select bulk action', self::TEXT_DOMAIN )
+			. '</label>';
+
+		echo '<select id="spreadconnect-failed-ops-bulk-action" name="bulk_action">';
+		printf(
+			'<option value="">%s</option>',
+			esc_html__( 'Bulk Actions', self::TEXT_DOMAIN )
+		);
+		printf(
+			'<option value="%1$s">%2$s</option>',
+			esc_attr( self::BULK_ACTION_RESEND ),
+			esc_html__( 'Resend selected', self::TEXT_DOMAIN )
+		);
+		printf(
+			'<option value="%1$s">%2$s</option>',
+			esc_attr( self::BULK_ACTION_DISMISS ),
+			esc_html__( 'Dismiss selected', self::TEXT_DOMAIN )
+		);
+		echo '</select>';
+
+		printf(
+			'<button type="button" class="button action" data-action="bulk-apply">%s</button>',
+			esc_html__( 'Apply', self::TEXT_DOMAIN )
+		);
+
+		echo '</div>';
+	}
+
+	/**
+	 * Render the bulk-outcome `<div>` container (initially hidden). The JS
+	 * asset toggles `hidden` and inserts the success / blocked banner markup.
+	 */
+	private static function renderBulkOutcomePanel(): void
+	{
+		echo '<div class="spreadconnect-failed-ops__bulk-outcome" data-panel="bulk_outcome" hidden></div>';
 	}
 
 	// =========================================================================
@@ -182,6 +253,12 @@ final class FailedOps
 	{
 		echo '<table class="widefat striped spreadconnect-failed-ops__table">';
 		echo '<thead><tr>';
+		echo '<th scope="col" class="spreadconnect-failed-ops__col-bulk check-column">'
+			. '<label class="screen-reader-text" for="spreadconnect-failed-ops-select-all">'
+			. esc_html__( 'Select all', self::TEXT_DOMAIN )
+			. '</label>'
+			. '<input type="checkbox" id="spreadconnect-failed-ops-select-all" data-bulk-select-all />'
+			. '</th>';
 		echo '<th scope="col">' . esc_html__( 'Failed At', self::TEXT_DOMAIN ) . '</th>';
 		echo '<th scope="col">' . esc_html__( 'Op-Type', self::TEXT_DOMAIN ) . '</th>';
 		echo '<th scope="col">' . esc_html__( 'Entity', self::TEXT_DOMAIN ) . '</th>';
@@ -230,6 +307,17 @@ final class FailedOps
 			'<tr class="spreadconnect-failed-ops__row" data-row-id="%1$s" data-op-type="%2$s">',
 			esc_attr( (string) $id ),
 			esc_attr( $opType )
+		);
+
+		// Bulk-checkbox column (slice-40 AC-11).
+		$html .= sprintf(
+			'<td class="spreadconnect-failed-ops__cell-bulk check-column">'
+				. '<label class="screen-reader-text" for="spreadconnect-failed-ops-bulk-row-%1$s">%3$s #%1$s</label>'
+				. '<input type="checkbox" id="spreadconnect-failed-ops-bulk-row-%1$s" data-bulk-row-id="%1$s" />'
+				. '</td>',
+			esc_attr( (string) $id ),
+			esc_attr( $opType ),
+			esc_html__( 'Select row', self::TEXT_DOMAIN )
 		);
 
 		// Failed-At column.
@@ -282,7 +370,7 @@ final class FailedOps
 			'<tr class="spreadconnect-failed-ops__detail-row" id="spreadconnect-failed-ops-detail-%1$s" hidden>',
 			esc_attr( (string) $id )
 		);
-		$html .= '<td colspan="6">';
+		$html .= '<td colspan="7">';
 		$html .= '<pre class="spreadconnect-failed-ops__payload">' . esc_html( self::prettyPrintPayload( $payload ) ) . '</pre>';
 		$html .= '</td>';
 		$html .= '</tr>';
@@ -418,6 +506,61 @@ final class FailedOps
 		);
 
 		wp_enqueue_script( self::JS_HANDLE );
+
+		self::enqueueBulkAsset( $pluginDir );
+	}
+
+	/**
+	 * Slice-40 AC-12: register + enqueue the second asset
+	 * `assets/js/failed-ops-bulk.js` mit eigener `spreadconnectFailedOpsBulk`-
+	 * Localization. Nonce-Action wird mit Slice 38 geteilt
+	 * ({@see self::NONCE_ACTION}).
+	 */
+	private static function enqueueBulkAsset( string $pluginDir ): void
+	{
+		$jsRelPath = 'assets/js/failed-ops-bulk.js';
+		$jsUrl     = plugins_url( $jsRelPath, $pluginDir . '/spreadconnect-pod.php' );
+
+		wp_register_script(
+			self::JS_HANDLE_BULK,
+			$jsUrl,
+			array( 'jquery' ),
+			self::JS_VERSION,
+			true
+		);
+
+		wp_localize_script(
+			self::JS_HANDLE_BULK,
+			'spreadconnectFailedOpsBulk',
+			array(
+				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+				'nonce'   => wp_create_nonce( self::NONCE_ACTION ),
+				'actions' => array(
+					'bulkResend'  => self::BULK_ACTION_RESEND,
+					'bulkDismiss' => self::BULK_ACTION_DISMISS,
+				),
+				'i18n'    => array(
+					'bannerSuccessTpl' => __(
+						'%1$d of %2$d re-queued, %3$d skipped',
+						self::TEXT_DOMAIN
+					),
+					'bannerBlockedTpl' => __(
+						'%d create_order entries require explicit resolution — open them individually.',
+						self::TEXT_DOMAIN
+					),
+					'noSelection'      => __(
+						'Please select at least one row.',
+						self::TEXT_DOMAIN
+					),
+					'confirmDismiss'   => __(
+						'Dismiss selected entries?',
+						self::TEXT_DOMAIN
+					),
+				),
+			)
+		);
+
+		wp_enqueue_script( self::JS_HANDLE_BULK );
 	}
 
 	// =========================================================================
