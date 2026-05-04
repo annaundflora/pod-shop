@@ -68,6 +68,16 @@ final class SyncHistoryRepo
 	private const TRANSIENT_TOTAL_PREFIX = 'sc_sync_total_';
 
 	/**
+	 * Transient-key prefix for the per-run live log tail ring buffer
+	 * (architecture.md Z. 352 — last 20 log lines, kept until run-end + 1 h).
+	 * Full key shape: `sc_sync_log_tail_{run_id}`. Producer is
+	 * `SyncArticleJob` (slice-23 / nachgereicht). Slice 26 is read-only on
+	 * this transient (Constraints "KEIN Schreiben in den
+	 * sc_sync_log_tail_{run_id}-Transient").
+	 */
+	private const TRANSIENT_LOG_TAIL_PREFIX = 'sc_sync_log_tail_';
+
+	/**
 	 * 24-hour TTL for the total transient. `DAY_IN_SECONDS` is a WP core
 	 * constant (= 86400). Defined here as a fallback for non-WP test
 	 * contexts where the constant may be missing.
@@ -76,7 +86,14 @@ final class SyncHistoryRepo
 
 	/**
 	 * State enum values (`wp_spreadconnect_sync_history.state`).
+	 *
+	 * The `pending` state is set by the `dbDelta` schema default and applies
+	 * to a freshly-inserted row that has not yet acquired a worker. As soon
+	 * as `SyncCatalogJob::handle()` runs the row is transitioned to
+	 * `in_progress` via `startRun()`. Both states are considered "active"
+	 * for the slice-26 active-run lookup ({@see self::getActiveRun()}).
 	 */
+	private const STATE_PENDING     = 'pending';
 	private const STATE_IN_PROGRESS = 'in_progress';
 	private const STATE_COMPLETE    = 'complete';
 	private const STATE_FAILED      = 'failed';
@@ -272,6 +289,177 @@ final class SyncHistoryRepo
 				)
 			);
 		}
+	}
+
+	/**
+	 * Read a single sync-history row by primary key (slice-26 AC-7 / AC-9).
+	 *
+	 * Returns the row as an associative array (column → value) or `null`
+	 * when no row matches the supplied id. Uses `$wpdb->get_row(... ARRAY_A)`
+	 * with prepared SQL so the run id never reaches the SQL string
+	 * unsanitised.
+	 *
+	 * Slice-26 callers ({@see \SpreadconnectPod\Hub\Rest\SyncProgress::handle()})
+	 * use the `null` return as the trigger for the 404 `sync_run_not_found`
+	 * response when an explicit `run_id` was requested.
+	 *
+	 * @param int $runId Sync-history row id.
+	 *
+	 * @return array<string, mixed>|null Row as assoc-array, or `null` when
+	 *                                   the row does not exist.
+	 */
+	public function getById( int $runId ): ?array
+	{
+		global $wpdb;
+
+		$table = $wpdb->prefix . self::TABLE_SUFFIX;
+
+		$sql = $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $runId );
+		$row = $wpdb->get_row( $sql, ARRAY_A );
+
+		if ( ! is_array( $row ) ) {
+			return null;
+		}
+
+		return $row;
+	}
+
+	/**
+	 * Read the most-recent active sync-history row (slice-26 AC-3 / AC-8).
+	 *
+	 * "Active" means the row's `state` column is one of `pending` or
+	 * `in_progress` — either the row was just inserted by `startRun()` and
+	 * a worker has not yet picked it up, or the worker is currently iterating
+	 * articles. The result is the youngest such row by primary key (DESC by
+	 * `id`, which is monotonic with `started_at` because `startRun()` always
+	 * inserts with `current_time('mysql')`).
+	 *
+	 * Returns `null` when no active row exists, in which case the caller
+	 * ({@see \SpreadconnectPod\Hub\Rest\SyncProgress::handle()}) falls back
+	 * to the youngest finished row, or — if the table is empty altogether —
+	 * to the synthetic `state='idle'` default body (slice-26 AC-8).
+	 *
+	 * @return array<string, mixed>|null Row as assoc-array, or `null`.
+	 */
+	public function getActiveRun(): ?array
+	{
+		global $wpdb;
+
+		$table = $wpdb->prefix . self::TABLE_SUFFIX;
+
+		$sql = $wpdb->prepare(
+			"SELECT * FROM {$table} WHERE state IN ( %s, %s ) ORDER BY id DESC LIMIT 1",
+			self::STATE_IN_PROGRESS,
+			self::STATE_PENDING
+		);
+		$row = $wpdb->get_row( $sql, ARRAY_A );
+
+		if ( ! is_array( $row ) ) {
+			return null;
+		}
+
+		return $row;
+	}
+
+	/**
+	 * Read the most-recent N sync-history rows (slice-26 AC-2).
+	 *
+	 * Ordered DESC by `started_at` for the wireframes.md Screen 2 ⑦ history
+	 * table. The default limit of 20 matches the slice-26 Constraints "KEINE
+	 * Pagination der History-Tabelle" — older rows are pruned by slice-43's
+	 * retention sweep, not paginated through here.
+	 *
+	 * Empty table → empty array (never `null`); the caller renders the
+	 * `no_history_yet` empty-state from the wireframes State-Variations.
+	 *
+	 * @param int $limit Maximum number of rows to return (default 20).
+	 *
+	 * @return list<array<string, mixed>> Rows DESC by `started_at`.
+	 */
+	public function getRecent( int $limit = 20 ): array
+	{
+		global $wpdb;
+
+		$table = $wpdb->prefix . self::TABLE_SUFFIX;
+
+		// `LIMIT` does not accept `%d` placeholders in `prepare()` cleanly
+		// across all WP versions — coerce to int and inline. The value is
+		// caller-controlled but always passed as `int` per the signature.
+		$safeLimit = max( 1, $limit );
+
+		$sql  = $wpdb->prepare(
+			"SELECT * FROM {$table} ORDER BY started_at DESC, id DESC LIMIT %d",
+			$safeLimit
+		);
+		$rows = $wpdb->get_results( $sql, ARRAY_A );
+
+		if ( ! is_array( $rows ) ) {
+			return array();
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Read the persisted total article count for a run (slice-26 AC-7).
+	 *
+	 * Wrapper around `get_transient('sc_sync_total_{run_id}')` (set by
+	 * {@see self::setTotal()}). Returns `0` when the transient is missing
+	 * (e.g. expired, or the run is still in pre-total enqueue phase) so the
+	 * progress JSON body always carries an integer per the architecture.md
+	 * Z. 132 contract.
+	 *
+	 * @param int $runId Sync-history row id.
+	 *
+	 * @return int Total article count, `0` when unknown.
+	 */
+	public function getTotal( int $runId ): int
+	{
+		$value = get_transient( self::TRANSIENT_TOTAL_PREFIX . $runId );
+
+		if ( ! is_int( $value ) ) {
+			return 0;
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Read the live log tail for a run (slice-26 AC-7, last 20 log lines).
+	 *
+	 * Wrapper around `get_transient('sc_sync_log_tail_{run_id}')` — the ring
+	 * buffer written by `SyncArticleJob` (slice-23 / nachgereicht). The
+	 * producer side is OUT-OF-SCOPE for slice-26: when the transient does
+	 * not yet exist the method returns an empty list (per
+	 * `Integration Contract` "Slice 26 ist Read-Only fuer diesen Transient
+	 * — kein Fail-Modus").
+	 *
+	 * Defensive value-shape coercion: any non-array value (including the
+	 * `false` returned by `get_transient()` on miss) collapses to `[]`.
+	 * Each entry is cast to a string so the REST response shape always
+	 * matches `last_log_lines:string[]` per architecture.md Z. 132.
+	 *
+	 * @param int $runId Sync-history row id.
+	 *
+	 * @return list<string> Last log lines (most-recent first or last per the
+	 *                      producer's convention — slice 26 does not reorder).
+	 */
+	public function getLogTail( int $runId ): array
+	{
+		$value = get_transient( self::TRANSIENT_LOG_TAIL_PREFIX . $runId );
+
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+
+		$lines = array();
+		foreach ( $value as $line ) {
+			if ( is_scalar( $line ) ) {
+				$lines[] = (string) $line;
+			}
+		}
+
+		return $lines;
 	}
 
 	/**

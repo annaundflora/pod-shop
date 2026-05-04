@@ -19,8 +19,10 @@ use SpreadconnectPod\Catalog\AttributeProvisioner;
 use SpreadconnectPod\Catalog\SyncArticleJob;
 use SpreadconnectPod\Catalog\SyncCatalogJob;
 use SpreadconnectPod\Hub\Ajax\RegenerateSecret as HubAjaxRegenerateSecret;
+use SpreadconnectPod\Hub\Ajax\SyncNow as HubAjaxSyncNow;
 use SpreadconnectPod\Hub\Ajax\TestConnection as HubAjaxTestConnection;
 use SpreadconnectPod\Hub\Controller as HubController;
+use SpreadconnectPod\Hub\Rest\SyncProgress as HubRestSyncProgress;
 use SpreadconnectPod\Hub\View\Settings as HubSettingsView;
 use SpreadconnectPod\Order\OrderHandler;
 use SpreadconnectPod\Order\OrderStateMachine;
@@ -212,6 +214,24 @@ final class Plugin
 		// and the `self::$initialized` guard above keeps the registration
 		// count at exactly 1 per request.
 		HubAjaxRegenerateSecret::register();
+
+		// slice-26: Register the Catalog sub-page "Sync now" AJAX handler.
+		// `Hub\Ajax\SyncNow::register()` hooks itself onto
+		// `wp_ajax_spreadconnect_sync_now`. The handler validates capability
+		// + nonce and enqueues `spreadconnect/sync_catalog` with
+		// `trigger='manual'`; the slice-24 consumer then does the actual
+		// pagination work on the next AS tick. Only the authenticated
+		// `wp_ajax_*` variant — anonymous callers must never enqueue.
+		HubAjaxSyncNow::register();
+
+		// slice-26: Register the read-only `/wp-json/spreadconnect/v1/sync-progress`
+		// REST route used by the Catalog sub-page's 3 s AJAX-poll. The
+		// route is `manage_woocommerce`-capability-gated via
+		// `permission_callback` (architecture.md Z. 132 + Z. 484 — read-only
+		// AJAX requires capability only, no nonce). `register()` is bound to
+		// `rest_api_init` so the registration happens after WP has booted
+		// the REST stack but before any route is dispatched.
+		add_action( 'rest_api_init', [ HubRestSyncProgress::class, 'register' ] );
 
 		// slice-18: Wire the subscription-lifecycle listeners. Three hooks:
 		//   - `spreadconnect/webhook_secret_rotated` (slice-14 producer) →
