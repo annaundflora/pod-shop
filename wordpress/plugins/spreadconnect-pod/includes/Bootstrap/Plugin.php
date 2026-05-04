@@ -33,6 +33,7 @@ use SpreadconnectPod\Inline\ProductListColumns as InlineProductListColumns;
 use SpreadconnectPod\Inline\ProductMetaBox as InlineProductMetaBox;
 use SpreadconnectPod\Order\FetchTrackingJob;
 use SpreadconnectPod\Order\OrderCancelJob;
+use SpreadconnectPod\Order\OrderCancelMirrorJob;
 use SpreadconnectPod\Order\OrderConfirmJob;
 use SpreadconnectPod\Order\OrderHandler;
 use SpreadconnectPod\Order\OrderStateMachine;
@@ -317,21 +318,66 @@ final class Plugin
 		// AC-4); the static-method/priority pairs are de-duplicated by WP.
 		SubscriptionManager::bootListeners();
 
-		// slice-28: Wire the WC processing-hook listener and the
-		// `spreadconnect/create_order` Action-Scheduler job handler.
+		// slice-28 / slice-31: Wire the WC processing- and cancelled-hook
+		// listeners and the `spreadconnect/create_order` Action-Scheduler
+		// job handler.
 		//
-		// The two hooks together implement the outbound order-submit
-		// pipeline (architecture.md Z. 401-430 — Flow C). The handler
-		// instances are constructed inline; the real DI container is
-		// introduced in slice-37 (RetryPolicyListener wiring). Idempotency
-		// of this `init()` body keeps `add_action()` calls at exactly one
-		// per request — `has_action()` returns identical for repeated
-		// `init()` invocations (slice-28 AC-9).
+		// The hooks together implement the outbound order-submit pipeline
+		// (architecture.md Z. 401-430 — Flow C) and the WC → SC cancel-
+		// mirror branch (slice-31). One {@see OrderHandler} instance is
+		// shared across all four listeners (`on_processing`,
+		// `on_cancelled`, `maybeScheduleAutoConfirm`,
+		// `recordAutoConfirmPreCheckFailure`) so the optional logger
+		// override stays consistent. The real DI container is introduced
+		// in slice-37. Idempotency of this `init()` body keeps
+		// `add_action()` calls at exactly one per request — `has_action()`
+		// returns identical for repeated `init()` invocations (slice-28
+		// AC-9 / slice-31 AC-1).
+		$orderHandler = new OrderHandler();
+
 		add_action(
 			'woocommerce_order_status_processing',
-			[ new OrderHandler(), 'on_processing' ],
+			[ $orderHandler, 'on_processing' ],
 			10,
 			2
+		);
+
+		// slice-31 AC-1: WC-Cancel listener → unschedules any pending
+		// auto-confirm timer (race-protection, architecture.md Z. 642)
+		// and enqueues the {@see OrderCancelMirrorJob} when the SC-state
+		// is exactly `NEW`. Otherwise writes an Order-Note + persistent-
+		// notice stub. Args=2 mirrors WC's `(order_id, order)` shape.
+		add_action(
+			'woocommerce_order_status_cancelled',
+			[ $orderHandler, 'on_cancelled' ],
+			10,
+			2
+		);
+
+		// slice-31: Auto-Confirm-Timer scheduler. Fired by
+		// {@see OrderSubmitJob} on the 2xx-success path (the
+		// `spreadconnect/order_submitted` action is a pure notification —
+		// slice-28 ACs stay semantically identical). The handler reads
+		// `spreadconnect_auto_confirm` and may schedule a
+		// `spreadconnect/confirm_order` action. Idempotent.
+		add_action(
+			'spreadconnect/order_submitted',
+			[ $orderHandler, 'maybeScheduleAutoConfirm' ],
+			10,
+			1
+		);
+
+		// slice-31 AC-10: Auto-Confirm-Pre-Check-Failure listener. Fired
+		// by {@see OrderConfirmJob} when its pre-check fails (a
+		// notification-only action — slice-29 ACs stay semantically
+		// identical). The handler emits the persistent-notice stub
+		// (`admin_notice_pending_record` tag) and explicitly suppresses
+		// the FailedOps DLQ-Aufnahme (architecture.md Z. 591).
+		add_action(
+			'spreadconnect/auto_confirm_pre_check_failed',
+			[ $orderHandler, 'recordAutoConfirmPreCheckFailure' ],
+			10,
+			1
 		);
 
 		// `spreadconnect/create_order` AS-job handler. AS dispatches the
@@ -394,6 +440,22 @@ final class Plugin
 				);
 				$job->handle( $args );
 			},
+			10,
+			1
+		);
+
+		// slice-31: Wire the `spreadconnect/cancel_order_mirror` Action-
+		// Scheduler job handler. Producer-side `as_enqueue_async_action()`
+		// lives in {@see OrderHandler::on_cancelled} (slice-31 sibling) —
+		// fired when WC transitions an order to `cancelled` AND the
+		// persisted SC-state is exactly `NEW`. The static bridge resolves
+		// the production-default collaborator chain (SpreadconnectClient,
+		// OrderStateMachine via lazy `$wpdb`) and invokes `handle()`.
+		// Hook-args convention `['order_id' => int]` (slice-28 mirror),
+		// priority 10, accepts 1 arg (the args-array).
+		add_action(
+			OrderCancelMirrorJob::HOOK_CANCEL_ORDER_MIRROR,
+			[ OrderCancelMirrorJob::class, 'handleStatic' ],
 			10,
 			1
 		);

@@ -245,6 +245,20 @@ final class OrderConfirmJob
 				false,
 				false
 			);
+
+			// Slice-31 AC-10: dedicated persistent-notice surface for the
+			// Auto-Confirm-Timer pre-check failure path. Architecture.md
+			// Z. 591 explicitly excludes this branch from the FailedOps
+			// DLQ-Aufnahme — fire a Notification-only action so the
+			// {@see \SpreadconnectPod\Order\OrderHandler::recordAutoConfirmPreCheckFailure}
+			// listener (registered in slice-31 only) can write the
+			// persistent-notice stub. Slice-29 ACs 1-12 stay semantically
+			// identical: the order-note + log-tag above are unchanged;
+			// the new `do_action` is a pure notification with no
+			// side-effect on the Slice-29 surface itself.
+			if ( function_exists( 'do_action' ) ) {
+				do_action( 'spreadconnect/auto_confirm_pre_check_failed', $order );
+			}
 			return;
 		}
 

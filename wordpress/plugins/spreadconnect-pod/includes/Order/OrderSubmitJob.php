@@ -293,6 +293,17 @@ final class OrderSubmitJob
 					$scOrderId
 				)
 			);
+
+			// Slice-31 hook: notify the Auto-Confirm-Timer scheduler that a
+			// submit-success has just landed. {@see OrderHandler::maybeScheduleAutoConfirm}
+			// reads `spreadconnect_auto_confirm` and may schedule a
+			// `spreadconnect/confirm_order` action (immediate or after-N-
+			// minutes). Side-effect-free for slice-28 — the action is a
+			// pure notification. `function_exists` guard keeps the call
+			// safe when WP-core is not booted (extreme test stripping).
+			if ( function_exists( 'do_action' ) ) {
+				do_action( 'spreadconnect/order_submitted', $order );
+			}
 			return;
 		}
 
