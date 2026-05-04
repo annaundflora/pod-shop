@@ -772,20 +772,39 @@ final class Plugin
 		// `wp_spreadconnect_failed_ops` (DLQ).
 		//
 		// Construction is inline (no DI container) per slice-37 Constraints
-		// — the same pattern slice-28 uses for the OrderHandler chain. The
-		// `$wpdb` global is captured at registration time; tests inject a
-		// mock by constructing the collaborators directly. The
+		// — the same lazy-closure pattern slice-28/29 uses for the
+		// `spreadconnect/create_order`, `spreadconnect/confirm_order` and
+		// `spreadconnect/cancel_order` job handlers (see lines 462-519
+		// above). The closure resolves the `$wpdb` global at hook-fire time
+		// rather than at `init()` time so the production path always sees
+		// the live DB connection while unit tests that exercise `init()`
+		// without a `$GLOBALS['wpdb']` mock (Slice02/13/14/15/28/29/32/34/35
+		// bootstrap-style tests) do not trip the `FailedOpsRepo`
+		// constructor's `wpdb` type-hint. Slice-37's own tests inject the
+		// repo + listener directly and never reach this closure body
+		// (see Slice37FailedOpsRepoTest::makeRepo / makeAction).
+		//
+		// AC-11 (`add_action('action_scheduler_failed_action', ...)` after
+		// `init()`) is satisfied because the closure itself is registered
+		// here unconditionally; the deferred construction does not affect
+		// the hook-presence check `has_action()` performs.
+		//
+		// AC-12 (idempotency on double-fire of the same `$action_id`) is
+		// preserved because each hook-fire creates a fresh listener that
+		// queries the repo via `findByEntity()` — the 5-minute lookup
+		// window is in the DB, not in PHP-instance state. The
 		// `self::$initialized` guard above keeps the `add_action` call at
 		// exactly one per request, so a re-entrant `init()` call cannot
 		// double-register the listener (slice-37 AC-11).
-		global $wpdb;
-
-		$failedOpsRepo       = new FailedOpsRepo( $wpdb );
-		$retryPolicyListener = new RetryPolicyListener( $failedOpsRepo );
-
 		add_action(
 			'action_scheduler_failed_action',
-			[ $retryPolicyListener, 'on_action_failed' ],
+			static function ( $action_id ): void {
+				global $wpdb;
+
+				$failedOpsRepo       = new FailedOpsRepo( $wpdb );
+				$retryPolicyListener = new RetryPolicyListener( $failedOpsRepo );
+				$retryPolicyListener->on_action_failed( (int) $action_id );
+			},
 			10,
 			1
 		);
