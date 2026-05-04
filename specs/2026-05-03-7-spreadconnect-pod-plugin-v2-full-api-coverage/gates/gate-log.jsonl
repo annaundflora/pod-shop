@@ -52,3 +52,9 @@
 {"ts":"2026-05-04T20:00:00+00:00","slice":"slice-26","gate":"tests","result":"PASSED","retries":0}
 {"ts":"2026-05-04T20:00:00+00:00","slice":"slice-29","gate":"tests","result":"PASSED","retries":0}
 {"ts":"2026-05-04T20:00:00+00:00","slice":"slice-34","gate":"tests","result":"PASSED","retries":1,"resolution":"test isolation fix: Catalog stub removal + WC_Product_Variable get_children()"}
+{"ts":"2026-05-04T20:30:00+00:00","slice":"slice-15","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T20:30:00+00:00","slice":"slice-19","gate":"code_review","verdict":"REJECTED","findings_count":1,"attempt":1,"reason":"duplicate sidebar render"}
+{"ts":"2026-05-04T20:45:00+00:00","slice":"slice-19","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":2}
+{"ts":"2026-05-04T20:30:00+00:00","slice":"slice-32","gate":"code_review","verdict":"REJECTED","findings_count":2,"attempt":1,"reason":"WebhookLogRepo slice-16 contract drift"}
+{"ts":"2026-05-04T20:45:00+00:00","slice":"slice-32","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":2}
+{"ts":"2026-05-04T20:30:00+00:00","slice":"slice-35","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
