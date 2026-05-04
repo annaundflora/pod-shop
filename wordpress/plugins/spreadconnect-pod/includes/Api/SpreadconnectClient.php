@@ -39,6 +39,16 @@ declare(strict_types=1);
 
 namespace SpreadconnectPod\Api;
 
+use InvalidArgumentException;
+use SpreadconnectPod\Api\Dto\ArticleDetail;
+use SpreadconnectPod\Api\Dto\ArticleSummary;
+use SpreadconnectPod\Api\Dto\AuthOk;
+use SpreadconnectPod\Api\Dto\DtoMapper;
+use SpreadconnectPod\Api\Dto\OrderCreate;
+use SpreadconnectPod\Api\Dto\Preview;
+use SpreadconnectPod\Api\Dto\ShippingType;
+use SpreadconnectPod\Api\Dto\StockEntry;
+use SpreadconnectPod\Api\Dto\Subscription;
 use Throwable;
 use WP_Error;
 
@@ -726,5 +736,883 @@ class SpreadconnectClient
 		}
 
 		$logger->log( $level, $message, array( 'source' => self::LOG_SOURCE ) );
+	}
+
+	// =========================================================================
+	// Slice 10 — Typed endpoint wrappers (27 methods + 4 reserved).
+	//
+	// All wrappers are thin adaptors around {@see self::request()}. They only
+	// build the path / query / body, delegate transport to `request()`, and
+	// optionally map the response into a DTO. They do NOT catch exceptions —
+	// 4xx (`SpreadconnectClientError`) and 5xx / 429 / network
+	// (`SpreadconnectTransientError`) propagate untouched per Slice 10 AC-12.
+	//
+	// Method order mirrors Constraints "Method-Reihenfolge in der Datei":
+	// Auth → Articles → Orders → Shipping → Subscriptions → Simulate →
+	// ProductTypes → Designs (Previews) → Stock → Reserved.
+	// =========================================================================
+
+	// ---------------------------------------------------------------------
+	// Authentication
+	// ---------------------------------------------------------------------
+
+	/**
+	 * `GET /authentication` — verify the configured API key.
+	 *
+	 * Spreadconnect signals validity via HTTP-200; the body may be empty or
+	 * carry caller-info fields. The {@see AuthOk} DTO captures whatever the
+	 * upstream returned for diagnostic display in the Settings → Test
+	 * Connection UI (Slice 12).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx (e.g. 401 invalid key) or
+	 *                                     pre-flight `auth_missing`.
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network failure.
+	 */
+	public function authenticate(): AuthOk
+	{
+		$result = $this->request( 'GET', '/authentication', null );
+
+		return AuthOk::fromResponse( $result['body'] );
+	}
+
+	// ---------------------------------------------------------------------
+	// Articles
+	// ---------------------------------------------------------------------
+
+	/**
+	 * `GET /articles?page={p}&size={s}[&search={q}]` — paginated article list.
+	 *
+	 * Caller decides pagination. The `search` parameter is server-side
+	 * filtering (architecture Z. 796 / Open Q9) — when omitted, the full
+	 * catalog is returned page-by-page.
+	 *
+	 * @return array{items: ArticleSummary[], page: int, size: int, total: int|null}
+	 *
+	 * @throws SpreadconnectClientError    On 4xx.
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function getArticles( int $page, int $size, ?string $search = null ): array
+	{
+		$query = $this->buildQuery(
+			array(
+				'page'   => $page,
+				'size'   => $size,
+				'search' => $search,
+			)
+		);
+
+		$result = $this->request( 'GET', '/articles' . $query, null );
+		$body   = $result['body'];
+
+		// Spreadconnect's paginated list shapes vary slightly across endpoints
+		// — some wrap items under `items`, others under `content`, some return
+		// a top-level list. Defensively support all three so a future server
+		// shape-change does not break callers.
+		if ( isset( $body['items'] ) && is_array( $body['items'] ) ) {
+			$items_raw = $body['items'];
+		} elseif ( isset( $body['content'] ) && is_array( $body['content'] ) ) {
+			$items_raw = $body['content'];
+		} elseif ( array_is_list( $body ) ) {
+			$items_raw = $body;
+		} else {
+			$items_raw = array();
+		}
+
+		$items = array();
+		foreach ( $items_raw as $item ) {
+			if ( is_array( $item ) ) {
+				$items[] = ArticleSummary::fromResponse( $item );
+			}
+		}
+
+		$total = null;
+		if ( isset( $body['total'] ) && is_int( $body['total'] ) ) {
+			$total = $body['total'];
+		} elseif ( isset( $body['totalElements'] ) && is_int( $body['totalElements'] ) ) {
+			$total = $body['totalElements'];
+		}
+
+		return array(
+			'items' => $items,
+			'page'  => $page,
+			'size'  => $size,
+			'total' => $total,
+		);
+	}
+
+	/**
+	 * `GET /articles/{id}` — full article payload (variants + design).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx.
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function getArticle( string $id ): ArticleDetail
+	{
+		$path = $this->buildPath( '/articles/{id}', array( 'id' => $id ) );
+
+		$result = $this->request( 'GET', $path, null );
+
+		return ArticleDetail::fromResponse( $result['body'] );
+	}
+
+	// ---------------------------------------------------------------------
+	// Orders — lifecycle (create / get / confirm / cancel)
+	// ---------------------------------------------------------------------
+
+	/**
+	 * `POST /orders` — submit a new fulfillment order.
+	 *
+	 * The {@see OrderCreate} DTO is serialised to a snake_case array via
+	 * {@see self::orderCreateToSnakeArray()}. There is no `OrderResponse`
+	 * DTO in Slice 09 — callers receive the snake→camel-converted body as a
+	 * raw associative array.
+	 *
+	 * @return array<string, mixed> Order detail shape (`id`, `state`, …).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx (validation, 401, 409).
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function createOrder( OrderCreate $dto ): array
+	{
+		$body = $this->orderCreateToSnakeArray( $dto );
+
+		$result = $this->request( 'POST', '/orders', $body );
+
+		return DtoMapper::snakeToCamel( $result['body'] );
+	}
+
+	/**
+	 * `GET /orders/{id}` — order detail (state + line items + addresses).
+	 *
+	 * @return array<string, mixed> Order detail shape (snake→camel converted).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx.
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function getOrder( string $id ): array
+	{
+		$path = $this->buildPath( '/orders/{id}', array( 'id' => $id ) );
+
+		$result = $this->request( 'GET', $path, null );
+
+		return DtoMapper::snakeToCamel( $result['body'] );
+	}
+
+	/**
+	 * `POST /orders/{id}/confirm` — transition order from `NEW` to `CONFIRMED`.
+	 *
+	 * Empty-body POST (per Spreadconnect spec). The wrapper sends an empty
+	 * associative array `[]` rather than `null` so the request carries the
+	 * `Content-Type: application/json` header — this matches the upstream
+	 * contract, see AC-3.
+	 *
+	 * @return array<string, mixed> Updated order detail (snake→camel converted).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx (e.g. order not in `NEW` state).
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function confirmOrder( string $id ): array
+	{
+		$path = $this->buildPath( '/orders/{id}/confirm', array( 'id' => $id ) );
+
+		$result = $this->request( 'POST', $path, array() );
+
+		return DtoMapper::snakeToCamel( $result['body'] );
+	}
+
+	/**
+	 * `POST /orders/{id}/cancel` — cancel an order while still in `NEW`.
+	 *
+	 * Empty-body POST (see {@see self::confirmOrder()} for body-shape rationale).
+	 *
+	 * @return array<string, mixed> Updated order detail (snake→camel converted).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx (e.g. already `CONFIRMED`).
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function cancelOrder( string $id ): array
+	{
+		$path = $this->buildPath( '/orders/{id}/cancel', array( 'id' => $id ) );
+
+		$result = $this->request( 'POST', $path, array() );
+
+		return DtoMapper::snakeToCamel( $result['body'] );
+	}
+
+	// ---------------------------------------------------------------------
+	// Shipping
+	// ---------------------------------------------------------------------
+
+	/**
+	 * `GET /orders/{id}/shipments` — tracking-number / carrier list.
+	 *
+	 * @return array<string, mixed> Raw `Shipment[]` shape (snake→camel converted).
+	 *                              No DTO in Slice 09 → callers parse defensively.
+	 *
+	 * @throws SpreadconnectClientError    On 4xx.
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function getShipments( string $orderId ): array
+	{
+		$path = $this->buildPath( '/orders/{id}/shipments', array( 'id' => $orderId ) );
+
+		$result = $this->request( 'GET', $path, null );
+
+		return DtoMapper::snakeToCamel( $result['body'] );
+	}
+
+	/**
+	 * `GET /orders/{id}/shippingTypes` — available shipping options.
+	 *
+	 * @return ShippingType[]
+	 *
+	 * @throws SpreadconnectClientError    On 4xx.
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function getShippingTypes( string $orderId ): array
+	{
+		$path = $this->buildPath( '/orders/{id}/shippingTypes', array( 'id' => $orderId ) );
+
+		$result = $this->request( 'GET', $path, null );
+
+		return $this->mapList( $result['body'], array( ShippingType::class, 'fromResponse' ) );
+	}
+
+	/**
+	 * `POST /orders/{id}/shippingType` — set the chosen shipping type.
+	 *
+	 * Body uses **camelCase** key (`shippingType`) per architecture Z. 105 /
+	 * Slice 10 AC-4 — Spreadconnect accepts the camel form on this endpoint
+	 * because the path is already camelCase.
+	 *
+	 * @return array<string, mixed> Updated order detail (snake→camel converted).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx (e.g. invalid shipping type).
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function setShippingType( string $orderId, string $shippingType ): array
+	{
+		$path = $this->buildPath( '/orders/{id}/shippingType', array( 'id' => $orderId ) );
+
+		$body = array( 'shippingType' => $shippingType );
+
+		$result = $this->request( 'POST', $path, $body );
+
+		return DtoMapper::snakeToCamel( $result['body'] );
+	}
+
+	// ---------------------------------------------------------------------
+	// Subscriptions
+	// ---------------------------------------------------------------------
+
+	/**
+	 * `GET /subscriptions` — list all webhook subscriptions for this account.
+	 *
+	 * @return Subscription[]
+	 *
+	 * @throws SpreadconnectClientError    On 4xx.
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function getSubscriptions(): array
+	{
+		$result = $this->request( 'GET', '/subscriptions', null );
+
+		return $this->mapList( $result['body'], array( Subscription::class, 'fromResponse' ) );
+	}
+
+	/**
+	 * `POST /subscriptions` — register a new webhook subscription.
+	 *
+	 * Body keys are camelCase per the SC spec (`eventType`, `callbackUrl`,
+	 * `secret`). The `secret` is the HMAC-SHA256 shared secret stored under
+	 * the `spreadconnect_webhook_secret` option (Slice 17 / 18).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx (duplicate, validation).
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function createSubscription( string $eventType, string $callbackUrl, string $secret ): Subscription
+	{
+		$body = array(
+			'eventType'   => $eventType,
+			'callbackUrl' => $callbackUrl,
+			'secret'      => $secret,
+		);
+
+		$result = $this->request( 'POST', '/subscriptions', $body );
+
+		return Subscription::fromResponse( $result['body'] );
+	}
+
+	/**
+	 * `DELETE /subscriptions/{id}` — remove a webhook subscription.
+	 *
+	 * Returns `void` because the SC endpoint responds with `204 No Content`
+	 * and there is no meaningful body to surface. A non-2xx response has
+	 * already been thrown by {@see self::request()} before this method
+	 * returns, so a successful return implies a successful delete.
+	 *
+	 * @throws SpreadconnectClientError    On 4xx (e.g. ID not found).
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function deleteSubscription( string $id ): void
+	{
+		$path = $this->buildPath( '/subscriptions/{id}', array( 'id' => $id ) );
+
+		$this->request( 'DELETE', $path, null );
+	}
+
+	// ---------------------------------------------------------------------
+	// Simulate (staging-only event triggers)
+	// ---------------------------------------------------------------------
+
+	/**
+	 * `POST /orders/{id}/simulate/order-cancelled` — staging event simulator.
+	 *
+	 * The wrapper itself is **not** gated on `spreadconnect_use_staging` —
+	 * UI-level gating happens in the Slice-44 `Hub\Ajax\SimulateEvent`
+	 * controller. The HTTP-layer wrapper just exposes the endpoint.
+	 *
+	 * @return array<string, mixed> Order detail shape (snake→camel converted).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx (e.g. endpoint disabled in prod).
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function simulateOrderCancelled( string $orderId ): array
+	{
+		$path = $this->buildPath(
+			'/orders/{id}/simulate/order-cancelled',
+			array( 'id' => $orderId )
+		);
+
+		$result = $this->request( 'POST', $path, array() );
+
+		return DtoMapper::snakeToCamel( $result['body'] );
+	}
+
+	/**
+	 * `POST /orders/{id}/simulate/order-processed` — staging event simulator.
+	 *
+	 * @return array<string, mixed> Order detail shape (snake→camel converted).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx.
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function simulateOrderProcessed( string $orderId ): array
+	{
+		$path = $this->buildPath(
+			'/orders/{id}/simulate/order-processed',
+			array( 'id' => $orderId )
+		);
+
+		$result = $this->request( 'POST', $path, array() );
+
+		return DtoMapper::snakeToCamel( $result['body'] );
+	}
+
+	/**
+	 * `POST /orders/{id}/simulate/shipment-sent` — staging event simulator.
+	 *
+	 * @return array<string, mixed> Shipment shape (snake→camel converted).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx.
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function simulateShipmentSent( string $orderId ): array
+	{
+		$path = $this->buildPath(
+			'/orders/{id}/simulate/shipment-sent',
+			array( 'id' => $orderId )
+		);
+
+		$result = $this->request( 'POST', $path, array() );
+
+		return DtoMapper::snakeToCamel( $result['body'] );
+	}
+
+	// ---------------------------------------------------------------------
+	// ProductTypes (catalogue meta)
+	// ---------------------------------------------------------------------
+
+	/**
+	 * `GET /productTypes` — list of all product types (heavily cached upstream).
+	 *
+	 * @return array<int|string, mixed> Raw `ProductTypeSummary[]` shape (snake→camel).
+	 *                                  No DTO in Slice 09. Caching/ETag handled in Slice 23.
+	 *
+	 * @throws SpreadconnectClientError    On 4xx.
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function getProductTypes(): array
+	{
+		$result = $this->request( 'GET', '/productTypes', null );
+
+		return DtoMapper::snakeToCamel( $result['body'] );
+	}
+
+	/**
+	 * `GET /productTypes/{id}` — full product-type detail (sizes, colors, …).
+	 *
+	 * @return array<string, mixed> ProductTypeDetail shape (snake→camel).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx.
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function getProductType( string $id ): array
+	{
+		$path = $this->buildPath( '/productTypes/{id}', array( 'id' => $id ) );
+
+		$result = $this->request( 'GET', $path, null );
+
+		return DtoMapper::snakeToCamel( $result['body'] );
+	}
+
+	/**
+	 * `GET /productTypes/{id}/views` — print-area views for hotspot detection.
+	 *
+	 * @return array<int|string, mixed> Raw `View[]` shape (snake→camel).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx.
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function getProductTypeViews( string $id ): array
+	{
+		$path = $this->buildPath( '/productTypes/{id}/views', array( 'id' => $id ) );
+
+		$result = $this->request( 'GET', $path, null );
+
+		return DtoMapper::snakeToCamel( $result['body'] );
+	}
+
+	/**
+	 * `GET /productTypes/{id}/size-chart` — measurement table for product-edit.
+	 *
+	 * @return array<string, mixed> SizeChart shape (snake→camel).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx.
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function getProductTypeSizeChart( string $id ): array
+	{
+		$path = $this->buildPath( '/productTypes/{id}/size-chart', array( 'id' => $id ) );
+
+		$result = $this->request( 'GET', $path, null );
+
+		return DtoMapper::snakeToCamel( $result['body'] );
+	}
+
+	/**
+	 * `GET /productTypes/{id}/hotspots/design/{designId}` — hotspot lookup.
+	 *
+	 * @return array<string, mixed> Hotspot shape (snake→camel).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx (e.g. unknown design).
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function getHotspot( string $productTypeId, string $designId ): array
+	{
+		$path = $this->buildPath(
+			'/productTypes/{id}/hotspots/design/{designId}',
+			array(
+				'id'       => $productTypeId,
+				'designId' => $designId,
+			)
+		);
+
+		$result = $this->request( 'GET', $path, null );
+
+		return DtoMapper::snakeToCamel( $result['body'] );
+	}
+
+	// ---------------------------------------------------------------------
+	// Designs / Previews
+	// ---------------------------------------------------------------------
+
+	/**
+	 * `POST /productTypes/{id}/previews` — generate presigned preview URLs.
+	 *
+	 * Body keys are camelCase (`designId`, `hotspotId`, `viewIds`) per
+	 * architecture Z. 119. Returned URLs are short-lived; the Slice-23
+	 * sync-job consumes them immediately via `media_sideload_image()`.
+	 *
+	 * @param string[] $viewIds View IDs from {@see self::getProductTypeViews()}.
+	 *
+	 * @return Preview[]
+	 *
+	 * @throws SpreadconnectClientError    On 4xx (e.g. missing hotspot).
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function createPreviews(
+		string $productTypeId,
+		string $designId,
+		string $hotspotId,
+		array $viewIds
+	): array {
+		$path = $this->buildPath(
+			'/productTypes/{id}/previews',
+			array( 'id' => $productTypeId )
+		);
+
+		$body = array(
+			'designId'  => $designId,
+			'hotspotId' => $hotspotId,
+			'viewIds'   => array_values( $viewIds ),
+		);
+
+		$result = $this->request( 'POST', $path, $body );
+
+		return $this->mapList( $result['body'], array( Preview::class, 'fromArray' ) );
+	}
+
+	// ---------------------------------------------------------------------
+	// Stock
+	// ---------------------------------------------------------------------
+
+	/**
+	 * `GET /stock?[productTypeId={p}][&skus={comma-sep}]` — bulk stock query.
+	 *
+	 * Per architecture Z. 797 (Open Q10) the bulk endpoint **must** be
+	 * called with at least one filter (productTypeId or skus). A
+	 * filter-less call would pull the entire SC catalog stock — explicitly
+	 * forbidden — so we throw {@see InvalidArgumentException} pre-flight.
+	 *
+	 * SKUs are comma-separated **without** a `[]` array suffix (KISS form
+	 * matches Spreadconnect's documented syntax). Each SKU is
+	 * `rawurlencode()`-ed individually so commas in caller-supplied SKUs
+	 * (extremely unlikely but technically valid) don't bleed into the
+	 * delimiter.
+	 *
+	 * @param string[]|null $skus SKU list, comma-joined; null → omit param.
+	 *
+	 * @return StockEntry[]
+	 *
+	 * @throws InvalidArgumentException     When both filters are null.
+	 * @throws SpreadconnectClientError     On 4xx.
+	 * @throws SpreadconnectTransientError  On 5xx / 429 / network.
+	 */
+	public function getStock( ?string $productTypeId = null, ?array $skus = null ): array
+	{
+		if ( null === $productTypeId && null === $skus ) {
+			throw new InvalidArgumentException(
+				'SpreadconnectClient::getStock(): productTypeId or skus required '
+				. '(filter-less bulk-call forbidden — see architecture Open Q10).'
+			);
+		}
+
+		$queryParts = array();
+
+		if ( null !== $productTypeId ) {
+			$queryParts[] = 'productTypeId=' . rawurlencode( $productTypeId );
+		}
+
+		if ( null !== $skus ) {
+			$encoded = array_map( 'rawurlencode', array_values( $skus ) );
+			// Comma is a sub-delim in RFC 3986 reserved set; raw-urlencoding
+			// individual SKUs first means a SKU containing "," would be
+			// preserved (encoded as %2C), so the delimiter is unambiguous.
+			$queryParts[] = 'skus=' . implode( ',', $encoded );
+		}
+
+		$query = '' === implode( '', $queryParts ) ? '' : '?' . implode( '&', $queryParts );
+
+		$result = $this->request( 'GET', '/stock' . $query, null );
+
+		return $this->mapList( $result['body'], array( StockEntry::class, 'fromResponse' ) );
+	}
+
+	/**
+	 * `GET /stock/{sku}` — single-SKU fallback (used only when bulk rejects filter).
+	 *
+	 * @throws SpreadconnectClientError    On 4xx (e.g. unknown SKU).
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function getStockBySku( string $sku ): StockEntry
+	{
+		$path = $this->buildPath( '/stock/{sku}', array( 'sku' => $sku ) );
+
+		$result = $this->request( 'GET', $path, null );
+
+		return StockEntry::fromResponse( $result['body'] );
+	}
+
+	/**
+	 * `GET /stock/productType/{id}` — full per-product-type stock list.
+	 *
+	 * @return StockEntry[]
+	 *
+	 * @throws SpreadconnectClientError    On 4xx.
+	 * @throws SpreadconnectTransientError On 5xx / 429 / network.
+	 */
+	public function getStockByProductType( string $id ): array
+	{
+		$path = $this->buildPath( '/stock/productType/{id}', array( 'id' => $id ) );
+
+		$result = $this->request( 'GET', $path, null );
+
+		return $this->mapList( $result['body'], array( StockEntry::class, 'fromResponse' ) );
+	}
+
+	// ---------------------------------------------------------------------
+	// Reserved / out-of-MVP-scope wrappers (always throw NotImplementedError)
+	// ---------------------------------------------------------------------
+
+	/**
+	 * Reserved: `POST /articles` (push-sync). Out of MVP scope.
+	 *
+	 * @throws NotImplementedError Always — call site must be removed.
+	 */
+	public function pushArticle(): never
+	{
+		throw new NotImplementedError(
+			'POST /articles is out of MVP scope (push-sync — pull-only architecture).'
+		);
+	}
+
+	/**
+	 * Reserved: `DELETE /articles/{id}`. Out of MVP scope.
+	 *
+	 * @throws NotImplementedError Always — call site must be removed.
+	 */
+	public function deleteArticle( string $id ): never
+	{
+		throw new NotImplementedError(
+			sprintf(
+				'DELETE /articles/%s is out of MVP scope (no article-delete in MVP).',
+				$id
+			)
+		);
+	}
+
+	/**
+	 * Reserved: `PUT /orders/{id}` (post-submit edit). Out of MVP scope.
+	 *
+	 * @throws NotImplementedError Always — call site must be removed.
+	 */
+	public function updateOrder( string $id ): never
+	{
+		throw new NotImplementedError(
+			sprintf(
+				'PUT /orders/%s is out of MVP scope (no order-edit-after-submit).',
+				$id
+			)
+		);
+	}
+
+	/**
+	 * Reserved: `POST /designs/upload`. Out of MVP scope.
+	 *
+	 * @throws NotImplementedError Always — call site must be removed.
+	 */
+	public function uploadDesign(): never
+	{
+		throw new NotImplementedError(
+			'POST /designs/upload is out of MVP scope (designs are uploaded out-of-band).'
+		);
+	}
+
+	// ---------------------------------------------------------------------
+	// Path / Query / Body helpers (Slice 10-internal)
+	// ---------------------------------------------------------------------
+
+	/**
+	 * Substitute `{name}`-placeholders in a path template with rawurlencoded values.
+	 *
+	 * Example: `buildPath('/articles/{id}', ['id' => 'art id/42'])`
+	 *          → `/articles/art%20id%2F42`.
+	 *
+	 * Each variable value is `rawurlencode()`-d so reserved URI characters
+	 * (`/`, `?`, `#`, space, …) cannot bleed into the path structure
+	 * (Slice 10 AC-11). Callers therefore pass raw IDs / SKUs without
+	 * pre-encoding.
+	 *
+	 * @param string                $template Path template with `{name}` placeholders.
+	 * @param array<string, string> $vars     Placeholder → raw value map.
+	 */
+	private function buildPath( string $template, array $vars ): string
+	{
+		$path = $template;
+
+		foreach ( $vars as $name => $value ) {
+			$path = str_replace( '{' . $name . '}', rawurlencode( $value ), $path );
+		}
+
+		return $path;
+	}
+
+	/**
+	 * Build a `?key=value&key=value` query suffix from an associative param map.
+	 *
+	 * Filters out `null` values (so an unset optional param is genuinely
+	 * omitted, not rendered as `&key=`). Returns the empty string when
+	 * every value is null. Uses RFC-3986 percent-encoding to keep the
+	 * encoding stable across PHP versions.
+	 *
+	 * @param array<string, mixed> $params
+	 */
+	private function buildQuery( array $params ): string
+	{
+		$filtered = array();
+
+		foreach ( $params as $key => $value ) {
+			if ( null === $value ) {
+				continue;
+			}
+			$filtered[ $key ] = $value;
+		}
+
+		if ( array() === $filtered ) {
+			return '';
+		}
+
+		return '?' . http_build_query( $filtered, '', '&', PHP_QUERY_RFC3986 );
+	}
+
+	/**
+	 * Map a list-shaped response body through a DTO factory.
+	 *
+	 * Tolerates the three ways Spreadconnect can shape a list response:
+	 *   - top-level numeric array (`[{…}, {…}]`),
+	 *   - wrapped under `items` key,
+	 *   - wrapped under `content` key (Spring-style pagination).
+	 *
+	 * Non-array entries are skipped silently — DTO factories already throw
+	 * on malformed data, but a stray non-array slot would be a server bug
+	 * we shouldn't propagate as a hard failure.
+	 *
+	 * @param array<int|string, mixed> $body    Raw decoded response body.
+	 * @param callable                 $factory DTO `fromResponse`/`fromArray` callable.
+	 *
+	 * @return array<int, mixed> List of DTO instances.
+	 */
+	private function mapList( array $body, callable $factory ): array
+	{
+		if ( isset( $body['items'] ) && is_array( $body['items'] ) ) {
+			$items = $body['items'];
+		} elseif ( isset( $body['content'] ) && is_array( $body['content'] ) ) {
+			$items = $body['content'];
+		} else {
+			$items = $body;
+		}
+
+		$out = array();
+		foreach ( $items as $entry ) {
+			if ( ! is_array( $entry ) ) {
+				continue;
+			}
+			$out[] = $factory( $entry );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Serialise an {@see OrderCreate} DTO to a snake_case associative array.
+	 *
+	 * Slice 09 deliberately did not add a `toArray()` method to OrderCreate
+	 * (per Slice-10 Integration-Contract note), so we produce the request
+	 * body here. The path is camelCase → snake_case via {@see DtoMapper}
+	 * (architecture Z. 161 / Slice 10 AC-3 expects exact `external_order_reference`,
+	 * `order_items`, `billing_address`, `shipping_address` keys).
+	 *
+	 * Optional fields (`shippingType`, `customerEmail`, `phone`, `taxType`)
+	 * are emitted only when non-null so we don't litter the payload with
+	 * `null` keys (some SC endpoints reject them).
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function orderCreateToSnakeArray( OrderCreate $dto ): array
+	{
+		$camel = array(
+			'externalOrderReference' => $dto->externalOrderReference,
+			'orderItems'             => array_map(
+				/**
+				 * @param object $item OrderItem (Slice 09 readonly DTO).
+				 */
+				static function ( $item ): array {
+					$entry = array(
+						'sku'      => $item->sku,
+						'quantity' => $item->quantity,
+					);
+
+					if ( null !== $item->customerPrice ) {
+						$entry['customerPrice'] = self::moneyToArray( $item->customerPrice );
+					}
+
+					return $entry;
+				},
+				$dto->orderItems
+			),
+			'billingAddress'         => $this->addressToArray( $dto->billingAddress ),
+			'shippingAddress'        => $this->addressToArray( $dto->shippingAddress ),
+		);
+
+		if ( null !== $dto->shippingType ) {
+			$camel['shippingType'] = $dto->shippingType;
+		}
+		if ( null !== $dto->customerEmail ) {
+			$camel['customerEmail'] = $dto->customerEmail;
+		}
+		if ( null !== $dto->phone ) {
+			$camel['phone'] = $dto->phone;
+		}
+		if ( null !== $dto->taxType ) {
+			$camel['taxType'] = $dto->taxType;
+		}
+
+		return DtoMapper::camelToSnake( $camel );
+	}
+
+	/**
+	 * Serialise an Address DTO to a camelCase array (pre-Mapper form).
+	 *
+	 * @param object $address Address DTO (Slice 09).
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function addressToArray( $address ): array
+	{
+		$out = array(
+			'firstName' => $address->firstName,
+			'lastName'  => $address->lastName,
+			'street'    => $address->street,
+			'zipCode'   => $address->zipCode,
+			'city'      => $address->city,
+			'country'   => $address->country,
+		);
+
+		if ( null !== $address->streetAnnex ) {
+			$out['streetAnnex'] = $address->streetAnnex;
+		}
+		if ( null !== $address->state ) {
+			$out['state'] = $address->state;
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Serialise a Money DTO to a camelCase array (pre-Mapper form).
+	 *
+	 * Static so it can be invoked from the array_map() closure inside
+	 * {@see self::orderCreateToSnakeArray()} without a `$this`-bind.
+	 *
+	 * @param object $money Money DTO (Slice 09).
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function moneyToArray( $money ): array
+	{
+		$out = array(
+			'amount'   => $money->amount,
+			'currency' => $money->currency,
+		);
+
+		if ( null !== $money->taxRate ) {
+			$out['taxRate'] = $money->taxRate;
+		}
+		if ( null !== $money->taxAmount ) {
+			$out['taxAmount'] = $money->taxAmount;
+		}
+
+		return $out;
 	}
 }
