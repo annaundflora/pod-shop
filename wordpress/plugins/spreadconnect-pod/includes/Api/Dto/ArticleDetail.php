@@ -23,11 +23,19 @@ use InvalidArgumentException;
  *   - `id`, `title`, `productTypeId` non-empty.
  *   - `variants` is an array of Variant.
  *   - `description`, `designId`, `state` optional.
+ *   - `hotspotId` optional (slice-23: required for `createPreviews()` body).
+ *   - `viewIds` optional (slice-23: required for `createPreviews()` body).
+ *
+ * `hotspotId` and `viewIds` are populated when the upstream `GET /articles/{id}`
+ * response carries them (preferred path). When absent, the slice-23 sync job
+ * may resolve them via {@see SpreadconnectClient::getHotspot()} +
+ * {@see SpreadconnectClient::getProductTypeViews()} as a fallback.
  */
 final readonly class ArticleDetail
 {
 	/**
 	 * @param Variant[] $variants
+	 * @param string[]  $viewIds  View identifiers for `POST /productTypes/{id}/previews`.
 	 */
 	public function __construct(
 		public string $id,
@@ -37,6 +45,8 @@ final readonly class ArticleDetail
 		public ?string $description = null,
 		public ?string $designId = null,
 		public ?string $state = null,
+		public ?string $hotspotId = null,
+		public array $viewIds = [],
 	) {
 	}
 
@@ -95,6 +105,25 @@ final readonly class ArticleDetail
 			throw new InvalidArgumentException( 'ArticleDetail: field "state" must be a string or null.' );
 		}
 
+		$hotspot_id = $data['hotspotId'] ?? null;
+		if ( null !== $hotspot_id && ! is_string( $hotspot_id ) ) {
+			throw new InvalidArgumentException( 'ArticleDetail: field "hotspotId" must be a string or null.' );
+		}
+
+		$view_ids_raw = $data['viewIds'] ?? array();
+		if ( ! is_array( $view_ids_raw ) ) {
+			throw new InvalidArgumentException( 'ArticleDetail: field "viewIds" must be an array of strings.' );
+		}
+		$view_ids = array();
+		foreach ( $view_ids_raw as $index => $view_id ) {
+			if ( ! is_string( $view_id ) ) {
+				throw new InvalidArgumentException(
+					sprintf( 'ArticleDetail: field "viewIds[%s]" must be a string.', (string) $index )
+				);
+			}
+			$view_ids[] = $view_id;
+		}
+
 		return new self(
 			id: $id,
 			title: $title,
@@ -103,6 +132,8 @@ final readonly class ArticleDetail
 			description: $description,
 			designId: $design_id,
 			state: $state,
+			hotspotId: $hotspot_id,
+			viewIds: $view_ids,
 		);
 	}
 }

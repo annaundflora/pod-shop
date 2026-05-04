@@ -15,6 +15,7 @@ namespace SpreadconnectPod\Bootstrap;
 
 use Automattic\WooCommerce\Utilities\FeaturesUtil;
 use SpreadconnectPod\Catalog\AttributeProvisioner;
+use SpreadconnectPod\Catalog\SyncArticleJob;
 
 /**
  * Central bootstrap for the Spreadconnect POD plugin.
@@ -117,6 +118,23 @@ final class Plugin
 					dirname( plugin_basename( $plugin_file ) ) . '/languages'
 				);
 			}
+		);
+
+		// slice-23: Register the per-article sync hook handler. Action-
+		// Scheduler dispatches `spreadconnect/sync_article` with the args-
+		// array as the first parameter; the static bridge resolves the
+		// production-default collaborator chain (SpreadconnectClient,
+		// ImageSideloader, ProductMapper, SyncHistoryRepo) and invokes
+		// `handle()`. The hook is registered with priority 10 and exactly
+		// one accepted argument (the args-array), per AS conventions.
+		// Producer-side `as_enqueue_async_action()` calls live in slice-24
+		// (catalog-job), slice-25 (article webhooks) and slice-34 (re-sync
+		// button) — slice-23 is the consumer only.
+		add_action(
+			'spreadconnect/sync_article',
+			[ SyncArticleJob::class, 'handleStatic' ],
+			10,
+			1
 		);
 	}
 
