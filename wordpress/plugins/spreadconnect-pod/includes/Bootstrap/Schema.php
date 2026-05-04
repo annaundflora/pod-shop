@@ -106,7 +106,7 @@ final class Schema
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   started_at DATETIME NOT NULL,
   finished_at DATETIME NULL,
-  trigger VARCHAR(32) NOT NULL,
+  `trigger` VARCHAR(32) NOT NULL,
   created_count INT UNSIGNED NOT NULL DEFAULT 0,
   updated_count INT UNSIGNED NOT NULL DEFAULT 0,
   skipped_count INT UNSIGNED NOT NULL DEFAULT 0,
