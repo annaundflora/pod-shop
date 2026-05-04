@@ -20,6 +20,7 @@ use SpreadconnectPod\Catalog\SyncArticleJob;
 use SpreadconnectPod\Catalog\SyncCatalogJob;
 use SpreadconnectPod\Hub\Ajax\ProductActions as HubAjaxProductActions;
 use SpreadconnectPod\Hub\Ajax\RegenerateSecret as HubAjaxRegenerateSecret;
+use SpreadconnectPod\Hub\Ajax\RepairSubscriptions as HubAjaxRepairSubscriptions;
 use SpreadconnectPod\Hub\Ajax\SyncNow as HubAjaxSyncNow;
 use SpreadconnectPod\Hub\Ajax\TestConnection as HubAjaxTestConnection;
 use SpreadconnectPod\Hub\Controller as HubController;
@@ -219,6 +220,17 @@ final class Plugin
 		// and the `self::$initialized` guard above keeps the registration
 		// count at exactly 1 per request.
 		HubAjaxRegenerateSecret::register();
+
+		// slice-19: Register the Subscriptions-Manager "Repair All" AJAX
+		// handler (`spreadconnect_repair_subscriptions`). The handler runs
+		// `SubscriptionManager::removeOrphans()` BEFORE
+		// `SubscriptionManager::register()` (slice-19 AC-6) and emits the
+		// `{added, removed, errors}` summary as `wp_send_json_success`.
+		// Capability + nonce gates terminate via 403 before any service
+		// call; transient/client errors map to 503/500. Only the
+		// authenticated `wp_ajax_*` variant — anonymous callers must never
+		// be able to rewrite subscriptions.
+		HubAjaxRepairSubscriptions::register();
 
 		// slice-26: Register the Catalog sub-page "Sync now" AJAX handler.
 		// `Hub\Ajax\SyncNow::register()` hooks itself onto
