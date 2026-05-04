@@ -24,6 +24,8 @@ use SpreadconnectPod\Hub\Ajax\TestConnection as HubAjaxTestConnection;
 use SpreadconnectPod\Hub\Controller as HubController;
 use SpreadconnectPod\Hub\Rest\SyncProgress as HubRestSyncProgress;
 use SpreadconnectPod\Hub\View\Settings as HubSettingsView;
+use SpreadconnectPod\Order\OrderCancelJob;
+use SpreadconnectPod\Order\OrderConfirmJob;
 use SpreadconnectPod\Order\OrderHandler;
 use SpreadconnectPod\Order\OrderStateMachine;
 use SpreadconnectPod\Order\OrderSubmitJob;
@@ -273,6 +275,50 @@ final class Plugin
 				global $wpdb;
 
 				$job = new OrderSubmitJob(
+					new SpreadconnectClient(),
+					new OrderStateMachine( $wpdb )
+				);
+				$job->handle( $args );
+			},
+			10,
+			1
+		);
+
+		// slice-29: Wire the `spreadconnect/confirm_order` and
+		// `spreadconnect/cancel_order` Action-Scheduler job handlers.
+		//
+		// Both implement the order-lifecycle confirm/cancel hops
+		// (architecture.md "State-Transition" Z. 535-538). The producer
+		// surface (auto-confirm timer, order-edit meta-box buttons,
+		// failed-ops resend) lives in slice-31 / slice-32 / slice-38;
+		// slice-29 ships only the consumers. Hook-args convention is
+		// `['order_id' => int]` (slice-28 mirror), priority 10, accepts
+		// 1 arg (the args-array). Re-entrant `init()` calls remain
+		// idempotent per the `self::$initialized` static guard above —
+		// `add_action()` is invoked exactly once per request, so
+		// `has_action()` returns identical for repeated `init()` calls
+		// (AC-12).
+		add_action(
+			'spreadconnect/confirm_order',
+			static function ( array $args ): void {
+				global $wpdb;
+
+				$job = new OrderConfirmJob(
+					new SpreadconnectClient(),
+					new OrderStateMachine( $wpdb )
+				);
+				$job->handle( $args );
+			},
+			10,
+			1
+		);
+
+		add_action(
+			'spreadconnect/cancel_order',
+			static function ( array $args ): void {
+				global $wpdb;
+
+				$job = new OrderCancelJob(
 					new SpreadconnectClient(),
 					new OrderStateMachine( $wpdb )
 				);
