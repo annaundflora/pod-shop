@@ -2,11 +2,11 @@
   "spec_path": "/home/dev/pod-shop/.claude/worktrees/7-spreadconnect-pod-plugin-v2-full-api-coverage/specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage",
   "feature_name": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
   "status": "in_progress",
-  "current_state": "implementing",
+  "current_state": "auto_fixing",
   "current_slice_id": "slice-01",
   "current_wave": 0,
-  "retry_count": 0,
-  "failed_stage": null,
+  "retry_count": 1,
+  "failed_stage": "test_discovery",
   "default_branch": "master",
   "stack": {
     "stack_name": "PHP",
@@ -21,5 +21,6 @@
   "branch": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
   "github_available": true,
   "repo": "annaundflora/pod-shop",
-  "pr_number": 8
+  "pr_number": 8,
+  "test_naming_convention": "Slice<NN><PascalCaseTopic>Test.php with class Slice<NN><PascalCaseTopic>Test"
 }

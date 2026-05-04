@@ -17,7 +17,7 @@ use PHPUnit\Framework\TestCase;
  * AC-4 (composer test exit code) und AC-5 (git status diff) werden vom
  * Orchestrator/Compliance-Gate gemessen und sind hier NICHT abgedeckt.
  */
-final class CleanupV1Test extends TestCase
+final class Slice01CleanupV1Test extends TestCase
 {
     /**
      * Repo-Root: drei Verzeichnisse oberhalb von `tests/slices/pod-shop-mvp/`.

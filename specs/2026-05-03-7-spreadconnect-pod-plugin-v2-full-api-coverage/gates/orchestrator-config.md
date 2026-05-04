@@ -317,6 +317,16 @@ rollback:
 
 10. **Greenfield**: Slice 01 is purely subtractive. Architecture explicitly approved this Greenfield reset (no migration of v1 data). Project uses no live SC-data on production yet, so no real-world data loss.
 
+11. **Test File Naming Convention (PHPUnit 11 compatibility):**
+    Test files MUST be named `Slice<NN><PascalCaseTopic>Test.php` with the class declared as `final class Slice<NN><PascalCaseTopic>Test extends TestCase`. PHPUnit 11.5.55 derives the class name from the filename basename, so the legacy `slice-NN-<topic>.php` naming produces an invalid PHP class name (hyphens). The slice-NN prefix is preserved in the new convention so test files still sort by slice order in the directory listing.
+
+    Examples:
+    - Slice 01 cleanup: `Slice01CleanupV1Test.php` / `Slice01CleanupV1Test`
+    - Slice 02 plugin-bootstrap: `Slice02PluginBootstrapTest.php` / `Slice02PluginBootstrapTest`
+    - Slice 23 sync-article-job: `Slice23SyncArticleJobTest.php` / `Slice23SyncArticleJobTest`
+
+    The slice-spec `Test Skeletons` sections retain the old naming for documentation purposes; the test-writer agent applies the new convention when materializing the file.
+
 ---
 
 ## Final Verdict
