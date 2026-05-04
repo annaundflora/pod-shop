@@ -11,3 +11,19 @@
 {"ts":"2026-05-04T09:30:00+00:00","slice":"slice-03","gate":"tests","result":"PASSED","retries":1,"resolution":"add Brain Monkey stubs in slice-02 idempotency test"}
 {"ts":"2026-05-04T10:30:00+00:00","slice":"slice-04","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":2,"resolution":"backtick-escaped trigger column"}
 {"ts":"2026-05-04T10:30:00+00:00","slice":"slice-04","gate":"tests","result":"PASSED","retries":1,"resolution":"shared tests/bootstrap.php with WP function stubs"}
+{"ts":"2026-05-04T11:00:00+00:00","slice":"slice-05","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T11:00:00+00:00","slice":"slice-05","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T11:30:00+00:00","slice":"slice-06","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T11:30:00+00:00","slice":"slice-06","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T12:30:00+00:00","slice":"slice-07","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T12:30:00+00:00","slice":"slice-07","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T12:30:00+00:00","slice":"slice-20","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T12:30:00+00:00","slice":"slice-20","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T12:30:00+00:00","slice":"slice-27","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T12:30:00+00:00","slice":"slice-27","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T13:00:00+00:00","slice":"slice-08","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T13:00:00+00:00","slice":"slice-08","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T14:00:00+00:00","slice":"slice-10","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T14:00:00+00:00","slice":"slice-10","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T14:00:00+00:00","slice":"slice-22","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1,"note":"DTO gap-fill (ProductTypeDetail/Size/Color) approved"}
+{"ts":"2026-05-04T14:00:00+00:00","slice":"slice-22","gate":"tests","result":"PASSED","retries":0}

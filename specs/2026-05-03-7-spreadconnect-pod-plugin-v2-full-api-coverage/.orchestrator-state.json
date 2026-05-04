@@ -2,9 +2,11 @@
   "spec_path": "/home/dev/pod-shop/.claude/worktrees/7-spreadconnect-pod-plugin-v2-full-api-coverage/specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage",
   "feature_name": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
   "status": "in_progress",
-  "current_state": "implementing",
-  "current_slice_id": "slice-02",
-  "current_wave": 0,
+  "current_state": "slice_complete",
+  "current_slice_id": "slice-22",
+  "current_wave": 4,
+  "next_wave": 5,
+  "next_slices": ["slice-11", "slice-23"],
   "retry_count": 0,
   "failed_stage": null,
   "default_branch": "master",
@@ -15,12 +17,45 @@
     "typecheck_cmd": null,
     "test_cmd": "docker run --rm -v /home/dev/pod-shop/.claude/worktrees/7-spreadconnect-pod-plugin-v2-full-api-coverage:/app -w /app php:8.2-cli vendor/bin/phpunit"
   },
-  "completed_slices": ["slice-01"],
-  "evidence_files": ["specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/slice-01.json"],
+  "completed_slices": [
+    "slice-01", "slice-02", "slice-03", "slice-04", "slice-05", "slice-06",
+    "slice-07", "slice-08", "slice-09", "slice-10",
+    "slice-20", "slice-21", "slice-22", "slice-27"
+  ],
+  "evidence_files": [
+    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/slice-01.json",
+    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/slice-02.json",
+    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/slice-03.json",
+    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/slice-04.json",
+    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/slice-05.json",
+    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/slice-06.json",
+    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/slice-09.json",
+    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/slice-21.json",
+    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/wave-2.json"
+  ],
   "worktree_path": "/home/dev/pod-shop/.claude/worktrees/7-spreadconnect-pod-plugin-v2-full-api-coverage",
   "branch": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
   "github_available": true,
   "repo": "annaundflora/pod-shop",
   "pr_number": 8,
-  "test_naming_convention": "Slice<NN><PascalCaseTopic>Test.php with class Slice<NN><PascalCaseTopic>Test"
+  "test_naming_convention": "Slice<NN><PascalCaseTopic>Test.php with class Slice<NN><PascalCaseTopic>Test (per orchestrator-config Note 11)",
+  "infrastructure_decisions": [
+    "Renamed Slice01CleanupV1Test from slice-01-cleanup-v1.php (PHPUnit 11 filename->class lookup)",
+    "Added tests/bootstrap.php + tests/stubs/wp-functions.php for shared WP function stubs",
+    "Slice-09 omits ProductTypeDetail DTO; slice-22 implementer added it (gap-fill, approved)"
+  ],
+  "test_suite_status": {
+    "total_tests": 276,
+    "total_assertions": 1447,
+    "failures": 0,
+    "errors": 0
+  },
+  "remaining_slices": [
+    "slice-11", "slice-12", "slice-13", "slice-14", "slice-15", "slice-16",
+    "slice-17", "slice-18", "slice-19", "slice-23", "slice-24", "slice-25",
+    "slice-26", "slice-28", "slice-29", "slice-30", "slice-31", "slice-32",
+    "slice-33", "slice-34", "slice-35", "slice-36", "slice-37", "slice-38",
+    "slice-39", "slice-40", "slice-41", "slice-42", "slice-43", "slice-44",
+    "slice-45", "slice-46"
+  ]
 }
