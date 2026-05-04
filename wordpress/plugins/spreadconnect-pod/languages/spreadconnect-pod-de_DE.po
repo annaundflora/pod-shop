@@ -1,0 +1,13 @@
+# German (de_DE) translation for the Spreadconnect POD plugin.
+# Copyright (C) 2026 POD Shop
+# This file is distributed under the same license as the Spreadconnect POD plugin.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: spreadconnect-pod 2.0.0\n"
+"Report-Msgid-Bugs-To: \n"
+"Language: de_DE\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
