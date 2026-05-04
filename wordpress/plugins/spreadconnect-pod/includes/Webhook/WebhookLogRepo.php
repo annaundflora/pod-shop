@@ -54,6 +54,11 @@ final class WebhookLogRepo
 	public const STATUS_DUPLICATE = 'duplicate';
 
 	/**
+	 * `insertOrIgnore` return-status enum — binary contract (slice-16 AC-5/AC-6).
+	 */
+	public const STATUS_INSERTED = 'inserted';
+
+	/**
 	 * Idempotent INSERT: writes a webhook-log row, gracefully recognising
 	 * UNIQUE-constraint conflicts on `event_id` and reporting them as
 	 * `'duplicate'` instead of failing.
@@ -63,7 +68,11 @@ final class WebhookLogRepo
 	 *
 	 * @param array<string, mixed> $row Row payload (already-validated).
 	 *
-	 * @return array{status:string, log_id:int}
+	 * @return array{status:'inserted'|'duplicate', log_id:int}
+	 *
+	 * @throws \RuntimeException When the INSERT fails for any reason other
+	 *                           than a UNIQUE-constraint conflict on
+	 *                           `event_id` (slice-16 binary-return contract).
 	 */
 	public static function insertOrIgnore( array $row ): array
 	{
@@ -74,7 +83,7 @@ final class WebhookLogRepo
 		$inserted = $wpdb->insert( $table, $row );
 		if ( false !== $inserted && (int) $inserted === 1 ) {
 			return array(
-				'status' => 'inserted',
+				'status' => self::STATUS_INSERTED,
 				'log_id' => (int) $wpdb->insert_id,
 			);
 		}
@@ -84,16 +93,31 @@ final class WebhookLogRepo
 		$lastError = isset( $wpdb->last_error ) && is_string( $wpdb->last_error ) ? $wpdb->last_error : '';
 		if ( '' !== $lastError && false !== stripos( $lastError, 'Duplicate entry' ) ) {
 			$existingId = self::findIdByEventId( (string) ( $row['event_id'] ?? '' ) );
+
+			// Slice-16 AC-6: mark the existing row as a duplicate so
+			// downstream consumers (slice-17 job dispatcher, slice-41 UI)
+			// can distinguish replayed events from first-time inserts.
+			if ( $existingId > 0 ) {
+				$wpdb->update(
+					$table,
+					array( 'processing_status' => self::STATUS_DUPLICATE ),
+					array( 'id' => $existingId ),
+					array( '%s' ),
+					array( '%d' )
+				);
+			}
+
 			return array(
-				'status' => 'duplicate',
+				'status' => self::STATUS_DUPLICATE,
 				'log_id' => $existingId,
 			);
 		}
 
-		return array(
-			'status' => 'error',
-			'log_id' => 0,
-		);
+		// Insert-failure without Duplicate-marker: the row was rejected for
+		// a reason other than UNIQUE-conflict (schema mismatch, connection
+		// loss, ...). Throwing keeps the binary `inserted|duplicate`-return
+		// contract intact (slice-16 AC-5/AC-6 mandate exactly two states).
+		throw new \RuntimeException( 'spreadconnect_webhook_log_insert_failed' );
 	}
 
 	/**

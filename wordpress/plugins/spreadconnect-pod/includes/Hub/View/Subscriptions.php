@@ -119,16 +119,14 @@ final class Subscriptions
 
 		$rows = self::buildRows( $diff, null !== $diffError );
 
-		// Slice-19 AC-1 (a): the section markup includes the Sidebar render
-		// for `active_slug='subscriptions'`. The Hub Controller (slice-13)
-		// already renders the Sidebar before delegating to this view, so
-		// the call is tested in isolation when the test invokes
-		// `Subscriptions::render()` directly without going through the
-		// dispatch wrapper. Sidebar's renderer is idempotent / pure
-		// markup, so a duplicate render in the production path is a
-		// harmless cosmetic concern (the tests verify the call counter,
-		// not byte-equality of the surrounding shell).
-		Sidebar::render( 'subscriptions' );
+		// Slice-19 AC-1 (a): the Sidebar with `active_slug='subscriptions'`
+		// is rendered by {@see \SpreadconnectPod\Hub\Controller::dispatch()}
+		// before delegating to this view (Controller.php Z. 174). It also
+		// opens the `<div class="spreadconnect-hub__content">` wrapper
+		// (Z. 175), so this view body must NOT re-render the Sidebar — doing
+		// so would nest a second Sidebar inside the content container and
+		// break the markup. Other Hub views (Dashboard, Settings, Catalog)
+		// follow the same contract.
 
 		echo '<h1 class="spreadconnect-hub__title">'
 			. esc_html__( 'Subscriptions Manager', self::TEXT_DOMAIN )
