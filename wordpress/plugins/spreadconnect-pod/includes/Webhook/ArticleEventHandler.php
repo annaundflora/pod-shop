@@ -40,6 +40,13 @@ declare(strict_types=1);
 
 namespace SpreadconnectPod\Webhook;
 
+use SpreadconnectPod\Api\SpreadconnectClient;
+use SpreadconnectPod\Api\SpreadconnectClientError;
+use SpreadconnectPod\Api\SpreadconnectTransientError;
+use SpreadconnectPod\Stock\LiveStockRefresher;
+use SpreadconnectPod\Stock\StockCache;
+use Throwable;
+
 /**
  * Producer for the `spreadconnect/sync_article` and
  * `spreadconnect/handle_article_removed` Action-Scheduler hooks.
@@ -90,6 +97,15 @@ final class ArticleEventHandler
 	 * Webhook event-type — article-removed (architecture.md Z. 175 enum).
 	 */
 	private const EVENT_REMOVED = 'Article.removed';
+
+	/**
+	 * Postmeta key for the SC article-ID anchor — used by the slice-36
+	 * `Article.updated` reverse-lookup (mirrors slice-22 / slice-23 /
+	 * slice-25 / `LiveStockRefresher`). Kept as a local const so this
+	 * class does not reach into `Catalog\ProductMapper`'s private
+	 * constants.
+	 */
+	private const META_ARTICLE_ID = '_spreadconnect_article_id';
 
 	/**
 	 * Process one Article webhook payload.
@@ -144,6 +160,18 @@ final class ArticleEventHandler
 					),
 					self::AS_GROUP
 				);
+
+				// slice-36 AC-9: Article.updated additionally triggers an
+				// inline live-stock refresh by reverse-lookup on
+				// `_spreadconnect_article_id`. Skipped silently when no WC
+				// product is linked (slice-23 sync_article will create the
+				// product on its tick, then subsequent webhooks find a
+				// match). Best-effort: any client / transient error is
+				// swallowed + logged so the slice-25 contract (always
+				// enqueue) stays intact (Constraint "Webhook-Edit-Idempotenz").
+				if ( self::EVENT_UPDATED === $eventType ) {
+					self::triggerStockRefresh( $entityId );
+				}
 				return;
 
 			case self::EVENT_REMOVED:
@@ -186,6 +214,100 @@ final class ArticleEventHandler
 		}
 
 		return $entityId;
+	}
+
+	/**
+	 * Slice-36 AC-9: trigger a {@see LiveStockRefresher::refresh()} call
+	 * for the WC product linked to `$articleId`, if any.
+	 *
+	 * Behaviour contract:
+	 *   - Reverse-look-up the WC product via `_spreadconnect_article_id`.
+	 *     Missing match → no-op (slice-23 sync_article will create the
+	 *     product on its tick).
+	 *   - On `SpreadconnectClientError` / `SpreadconnectTransientError`
+	 *     (and any other `Throwable`) the call is swallowed + logged at
+	 *     `warning` level. The periodic {@see \SpreadconnectPod\Stock\StockSyncJob}
+	 *     remains the authoritative stock-sync path; webhook refresh is
+	 *     best-effort (architecture.md Z. 719).
+	 *   - Slice-25 ACs 1/2/3/4 stay green — the producer-side
+	 *     `as_enqueue_async_action()` has already happened by the time we
+	 *     reach this method (see {@see self::handle()}).
+	 */
+	private static function triggerStockRefresh( string $articleId ): void
+	{
+		$productId = self::findProductIdByArticleId( $articleId );
+
+		if ( null === $productId ) {
+			// Article.updated for a product we do not yet have a local copy
+			// of: the slice-23 sync_article job will create it on its tick.
+			return;
+		}
+
+		try {
+			$refresher = new LiveStockRefresher(
+				new SpreadconnectClient(),
+				new StockCache()
+			);
+			$refresher->refresh( $productId );
+		} catch ( SpreadconnectTransientError | SpreadconnectClientError $e ) {
+			self::log(
+				'warning',
+				sprintf(
+					'ArticleEventHandler: stock-refresh failed article_id=%s product_id=%d: %s',
+					$articleId,
+					$productId,
+					$e->getMessage()
+				)
+			);
+		} catch ( Throwable $e ) {
+			// Defensive: any other failure must not propagate up — the
+			// slice-25 enqueue-side has already succeeded and the dispatcher
+			// must mark the webhook-log row `success`.
+			self::log(
+				'warning',
+				sprintf(
+					'ArticleEventHandler: unexpected stock-refresh failure article_id=%s product_id=%d: %s',
+					$articleId,
+					$productId,
+					$e->getMessage()
+				)
+			);
+		}
+	}
+
+	/**
+	 * Reverse-lookup the WC-Product associated with an SC article-ID.
+	 *
+	 * Mirrors {@see \SpreadconnectPod\Catalog\SyncArticleJob::findProductIdByArticleId()}
+	 * verbatim (slice-25 / slice-36 Constraint: identical pattern, no raw
+	 * `$wpdb`). Accepts `publish`/`draft`/`private` post statuses so
+	 * already-archived products still match.
+	 */
+	private static function findProductIdByArticleId( string $articleId ): ?int
+	{
+		$posts = get_posts(
+			array(
+				'post_type'   => 'product',
+				'post_status' => array( 'publish', 'draft', 'private' ),
+				'numberposts' => 1,
+				'fields'      => 'ids',
+				'meta_query'  => array(
+					array(
+						'key'     => self::META_ARTICLE_ID,
+						'value'   => $articleId,
+						'compare' => '=',
+					),
+				),
+			)
+		);
+
+		if ( ! is_array( $posts ) || empty( $posts ) ) {
+			return null;
+		}
+
+		$first = (int) $posts[0];
+
+		return $first > 0 ? $first : null;
 	}
 
 	/**

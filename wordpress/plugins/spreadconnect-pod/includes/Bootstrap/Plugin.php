@@ -39,6 +39,7 @@ use SpreadconnectPod\Order\OrderConfirmJob;
 use SpreadconnectPod\Order\OrderHandler;
 use SpreadconnectPod\Order\OrderStateMachine;
 use SpreadconnectPod\Order\OrderSubmitJob;
+use SpreadconnectPod\Stock\StockSyncJob;
 use SpreadconnectPod\Subscription\SubscriptionManager;
 use SpreadconnectPod\Webhook\ProcessWebhookEventJob;
 use SpreadconnectPod\Webhook\WebhookController;
@@ -139,6 +140,29 @@ final class Plugin
 			[ SubscriptionManager::class, 'scheduleRecurringDriftCheck' ]
 		);
 
+		// slice-36: Schedule the recurring stock-sync Action-Scheduler job
+		// on plugin activation. `scheduleRecurringStockSync()` is idempotent
+		// — it pre-checks `as_next_scheduled_action()` so a re-activate
+		// never produces a duplicate schedule (slice-36 AC-8). The handler
+		// binds inside the per-request hook block below; both halves must
+		// be wired for the recurring sweep to do anything useful.
+		register_activation_hook(
+			$plugin_file,
+			[ self::class, 'scheduleRecurringStockSync' ]
+		);
+
+		// slice-36: Re-schedule the stock-sync recurring action when the
+		// admin saves a new `spreadconnect_stock_sync_interval`. The
+		// existing recurring action is unscheduled before the new one is
+		// laid down so the old interval cannot keep firing alongside the
+		// new one (Constraint "Settings-Change-Re-Schedule").
+		add_action(
+			'update_option_spreadconnect_stock_sync_interval',
+			[ self::class, 'rescheduleRecurringStockSync' ],
+			10,
+			0
+		);
+
 		// slice-06: Load the `spreadconnect-pod` text-domain on
 		// `plugins_loaded` (WP-default priority 10). The hook fires once per
 		// request, after WP has finalised the locale, which is the earliest
@@ -205,6 +229,23 @@ final class Plugin
 		add_action(
 			'spreadconnect/handle_article_removed',
 			[ ArticleRemovedJob::class, 'handleStatic' ],
+			10,
+			1
+		);
+
+		// slice-36: Register the recurring stock-sync Action-Scheduler
+		// hook handler. The recurring schedule itself is laid down in the
+		// activation hook above (`scheduleRecurringStockSync`); this
+		// `add_action` is the consumer side that AS dispatches against on
+		// every tick. Iterates linked WC products, bulk-fetches stock per
+		// product and threshold-mutates the WC variation stock when
+		// `quantity < spreadconnect_low_stock_threshold` (architecture.md
+		// Z. 386, Z. 554, Z. 623). Hook priority 10, accepted-args 1
+		// (recurring schedules pass `[]`), per AS conventions and the
+		// slice-23 / slice-24 / slice-25 mirror.
+		add_action(
+			'spreadconnect/scheduled_stock_sync',
+			[ StockSyncJob::class, 'handleStatic' ],
 			10,
 			1
 		);
@@ -709,5 +750,98 @@ final class Plugin
 	public static function pluginFile(): string
 	{
 		return self::$pluginFile;
+	}
+
+	/**
+	 * Slice-36 AC-8: lay down the recurring `spreadconnect/scheduled_stock_sync`
+	 * Action-Scheduler schedule.
+	 *
+	 * Idempotent — pre-checks `as_next_scheduled_action()` so re-running the
+	 * activation hook (or this method via the option-update re-schedule path)
+	 * never produces a duplicate schedule. Skipped silently when AS functions
+	 * are unavailable (e.g. unit-test bootstrap without WC).
+	 *
+	 * Interval enum (architecture.md Z. 332):
+	 *   `1h`  → 3600
+	 *   `4h`  → 14400
+	 *   `6h`  → 21600 (default)
+	 *   `12h` → 43200
+	 *   `24h` → 86400
+	 */
+	public static function scheduleRecurringStockSync(): void
+	{
+		if ( ! function_exists( 'as_next_scheduled_action' )
+			|| ! function_exists( 'as_schedule_recurring_action' ) ) {
+			return;
+		}
+
+		// Idempotency pre-check: bail when the recurring action is already
+		// on the schedule. AS returns either an int (timestamp) or `false` —
+		// anything truthy means "already scheduled".
+		$existing = as_next_scheduled_action(
+			'spreadconnect/scheduled_stock_sync',
+			array(),
+			'spreadconnect'
+		);
+		if ( false !== $existing && null !== $existing && 0 !== $existing ) {
+			return;
+		}
+
+		as_schedule_recurring_action(
+			time(),
+			self::resolveStockSyncIntervalSeconds(),
+			'spreadconnect/scheduled_stock_sync',
+			array(),
+			'spreadconnect'
+		);
+	}
+
+	/**
+	 * Slice-36 Constraint "Settings-Change-Re-Schedule": tear down the
+	 * existing recurring action and lay down a fresh one with the new
+	 * interval. Called from the `update_option_spreadconnect_stock_sync_interval`
+	 * hook so the admin's setting change takes effect on the next tick
+	 * (and the previous interval can no longer fire alongside the new one).
+	 *
+	 * Idempotent — `as_unschedule_action` is a safe no-op when no schedule
+	 * exists, and {@see self::scheduleRecurringStockSync()} is itself
+	 * idempotent. The two operations together produce exactly one
+	 * recurring schedule with the freshly-resolved interval.
+	 */
+	public static function rescheduleRecurringStockSync(): void
+	{
+		if ( function_exists( 'as_unschedule_action' ) ) {
+			as_unschedule_action(
+				'spreadconnect/scheduled_stock_sync',
+				array(),
+				'spreadconnect'
+			);
+		}
+
+		self::scheduleRecurringStockSync();
+	}
+
+	/**
+	 * Resolve the `spreadconnect_stock_sync_interval` enum into a seconds
+	 * value (architecture.md Z. 332). Falls back to the `6h` default when
+	 * the option is missing or carries an unknown enum literal.
+	 */
+	private static function resolveStockSyncIntervalSeconds(): int
+	{
+		$raw = get_option( 'spreadconnect_stock_sync_interval', '6h' );
+
+		$mapping = array(
+			'1h'  => 3600,
+			'4h'  => 14400,
+			'6h'  => 21600,
+			'12h' => 43200,
+			'24h' => 86400,
+		);
+
+		if ( is_string( $raw ) && isset( $mapping[ $raw ] ) ) {
+			return $mapping[ $raw ];
+		}
+
+		return $mapping['6h'];
 	}
 }
