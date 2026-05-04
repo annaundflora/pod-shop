@@ -1,0 +1,8 @@
+{
+    "redefinable-internals": [
+        "hash_equals",
+        "hash_hmac",
+        "sleep",
+        "error_log"
+    ]
+}

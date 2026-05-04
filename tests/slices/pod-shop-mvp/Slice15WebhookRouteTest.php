@@ -136,22 +136,21 @@ namespace {
 			}
 
 			/**
-			 * Trip-wire — same rationale as `get_json_params()`.
-			 *
-			 * NOTE: `get_params()` ALSO serves as the WP-REST query/param
-			 * accessor used by Slice 26's SyncProgress controller. We
-			 * therefore do not throw — we return the params map AND set
-			 * the trip-wire flag, so Slice-15 tests can assert "no auth
-			 * code touched it" while Slice-26 tests still get their
-			 * read.
+			 * Trip-wire — same rationale as `get_json_params()`. The
+			 * Slice-15 controller MUST NOT call this on the auth path;
+			 * the byte-stable raw body is the only HMAC input.
 			 */
 			public function get_params(): array {
 				$this->paramsAccessed = true;
 				return $this->params;
 			}
 
+			/**
+			 * Per-key param accessor used by other slices (e.g. Slice 26
+			 * `SyncProgress::handle()`). NOT a trip-wire — Slice-15 tests
+			 * never call this method directly.
+			 */
 			public function get_param( string $key ) {
-				$this->paramsAccessed = true;
 				return $this->params[ $key ] ?? null;
 			}
 
