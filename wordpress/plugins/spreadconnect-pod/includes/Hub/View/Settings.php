@@ -159,6 +159,23 @@ final class Settings
 	 */
 	public static function registerSettings(): void
 	{
+		// --- Cross-field gating hook -------------------------------------.
+		// `updated_option` fires after every successful `update_option()`.
+		// The Auto-Confirm-Gating rule (slice-11 AC-3,
+		// architecture.md Z. 326) cannot be expressed inside a per-option
+		// `sanitize_callback` because each callback sees only one key, so
+		// we listen to `updated_option` and force `spreadconnect_auto_confirm`
+		// to `'off'` whenever `spreadconnect_default_shipping_type` is
+		// saved as an empty string. WP de-duplicates identical
+		// callable/priority pairs, so re-running `registerSettings()` (e.g.
+		// twice on the same `admin_init`) leaves the hook count at 1.
+		add_action(
+			'updated_option',
+			array( SettingsValidator::class, 'enforceAutoConfirmGating' ),
+			10,
+			3
+		);
+
 		// --- Sections ----------------------------------------------------.
 		add_settings_section(
 			self::SECTION_API,
@@ -190,10 +207,15 @@ final class Settings
 
 		// --- Per-option `register_setting()` + field rows ----------------.
 		// One sanitize_callback per option, all pointing to the SAME
-		// `SettingsValidator::sanitize` (slice-11 AC-1). The cross-field
-		// auto-confirm gating happens inside the sanitiser, so it does not
-		// matter which specific option's save triggered the call.
-		$sanitize = array( SettingsValidator::class, 'sanitize' );
+		// per-option dispatcher `SettingsValidator::sanitizeOne` (slice-11
+		// AC-1). WP invokes per-option sanitisers with the *scalar* value
+		// of one option via `sanitize_option_{$name}`, so the dispatcher
+		// resolves the option name from its 2nd argument or
+		// `current_filter()` and runs only the per-field validation.
+		// Cross-field auto-confirm gating runs separately on the
+		// `updated_option` action below — a per-option callback alone
+		// cannot enforce it because each callback sees only one key.
+		$sanitize = array( SettingsValidator::class, 'sanitizeOne' );
 
 		// ① API Connection.
 		self::registerOption( 'spreadconnect_api_key', $sanitize, 'string' );

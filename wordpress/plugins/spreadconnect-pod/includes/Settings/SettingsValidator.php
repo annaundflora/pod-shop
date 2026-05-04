@@ -143,18 +143,26 @@ final class SettingsValidator
 	/**
 	 * Sanitise a Settings-form payload.
 	 *
-	 * Hooked as the `sanitize_callback` of every `register_setting` call in
-	 * `Hub\View\Settings::registerSettings()`. WP hands us the full 17-key
-	 * `$input` array on form submit; we return the same shape with each
-	 * value normalised, clamped or fallen-back per the validation column of
-	 * `architecture.md` Z. 323-340.
+	 * Authoritative array-shape sanitiser used by:
+	 *   - slice-11 acceptance tests (AC-2..AC-8) which exercise the
+	 *     full 17-key contract directly.
+	 *   - slice-45 export/import re-validation, which pipes the imported
+	 *     JSON through `sanitize()` before persisting.
+	 *
+	 * **Not** registered as a per-option `sanitize_callback` against the WP
+	 * Settings API — WP invokes per-option callbacks with the *scalar*
+	 * value of one option (via the `sanitize_option_{$name}` filter), so a
+	 * function that requires `array $input` would fatally TypeError at
+	 * runtime. The Settings API is wired through {@see self::sanitizeOne()}
+	 * instead; cross-field gating is enforced by
+	 * {@see self::enforceAutoConfirmGating()}.
 	 *
 	 * Output is **always** the full 17-key map even when `$input` is
 	 * partial — missing keys default to {@see OptionsDefaults::DEFAULTS} so
 	 * a partial form submit cannot delete options (slice-11 Constraints).
 	 *
-	 * @param array<string,mixed> $input Raw form payload as delivered by the
-	 *                                   WP Settings API.
+	 * @param array<string,mixed> $input Raw form payload (or imported JSON
+	 *                                   in the slice-45 case).
 	 *
 	 * @return array<string,string|int|bool> 17-key sanitised result.
 	 */
@@ -178,6 +186,109 @@ final class SettingsValidator
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Per-option `sanitize_callback` dispatcher for the WP Settings API.
+	 *
+	 * Hooked from {@see \SpreadconnectPod\Hub\View\Settings::registerSettings()}
+	 * as the `sanitize_callback` of every `register_setting()` call. WP
+	 * invokes the callback with the *scalar* value of a single option via
+	 * the `sanitize_option_{$option_name}` filter — so this method runs
+	 * only the per-field validation for that one key (no cross-field
+	 * gating; that lives in {@see self::enforceAutoConfirmGating()}).
+	 *
+	 * The option name is resolved in priority order:
+	 *   1. The explicit `$optionName` argument (WP 4.7+ passes the option
+	 *      name as the second filter argument to `sanitize_option_*`).
+	 *   2. {@see current_filter()} fallback — strips the
+	 *      `sanitize_option_` prefix off the active filter name.
+	 *
+	 * Unknown / unmanaged keys are returned unchanged.
+	 *
+	 * @param mixed       $value      Raw scalar input as delivered by WP.
+	 * @param string|null $optionName Option name forwarded by WP (filter
+	 *                                arg 2). Falls back to
+	 *                                `current_filter()` when omitted.
+	 *
+	 * @return mixed Sanitised scalar value of the same logical type as the
+	 *               option's default (string, int or bool).
+	 */
+	public static function sanitizeOne( mixed $value, ?string $optionName = null ): mixed
+	{
+		$key = is_string( $optionName ) && '' !== $optionName
+			? $optionName
+			: self::resolveOptionFromCurrentFilter();
+
+		if ( null === $key || ! in_array( $key, self::MANAGED_KEYS, true ) ) {
+			// Unknown key: return as-is. The dispatcher MUST NOT swallow
+			// values for options it does not own.
+			return $value;
+		}
+
+		$default = OptionsDefaults::DEFAULTS[ $key ];
+
+		return self::sanitizeField( $key, $value, $default );
+	}
+
+	/**
+	 * Cross-field gating enforced after every `update_option` call.
+	 *
+	 * Wired from {@see \SpreadconnectPod\Hub\View\Settings::registerSettings()}
+	 * via `add_action('updated_option', …, 10, 3)`. WP fires this action
+	 * after every successful `update_option` call. Because per-option
+	 * `sanitize_callback`s run independently, the Auto-Confirm-Gating
+	 * cross-field rule (slice-11 AC-3) cannot be enforced inside
+	 * {@see self::sanitizeOne()} alone — when an admin saves
+	 * `spreadconnect_default_shipping_type = ''` the auto-confirm option
+	 * has already been written by an earlier per-option call. This action
+	 * corrects that: it forces `spreadconnect_auto_confirm = 'off'`
+	 * whenever the (just-updated) default shipping type collapses to ''.
+	 *
+	 * Idempotent — when auto-confirm is already `'off'` `update_option()`
+	 * is a no-op, so no recursive `updated_option` fires meaningfully.
+	 *
+	 * @param string $option_name The option key WP just persisted.
+	 * @param mixed  $old_value   Pre-update value (unused).
+	 * @param mixed  $value       Post-update value just written.
+	 *
+	 * @return void
+	 */
+	public static function enforceAutoConfirmGating( string $option_name, mixed $old_value, mixed $value ): void
+	{
+		if ( 'spreadconnect_default_shipping_type' !== $option_name ) {
+			return;
+		}
+
+		// Empty (= None) shipping type forces auto-confirm off, mirroring
+		// the array-mode gating in {@see self::sanitize()}.
+		if ( is_string( $value ) && '' === $value ) {
+			update_option( 'spreadconnect_auto_confirm', 'off' );
+		}
+	}
+
+	/**
+	 * Extract the option name from the active `sanitize_option_*` filter.
+	 *
+	 * Fallback path for hosts that do not forward the option-name argument
+	 * to {@see self::sanitizeOne()}. Returns `null` when the active filter
+	 * does not look like a `sanitize_option_*` filter.
+	 */
+	private static function resolveOptionFromCurrentFilter(): ?string
+	{
+		$filter = current_filter();
+		if ( ! is_string( $filter ) || '' === $filter ) {
+			return null;
+		}
+
+		$prefix = 'sanitize_option_';
+		if ( ! str_starts_with( $filter, $prefix ) ) {
+			return null;
+		}
+
+		$candidate = substr( $filter, strlen( $prefix ) );
+
+		return '' === $candidate ? null : $candidate;
 	}
 
 	/**
