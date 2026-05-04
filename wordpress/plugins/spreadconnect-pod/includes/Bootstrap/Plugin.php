@@ -18,12 +18,14 @@ use SpreadconnectPod\Api\SpreadconnectClient;
 use SpreadconnectPod\Catalog\AttributeProvisioner;
 use SpreadconnectPod\Catalog\SyncArticleJob;
 use SpreadconnectPod\Catalog\SyncCatalogJob;
+use SpreadconnectPod\Hub\Ajax\ProductActions as HubAjaxProductActions;
 use SpreadconnectPod\Hub\Ajax\RegenerateSecret as HubAjaxRegenerateSecret;
 use SpreadconnectPod\Hub\Ajax\SyncNow as HubAjaxSyncNow;
 use SpreadconnectPod\Hub\Ajax\TestConnection as HubAjaxTestConnection;
 use SpreadconnectPod\Hub\Controller as HubController;
 use SpreadconnectPod\Hub\Rest\SyncProgress as HubRestSyncProgress;
 use SpreadconnectPod\Hub\View\Settings as HubSettingsView;
+use SpreadconnectPod\Inline\ProductMetaBox as InlineProductMetaBox;
 use SpreadconnectPod\Order\OrderCancelJob;
 use SpreadconnectPod\Order\OrderConfirmJob;
 use SpreadconnectPod\Order\OrderHandler;
@@ -326,6 +328,37 @@ final class Plugin
 			},
 			10,
 			1
+		);
+
+		// slice-34: Mount the WC-Product-Edit "Spreadconnect" sidebar
+		// meta-box and its four AJAX handlers.
+		//
+		// `add_meta_boxes` registers the box itself; `admin_enqueue_scripts`
+		// is screen-guarded inside the callback so the JS never loads on
+		// unrelated admin pages. The four `wp_ajax_*` actions cover the
+		// search picker, link/unlink mutations and the live-stock refresh.
+		// All four share the `spreadconnect_product_actions` nonce minted
+		// by `enqueueAssets()` and the `manage_woocommerce` capability
+		// gate; only the authenticated `wp_ajax_*` variant is registered —
+		// no `wp_ajax_nopriv_*` (admin-only).
+		add_action( 'add_meta_boxes', [ InlineProductMetaBox::class, 'register' ] );
+		add_action( 'admin_enqueue_scripts', [ InlineProductMetaBox::class, 'enqueueAssets' ] );
+
+		add_action(
+			'wp_ajax_spreadconnect_search_articles',
+			[ HubAjaxProductActions::class, 'searchArticlesStatic' ]
+		);
+		add_action(
+			'wp_ajax_spreadconnect_link_article',
+			[ HubAjaxProductActions::class, 'linkArticleStatic' ]
+		);
+		add_action(
+			'wp_ajax_spreadconnect_unlink_article',
+			[ HubAjaxProductActions::class, 'unlinkArticleStatic' ]
+		);
+		add_action(
+			'wp_ajax_spreadconnect_refresh_stock',
+			[ HubAjaxProductActions::class, 'refreshStockStatic' ]
 		);
 	}
 
