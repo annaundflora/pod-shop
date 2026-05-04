@@ -9,3 +9,5 @@
 {"ts":"2026-05-04T08:50:00+00:00","slice":"slice-21","gate":"tests","result":"PASSED","retries":0}
 {"ts":"2026-05-04T09:30:00+00:00","slice":"slice-03","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
 {"ts":"2026-05-04T09:30:00+00:00","slice":"slice-03","gate":"tests","result":"PASSED","retries":1,"resolution":"add Brain Monkey stubs in slice-02 idempotency test"}
+{"ts":"2026-05-04T10:30:00+00:00","slice":"slice-04","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":2,"resolution":"backtick-escaped trigger column"}
+{"ts":"2026-05-04T10:30:00+00:00","slice":"slice-04","gate":"tests","result":"PASSED","retries":1,"resolution":"shared tests/bootstrap.php with WP function stubs"}
