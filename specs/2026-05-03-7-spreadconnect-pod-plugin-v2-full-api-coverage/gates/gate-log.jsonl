@@ -38,3 +38,7 @@
 {"ts":"2026-05-04T17:10:00+00:00","slice":"slice-12","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":2,"resolution":"replaced -- with em-dash U+2014"}
 {"ts":"2026-05-04T17:00:00+00:00","slice":"slice-24","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
 {"ts":"2026-05-04T17:00:00+00:00","slice":"slice-28","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T18:00:00+00:00","slice":"slice-12","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T18:00:00+00:00","slice":"slice-13","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T18:00:00+00:00","slice":"slice-24","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T18:00:00+00:00","slice":"slice-28","gate":"tests","result":"PASSED","retries":0}
