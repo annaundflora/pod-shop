@@ -11,91 +11,22 @@ declare(strict_types=1);
 //
 // Mocking strategy per slice spec: `mock_external` — Brain\Monkey for
 // `as_enqueue_async_action`, `as_has_scheduled_action`, `wc_get_order`,
-// `wc_get_logger`. Mockery doubles for SpreadconnectClient, OrderStateMachine,
-// WC_Order, WC_Logger, WC_Order_Item_Product and WC_Product. No real WC / WP
-// runtime required.
+// `wc_get_logger`. Mockery doubles for SpreadconnectClient, WC_Order,
+// WC_Logger, WC_Order_Item_Product, WC_Product. The production
+// `OrderStateMachine` class is `final` so Mockery cannot generate a subclass
+// — instead the tests instantiate a real `OrderStateMachine` driven by a
+// fully programmable Mockery `wpdb` double whose `prepare()` / `query()` /
+// `get_var()` outcomes determine every CAS true/false transition. This keeps
+// the boundary at the same external-collaborator surface the slice spec
+// targets (the SQL layer) without sacrificing the assertion that
+// `compareAndSet()` is in fact invoked with the documented (expected,
+// target) tuple — captured SQL strings carry both values.
 //
-// We rely on the same `WC_Order` / `WC_Logger` / `wpdb` stub classes that
-// Slice27OrderStateMachineTest already declared; PHPUnit may execute either
-// test file first, so we declare them defensively guarded by class_exists().
-// Additional stubs added in this file: `WC_Product` and
-// `WC_Order_Item_Product` for the DTO-build path.
+// Stub classes for WC_Order / WC_Logger / WC_Product /
+// WC_Order_Item_Product / wpdb live in `tests/stubs/wc-classes.php` and are
+// loaded centrally from `tests/bootstrap.php`, so test-file load order does
+// not matter — every slice test sees the same canonical parent stubs.
 // ---------------------------------------------------------------------------
-
-namespace {
-
-	if ( ! class_exists( 'WC_Order', false ) ) {
-		class WC_Order
-		{
-			public function get_id(): int { return 0; }
-			/** @return mixed */
-			public function get_meta( string $key, bool $single = true, string $context = 'view' ) { return ''; }
-			public function update_meta_data( string $key, $value ): void {}
-			public function save(): int { return 0; }
-			public function add_order_note( string $note, bool $is_customer_note = false, bool $added_by_user = false ): int { return 0; }
-			/** @return array<int, mixed> */
-			public function get_items( $types = 'line_item' ): array { return []; }
-			public function get_billing_first_name(): string { return ''; }
-			public function get_billing_last_name(): string { return ''; }
-			public function get_billing_address_1(): string { return ''; }
-			public function get_billing_address_2(): string { return ''; }
-			public function get_billing_postcode(): string { return ''; }
-			public function get_billing_city(): string { return ''; }
-			public function get_billing_country(): string { return ''; }
-			public function get_billing_state(): string { return ''; }
-			public function get_billing_email(): string { return ''; }
-			public function get_billing_phone(): string { return ''; }
-			public function get_shipping_first_name(): string { return ''; }
-			public function get_shipping_last_name(): string { return ''; }
-			public function get_shipping_address_1(): string { return ''; }
-			public function get_shipping_address_2(): string { return ''; }
-			public function get_shipping_postcode(): string { return ''; }
-			public function get_shipping_city(): string { return ''; }
-			public function get_shipping_country(): string { return ''; }
-			public function get_shipping_state(): string { return ''; }
-		}
-	}
-
-	if ( ! class_exists( 'WC_Logger', false ) ) {
-		class WC_Logger
-		{
-			public function log( string $level, string $message, array $context = [] ): void {}
-		}
-	}
-
-	if ( ! class_exists( 'WC_Product', false ) ) {
-		/**
-		 * Minimal stub for `WC_Product`. Mockery doubles override get_sku().
-		 */
-		class WC_Product
-		{
-			public function get_sku( string $context = 'view' ): string { return ''; }
-		}
-	}
-
-	if ( ! class_exists( 'WC_Order_Item_Product', false ) ) {
-		/**
-		 * Minimal stub for `WC_Order_Item_Product`. Mockery doubles override
-		 * get_product() / get_quantity().
-		 */
-		class WC_Order_Item_Product
-		{
-			/** @return mixed */
-			public function get_product() { return null; }
-			public function get_quantity(): int { return 0; }
-		}
-	}
-
-	if ( ! class_exists( 'wpdb', false ) ) {
-		class wpdb
-		{
-			public string $prefix = 'wp_';
-			public function prepare( string $query, ...$args ): string { return $query; }
-			public function query( string $query ): int { return 0; }
-			/** @return mixed */
-			public function get_var( string $query ) { return null; }
-		}
-	}
 
 namespace SpreadconnectPod\Tests {
 
@@ -117,12 +48,12 @@ namespace SpreadconnectPod\Tests {
 	use WC_Order;
 	use WC_Order_Item_Product;
 	use WC_Product;
+	use wpdb;
 
 	/**
 	 * Slice 28 — Order-Submit-Job (`spreadconnect/create_order`).
 	 *
-	 * One-file Acceptance + Integration test suite for the outbound order
-	 * submit pipeline, covering both production classes:
+	 * Acceptance + Integration tests for both production classes:
 	 *
 	 *   - {@see OrderHandler::on_processing} — WC `processing` hook listener
 	 *     (AC-1, AC-2, AC-3).
@@ -131,26 +62,51 @@ namespace SpreadconnectPod\Tests {
 	 *   - {@see \SpreadconnectPod\Bootstrap\Plugin::init} hook wiring (AC-9).
 	 *
 	 * Each test maps 1:1 to a spec acceptance criterion via the docblock
-	 * GIVEN/WHEN/THEN. Mocking strategy: Mockery for the injected
-	 * SpreadconnectClient + OrderStateMachine collaborators, Brain\Monkey for
-	 * the global functions (`as_enqueue_async_action`, `as_has_scheduled_action`,
-	 * `wc_get_order`, `wc_get_logger`). The real Slice-09 DTO classes are
-	 * exercised end-to-end so AC-10 also covers the DTO-factory boundary.
+	 * GIVEN/WHEN/THEN.
 	 */
 	final class Slice28OrderSubmitJobTest extends TestCase
 	{
 		/** @var list<array{level:string,message:string,context:array<string,mixed>}> */
 		private array $loggerCalls = [];
 
+		/**
+		 * FIFO queue of return values for `wpdb->query()`. Each CAS call by
+		 * the real {@see OrderStateMachine} pops one value off this queue and
+		 * uses it as the affected-row-count.
+		 *
+		 * @var list<int>
+		 */
+		private array $wpdbQueryQueue = [];
+
+		/**
+		 * FIFO queue of return values for `wpdb->get_var()`. Used by the
+		 * initial-INSERT path (`expected = ''`) to decide whether a meta row
+		 * already exists.
+		 *
+		 * @var list<mixed>
+		 */
+		private array $wpdbGetVarQueue = [];
+
+		/**
+		 * SQL strings observed by `wpdb->query()`, captured for assertions
+		 * about which CAS transitions were actually attempted.
+		 *
+		 * @var list<string>
+		 */
+		private array $capturedSqls = [];
+
 		protected function setUp(): void
 		{
 			parent::setUp();
 			Monkey\setUp();
-			$this->loggerCalls = [];
+			$this->loggerCalls    = [];
+			$this->wpdbQueryQueue = [];
+			$this->wpdbGetVarQueue = [];
+			$this->capturedSqls   = [];
 
-			// Default `wc_get_logger()` fallback — returns a spy logger that
-			// records all log calls; the OrderHandler / OrderSubmitJob log()
-			// helpers fall through to this when no logger is injected.
+			// Default `wc_get_logger()` fallback — returns a spy logger so
+			// the OrderHandler / OrderSubmitJob log() helpers do not blow up
+			// when no logger is injected.
 			$spy = new Slice28LoggerSpy();
 			Functions\when( 'wc_get_logger' )->alias( static function () use ( $spy ) {
 				return $spy;
@@ -159,7 +115,7 @@ namespace SpreadconnectPod\Tests {
 
 		protected function tearDown(): void
 		{
-			// Reset Plugin-internal state so AC-9 idempotency tests start clean.
+			// Reset Plugin-internal state so AC-9 idempotency tests stay clean.
 			$pluginFqcn = 'SpreadconnectPod\\Bootstrap\\Plugin';
 			if ( class_exists( $pluginFqcn ) ) {
 				$ref = new ReflectionClass( $pluginFqcn );
@@ -177,35 +133,41 @@ namespace SpreadconnectPod\Tests {
 		}
 
 		// ===================================================================
-		// Helpers
+		// Helpers — WC_Order / Item / Logger / Client / wpdb mocks
 		// ===================================================================
 
 		/**
-		 * Build a Mockery {@see WC_Order} double with a pre-canned
-		 * `_spreadconnect_order_id` meta value. All other accessors return
-		 * sensible defaults; tests override what they need.
+		 * Build a Mockery {@see WC_Order} double whose `get_meta()` returns
+		 * the given values per key.
+		 *
+		 * Mockery applies overload by argument-matcher: a `with('_spreadconnect_order_id')`
+		 * expectation must be defined BEFORE a fallback expectation that
+		 * matches "any args", so we set the specific rule first, then the
+		 * fallback. We use `andReturnUsing()` keyed on the actual argument so
+		 * a single expectation handles every key the code probes.
+		 *
+		 * @param array<string,string> $metaValues  Per-key meta values.
 		 *
 		 * @return WC_Order&\Mockery\MockInterface
 		 */
-		private function mockOrder( int $id = 7, string $orderIdMeta = '' ): WC_Order
+		private function mockOrder( int $id = 7, array $metaValues = [] ): WC_Order
 		{
 			/** @var WC_Order&\Mockery\MockInterface $order */
 			$order = Mockery::mock( WC_Order::class );
 			$order->shouldReceive( 'get_id' )->andReturn( $id )->byDefault();
+
 			$order->shouldReceive( 'get_meta' )
-				->with( '_spreadconnect_order_id' )
-				->andReturn( $orderIdMeta )
+				->andReturnUsing( static function ( string $key ) use ( $metaValues ): string {
+					return (string) ( $metaValues[ $key ] ?? '' );
+				} )
 				->byDefault();
-			$order->shouldReceive( 'get_meta' )->andReturn( '' )->byDefault();
+
 			$order->shouldReceive( 'add_order_note' )->andReturn( 1 )->byDefault();
 			$order->shouldReceive( 'update_meta_data' )->andReturnNull()->byDefault();
 			$order->shouldReceive( 'save' )->andReturn( $id )->byDefault();
 
-			// Default empty items list.
 			$order->shouldReceive( 'get_items' )->andReturn( [] )->byDefault();
 
-			// Sensible default address fields so DTO-build doesn't blow up
-			// in non-DTO tests. Tests asserting DTO content override these.
 			$this->stubAddress( $order, 'billing', [
 				'first_name' => 'Anna',
 				'last_name'  => 'Hamann',
@@ -233,8 +195,7 @@ namespace SpreadconnectPod\Tests {
 		}
 
 		/**
-		 * Stub the eight billing- or shipping-* getters on a Mockery WC_Order
-		 * double with the given values.
+		 * Stub the eight billing- or shipping-* getters on a WC_Order mock.
 		 *
 		 * @param array<string,string> $fields
 		 */
@@ -248,9 +209,6 @@ namespace SpreadconnectPod\Tests {
 		}
 
 		/**
-		 * Build a Mockery WC_Order_Item_Product double with a fixed SKU and
-		 * quantity. Used for AC-10 DTO assertions and the AC-4 happy path.
-		 *
 		 * @return WC_Order_Item_Product&\Mockery\MockInterface
 		 */
 		private function mockItem( string $sku, int $quantity ): WC_Order_Item_Product
@@ -267,8 +225,6 @@ namespace SpreadconnectPod\Tests {
 		}
 
 		/**
-		 * Build a Mockery double for {@see SpreadconnectClient}.
-		 *
 		 * @return SpreadconnectClient&\Mockery\MockInterface
 		 */
 		private function mockClient(): SpreadconnectClient
@@ -279,20 +235,8 @@ namespace SpreadconnectPod\Tests {
 		}
 
 		/**
-		 * Build a Mockery double for {@see OrderStateMachine}.
-		 *
-		 * @return OrderStateMachine&\Mockery\MockInterface
-		 */
-		private function mockStateMachine(): OrderStateMachine
-		{
-			/** @var OrderStateMachine&\Mockery\MockInterface $mock */
-			$mock = Mockery::mock( OrderStateMachine::class );
-			return $mock;
-		}
-
-		/**
-		 * Inject a Mockery WC_Logger double that records each `log()` call
-		 * into `$this->loggerCalls`.
+		 * Recording WC_Logger Mockery double; every `log()` call is appended
+		 * to `$this->loggerCalls`.
 		 *
 		 * @return WC_Logger&\Mockery\MockInterface
 		 */
@@ -301,7 +245,7 @@ namespace SpreadconnectPod\Tests {
 			/** @var WC_Logger&\Mockery\MockInterface $logger */
 			$logger = Mockery::mock( WC_Logger::class );
 			$logger->shouldReceive( 'log' )
-				->andReturnUsing( function ( string $level, string $message, array $context = [] ) {
+				->andReturnUsing( function ( string $level, string $message, array $context = [] ): void {
 					$this->loggerCalls[] = [
 						'level'   => $level,
 						'message' => $message,
@@ -311,21 +255,91 @@ namespace SpreadconnectPod\Tests {
 			return $logger;
 		}
 
+		/**
+		 * Build a real {@see OrderStateMachine} backed by a programmable
+		 * Mockery `wpdb` double. The SM is a `final` class so it cannot be
+		 * mocked directly; instead the tests drive every CAS outcome by
+		 * pushing `query()` and `get_var()` return values onto FIFO queues.
+		 *
+		 * Capture side-effect: every SQL string passed to `query()` is also
+		 * appended to `$this->capturedSqls`, so tests can assert on which
+		 * CAS transition actually fired (the SQL contains both `expected` and
+		 * `target` literal values).
+		 */
+		private function realStateMachine(): OrderStateMachine
+		{
+			/** @var wpdb&\Mockery\MockInterface $wpdbMock */
+			$wpdbMock         = Mockery::mock( wpdb::class );
+			$wpdbMock->prefix = 'wp_';
+
+			$wpdbMock->shouldReceive( 'prepare' )
+				->andReturnUsing( static function ( string $query, ...$args ): string {
+					$result = $query;
+					foreach ( $args as $arg ) {
+						$replacement = is_int( $arg )
+							? (string) $arg
+							: "'" . str_replace( "'", "''", (string) $arg ) . "'";
+						$result      = preg_replace( '/%[ds]/', $replacement, $result, 1 ) ?? $result;
+					}
+					return $result;
+				} );
+
+			$queryQueue =& $this->wpdbQueryQueue;
+			$captured =& $this->capturedSqls;
+			$wpdbMock->shouldReceive( 'query' )
+				->andReturnUsing( static function ( string $sql ) use ( &$queryQueue, &$captured ): int {
+					$captured[] = $sql;
+					return array_shift( $queryQueue ) ?? 0;
+				} );
+
+			$getVarQueue =& $this->wpdbGetVarQueue;
+			$wpdbMock->shouldReceive( 'get_var' )
+				->andReturnUsing( static function ( string $sql ) use ( &$getVarQueue ) {
+					if ( [] === $getVarQueue ) {
+						return null;
+					}
+					return array_shift( $getVarQueue );
+				} );
+
+			return new OrderStateMachine( $wpdbMock, null );
+		}
+
+		/**
+		 * Push a CAS-success outcome onto the wpdb queues. The initial-INSERT
+		 * path (expected='') needs a `get_var()` of null + a `query()` of 1.
+		 * Standard UPDATE path needs a `query()` of 1.
+		 */
+		private function enqueueCasSuccess( bool $isInitialInsert = false ): void
+		{
+			if ( $isInitialInsert ) {
+				$this->wpdbGetVarQueue[] = null;
+			}
+			$this->wpdbQueryQueue[] = 1;
+		}
+
+		/**
+		 * Push a CAS-failure outcome onto the wpdb queues (UPDATE returns 0).
+		 */
+		private function enqueueCasFailure(): void
+		{
+			$this->wpdbQueryQueue[] = 0;
+		}
+
 		// ===================================================================
 		// AC-1: OrderHandler::on_processing enqueues exactly once.
 		// ===================================================================
 
 		/**
-		 * AC-1: GIVEN WC-Order without `_spreadconnect_order_id` meta and no
-		 *       scheduled `spreadconnect/create_order` action.
-		 *       WHEN  the WC processing-hook fires for that order.
-		 *       THEN  the handler calls `as_enqueue_async_action()` exactly
-		 *             once with hook=`spreadconnect/create_order`,
+		 * AC-1: GIVEN WC-Order without `_spreadconnect_order_id` meta and
+		 *       no scheduled `spreadconnect/create_order` action.
+		 *       WHEN  the WC processing-hook fires.
+		 *       THEN  `as_enqueue_async_action()` is called exactly once with
+		 *             hook=`spreadconnect/create_order`,
 		 *             args=`['order_id' => 7]`, group=`'spreadconnect'`.
 		 */
 		public function test_on_processing_enqueues_create_order_action_once(): void
 		{
-			$order = $this->mockOrder( 7, '' );
+			$order = $this->mockOrder( 7 );
 
 			Functions\when( 'as_has_scheduled_action' )->justReturn( false );
 
@@ -359,14 +373,14 @@ namespace SpreadconnectPod\Tests {
 		 */
 		public function test_on_processing_skips_when_order_id_meta_present(): void
 		{
-			$order = $this->mockOrder( 7, 'sc_42' );
+			$order = $this->mockOrder( 7, [ '_spreadconnect_order_id' => 'sc_42' ] );
 
 			Functions\expect( 'as_enqueue_async_action' )->never();
+			Functions\when( 'as_has_scheduled_action' )->justReturn( false );
 
 			$handler = new OrderHandler( $this->recordingLogger() );
 			$handler->on_processing( 7, $order );
 
-			$messages = array_map( static fn( array $c ): string => $c['message'], $this->loggerCalls );
 			$debugCalls = array_filter(
 				$this->loggerCalls,
 				static fn( array $c ): bool => 'debug' === $c['level']
@@ -374,8 +388,7 @@ namespace SpreadconnectPod\Tests {
 			);
 			self::assertNotEmpty(
 				$debugCalls,
-				'AC-2: a debug-level log entry containing "idempotent skip" must be written. Captured: '
-					. implode( ' | ', $messages )
+				'AC-2: a debug-level log entry containing "idempotent skip" MUST be written.'
 			);
 
 			$first = array_values( $debugCalls )[0];
@@ -388,13 +401,13 @@ namespace SpreadconnectPod\Tests {
 
 		/**
 		 * AC-3: GIVEN order without sc-id meta but `as_has_scheduled_action`
-		 *       returns true (race / duplicate hook).
+		 *       returns true.
 		 *       WHEN  the processing-hook fires again.
 		 *       THEN  `as_enqueue_async_action()` is NEVER called.
 		 */
 		public function test_on_processing_skips_when_action_already_scheduled(): void
 		{
-			$order = $this->mockOrder( 7, '' );
+			$order = $this->mockOrder( 7 );
 
 			$hasCalls = [];
 			Functions\when( 'as_has_scheduled_action' )->alias(
@@ -408,9 +421,16 @@ namespace SpreadconnectPod\Tests {
 			$handler = new OrderHandler( $this->recordingLogger() );
 			$handler->on_processing( 7, $order );
 
-			self::assertNotEmpty( $hasCalls, 'AC-3: as_has_scheduled_action() must be called for the pre-check.' );
+			self::assertNotEmpty(
+				$hasCalls,
+				'AC-3: as_has_scheduled_action() must be called for the pre-check.'
+			);
 			self::assertSame( 'spreadconnect/create_order', $hasCalls[0]['hook'] );
-			self::assertSame( [ 'order_id' => 7 ], $hasCalls[0]['args'], 'AC-3 + Constraints: args MUST be assoc-shape so equality matches the enqueue site.' );
+			self::assertSame(
+				[ 'order_id' => 7 ],
+				$hasCalls[0]['args'],
+				'AC-3 + Constraints: args MUST be assoc-shape so equality matches the enqueue site.'
+			);
 			self::assertSame( 'spreadconnect', $hasCalls[0]['group'] );
 		}
 
@@ -419,24 +439,36 @@ namespace SpreadconnectPod\Tests {
 		// ===================================================================
 
 		/**
-		 * AC-4: GIVEN WC-Order in state `pending` (no state meta), valid DTO.
-		 *       Mocked `createOrder()` returns `['id' => 'sc_42', 'state' => 'NEW']`.
+		 * AC-4: GIVEN order without sc-id meta; createOrder() returns
+		 *       `['id' => 'sc_42', 'state' => 'NEW']`.
 		 *       WHEN  `OrderSubmitJob::handle(['order_id' => 7])`.
-		 *       THEN  CAS `''->submitting` succeeds, then `createOrder()` is
-		 *             called, then `_spreadconnect_order_id = 'sc_42'` is
-		 *             persisted via `update_meta_data` + `save`, then CAS
-		 *             `submitting->NEW` succeeds, then a private order-note
-		 *             `Submitted to Spreadconnect (#SC-sc_42)` is added. The
-		 *             job throws no exception.
+		 *       THEN  the side-effect order is:
+		 *             (a) CAS `''->submitting` true,
+		 *             (b) `createOrder()` call,
+		 *             (c) `update_meta_data('_spreadconnect_order_id','sc_42') + save()`,
+		 *             (d) CAS `submitting->NEW` true,
+		 *             (e) order-note `Submitted to Spreadconnect (#SC-sc_42)`.
+		 *             The job throws no exception.
 		 */
 		public function test_handle_success_persists_order_id_and_transitions_state_to_new(): void
 		{
-			$order = $this->mockOrder( 7, '' );
+			$order = $this->mockOrder( 7 );
 			$order->shouldReceive( 'get_items' )->andReturn(
 				[ $this->mockItem( 'SKU-A', 2 ) ]
 			);
 
+			// Sequence collector — captures the meaningful side effects in
+			// order. SM-internal transition notes (added by
+			// `OrderStateMachine::addTransitionNote()`) are NOT recorded
+			// here — they are bundled under their own `'sm_note'` token so
+			// the assertion below is robust to that internal detail.
 			$capturedSequence = [];
+
+			// (a) initial INSERT (CAS ''->submitting) succeeds.
+			$this->enqueueCasSuccess( true );
+			// (d) UPDATE (CAS submitting->NEW) succeeds.
+			$this->enqueueCasSuccess( false );
+
 			$client = $this->mockClient();
 			$client->shouldReceive( 'createOrder' )
 				->once()
@@ -445,27 +477,13 @@ namespace SpreadconnectPod\Tests {
 					return [ 'id' => 'sc_42', 'state' => 'NEW' ];
 				} );
 
-			$sm = $this->mockStateMachine();
-			$sm->shouldReceive( 'compareAndSet' )
-				->with( $order, '', OrderStateMachine::STATE_SUBMITTING )
-				->once()
-				->andReturnUsing( static function () use ( &$capturedSequence ): bool {
-					$capturedSequence[] = 'cas-submitting';
-					return true;
-				} );
-			$sm->shouldReceive( 'compareAndSet' )
-				->with( $order, OrderStateMachine::STATE_SUBMITTING, OrderStateMachine::STATE_NEW )
-				->once()
-				->andReturnUsing( static function () use ( &$capturedSequence ): bool {
-					$capturedSequence[] = 'cas-new';
-					return true;
-				} );
-
 			$capturedMeta = [];
 			$order->shouldReceive( 'update_meta_data' )
 				->andReturnUsing( static function ( string $key, $value ) use ( &$capturedMeta, &$capturedSequence ): void {
+					if ( '_spreadconnect_order_id' === $key ) {
+						$capturedSequence[] = 'update_meta_data';
+					}
 					$capturedMeta[ $key ] = $value;
-					$capturedSequence[] = 'update_meta_data';
 				} );
 			$order->shouldReceive( 'save' )
 				->andReturnUsing( static function () use ( &$capturedSequence ): int {
@@ -473,58 +491,82 @@ namespace SpreadconnectPod\Tests {
 					return 7;
 				} );
 			$order->shouldReceive( 'add_order_note' )
-				->andReturnUsing( static function () use ( &$capturedSequence ): int {
-					$capturedSequence[] = 'add_order_note';
+				->andReturnUsing( static function ( string $note ) use ( &$capturedSequence ): int {
+					if ( str_starts_with( $note, 'Submitted to Spreadconnect' ) ) {
+						$capturedSequence[] = 'submit_note';
+					} else {
+						// SM-internal transition note (e.g. "state '' ->
+						// submitting") — recorded as a generic marker so we
+						// can later verify both CAS-write transitions
+						// fired without coupling to the SM's note format.
+						$capturedSequence[] = 'sm_note';
+					}
 					return 1;
 				} );
 
 			Functions\when( 'wc_get_order' )->justReturn( $order );
 
-			$job = new OrderSubmitJob( $client, $sm, $this->recordingLogger() );
+			$job = new OrderSubmitJob( $client, $this->realStateMachine(), $this->recordingLogger() );
 			$job->handle( [ 'order_id' => 7 ] );
 
-			// Assert the side-effect sequence (a) -> (b) -> (c) -> (d) -> (e).
-			self::assertSame(
-				[ 'cas-submitting', 'createOrder', 'update_meta_data', 'save', 'cas-new', 'add_order_note' ],
-				$capturedSequence,
-				'AC-4: side-effect order MUST be: CAS->submitting, createOrder, update_meta_data+save, CAS->NEW, order-note.'
+			// SQL evidence: INSERT (submitting) + UPDATE (submitting->NEW).
+			self::assertCount( 2, $this->capturedSqls, 'Exactly two SQL writes (INSERT + UPDATE) MUST occur.' );
+			self::assertMatchesRegularExpression(
+				"/INSERT\s+INTO\s+wp_wc_orders_meta.+'submitting'/is",
+				$this->capturedSqls[0],
+				'AC-4 (a): first SQL MUST be an INSERT setting state=submitting.'
+			);
+			self::assertMatchesRegularExpression(
+				"/UPDATE\s+wp_wc_orders_meta.+'NEW'.+'submitting'/is",
+				$this->capturedSqls[1],
+				'AC-4 (d): second SQL MUST be an UPDATE setting NEW where state=submitting.'
 			);
 
+			// AC-4: side-effect order — the SM-internal transition notes
+			// surround the explicit job-side effects. The crucial part is
+			// the relative order of (b)/(c)/(d)/(e): createOrder ->
+			// update_meta_data -> save -> sm_note (CAS->NEW) -> submit_note.
+			self::assertSame(
+				[ 'sm_note', 'createOrder', 'update_meta_data', 'save', 'sm_note', 'submit_note' ],
+				$capturedSequence,
+				'AC-4: side-effect order MUST be CAS->submitting (sm_note), createOrder, '
+					. 'update_meta_data, save, CAS->NEW (sm_note), explicit submit-note.'
+			);
 			self::assertSame( 'sc_42', $capturedMeta['_spreadconnect_order_id'] ?? null );
 		}
 
 		/**
 		 * AC-4 (note): 2xx path writes the private order-note in the
 		 * `Submitted to Spreadconnect (#SC-<id>)` shape, with
-		 * `is_customer_note=false, added_by_user=false`.
+		 * is_customer_note=false, added_by_user=false.
 		 */
 		public function test_handle_success_writes_submitted_order_note(): void
 		{
-			$order = $this->mockOrder( 7, '' );
+			$order = $this->mockOrder( 7 );
 			$order->shouldReceive( 'get_items' )->andReturn(
 				[ $this->mockItem( 'SKU-A', 1 ) ]
 			);
 
+			$this->enqueueCasSuccess( true );
+			$this->enqueueCasSuccess( false );
+
 			$client = $this->mockClient();
 			$client->shouldReceive( 'createOrder' )->andReturn( [ 'id' => 'sc_42' ] );
 
-			$sm = $this->mockStateMachine();
-			$sm->shouldReceive( 'compareAndSet' )->andReturn( true, true );
-
-			$capturedNote = null;
-			$capturedIsCustomer = null;
+			$capturedNote        = null;
+			$capturedIsCustomer  = null;
 			$capturedAddedByUser = null;
 			$order->shouldReceive( 'add_order_note' )
 				->andReturnUsing( static function ( string $note, bool $isCustomer = false, bool $addedByUser = false ) use ( &$capturedNote, &$capturedIsCustomer, &$capturedAddedByUser ): int {
-					$capturedNote = $note;
-					$capturedIsCustomer = $isCustomer;
+					$capturedNote        = $note;
+					$capturedIsCustomer  = $isCustomer;
 					$capturedAddedByUser = $addedByUser;
 					return 1;
 				} );
 
 			Functions\when( 'wc_get_order' )->justReturn( $order );
 
-			$job = new OrderSubmitJob( $client, $sm );
+			$job = new OrderSubmitJob( $client, $this->realStateMachine() );
 			$job->handle( [ 'order_id' => 7 ] );
 
 			self::assertNotNull( $capturedNote );
@@ -538,18 +580,22 @@ namespace SpreadconnectPod\Tests {
 		// ===================================================================
 
 		/**
-		 * AC-5 (a): GIVEN order in state submitting; createOrder() throws
-		 *           SpreadconnectClientError(http_4xx).
-		 *           THEN  state-machine receives compareAndSet(submitting,
-		 *                 failed_to_submit) and NO update_meta_data for
-		 *                 `_spreadconnect_order_id`.
+		 * AC-5 (a) + (b): GIVEN createOrder() throws SpreadconnectClientError
+		 *                 (http_4xx). THEN the SM CAS submitting->failed_to_submit
+		 *                 fires (visible as UPDATE SQL), and NO update_meta_data
+		 *                 for `_spreadconnect_order_id` is called.
 		 */
 		public function test_handle_permanent_4xx_sets_state_failed_to_submit(): void
 		{
-			$order = $this->mockOrder( 7, '' );
+			$order = $this->mockOrder( 7 );
 			$order->shouldReceive( 'get_items' )->andReturn(
 				[ $this->mockItem( 'SKU-A', 1 ) ]
 			);
+
+			// First CAS (''->submitting) succeeds, second CAS
+			// (submitting->failed_to_submit) succeeds.
+			$this->enqueueCasSuccess( true );
+			$this->enqueueCasSuccess( false );
 
 			$client = $this->mockClient();
 			$client->shouldReceive( 'createOrder' )
@@ -563,47 +609,51 @@ namespace SpreadconnectPod\Tests {
 					)
 				);
 
-			$sm = $this->mockStateMachine();
-			$sm->shouldReceive( 'compareAndSet' )
-				->with( $order, '', OrderStateMachine::STATE_SUBMITTING )
-				->once()
-				->andReturn( true );
-			$sm->shouldReceive( 'compareAndSet' )
-				->with( $order, OrderStateMachine::STATE_SUBMITTING, OrderStateMachine::STATE_FAILED_TO_SUBMIT )
-				->once()
-				->andReturn( true );
-
 			// AC-5 (b): No `_spreadconnect_order_id` write on the 4xx path.
 			$order->shouldNotReceive( 'update_meta_data' )
 				->with( '_spreadconnect_order_id', Mockery::any() );
 
 			Functions\when( 'wc_get_order' )->justReturn( $order );
 
-			$job = new OrderSubmitJob( $client, $sm, $this->recordingLogger() );
+			$job = new OrderSubmitJob( $client, $this->realStateMachine(), $this->recordingLogger() );
 
-			// AC-5 (e): no rethrow.
 			$thrown = null;
 			try {
 				$job->handle( [ 'order_id' => 7 ] );
 			} catch ( \Throwable $t ) {
 				$thrown = $t;
 			}
-			self::assertNull( $thrown, 'AC-5 (e): the job MUST NOT rethrow on a 4xx permanent failure.' );
+			self::assertNull( $thrown, 'AC-5 (e): the job MUST NOT rethrow on 4xx.' );
+
+			// SQL evidence: INSERT (submitting) followed by UPDATE
+			// (submitting -> failed_to_submit).
+			self::assertCount( 2, $this->capturedSqls );
+			self::assertMatchesRegularExpression(
+				"/INSERT\s+INTO\s+wp_wc_orders_meta.+'submitting'/is",
+				$this->capturedSqls[0]
+			);
+			self::assertMatchesRegularExpression(
+				"/UPDATE\s+wp_wc_orders_meta.+'failed_to_submit'.+'submitting'/is",
+				$this->capturedSqls[1],
+				'AC-5 (a): SM MUST be asked to CAS submitting -> failed_to_submit.'
+			);
 		}
 
 		/**
 		 * AC-5 (c): The 4xx-path emits an `error`-level log entry with
 		 *           context tag `failed_op_pending_record`,
 		 *           op_type=`create_order`, related_entity_type=`order`,
-		 *           related_entity_id=$orderId, source=
-		 *           `spreadconnect-order-service`.
+		 *           related_entity_id=7, source=`spreadconnect-order-service`.
 		 */
 		public function test_handle_permanent_4xx_logs_failed_op_pending_record(): void
 		{
-			$order = $this->mockOrder( 7, '' );
+			$order = $this->mockOrder( 7 );
 			$order->shouldReceive( 'get_items' )->andReturn(
 				[ $this->mockItem( 'SKU-A', 1 ) ]
 			);
+
+			$this->enqueueCasSuccess( true );
+			$this->enqueueCasSuccess( false );
 
 			$client = $this->mockClient();
 			$client->shouldReceive( 'createOrder' )
@@ -611,13 +661,9 @@ namespace SpreadconnectPod\Tests {
 					new SpreadconnectClientError( 'http_4xx', 'invalid SKU mapping', 400, '/orders' )
 				);
 
-			$sm = $this->mockStateMachine();
-			$sm->shouldReceive( 'compareAndSet' )->andReturn( true );
-
 			Functions\when( 'wc_get_order' )->justReturn( $order );
 
-			$logger = $this->recordingLogger();
-			$job = new OrderSubmitJob( $client, $sm, $logger );
+			$job = new OrderSubmitJob( $client, $this->realStateMachine(), $this->recordingLogger() );
 			$job->handle( [ 'order_id' => 7 ] );
 
 			$matches = array_filter(
@@ -629,7 +675,7 @@ namespace SpreadconnectPod\Tests {
 			);
 			self::assertNotEmpty(
 				$matches,
-				'AC-5 (c): an error-level log entry with context tag "failed_op_pending_record" MUST be emitted.'
+				'AC-5 (c): an error-level log entry with tag "failed_op_pending_record" MUST be emitted.'
 			);
 
 			$entry = array_values( $matches )[0];
@@ -648,10 +694,13 @@ namespace SpreadconnectPod\Tests {
 		 */
 		public function test_handle_permanent_4xx_does_not_rethrow(): void
 		{
-			$order = $this->mockOrder( 7, '' );
+			$order = $this->mockOrder( 7 );
 			$order->shouldReceive( 'get_items' )->andReturn(
 				[ $this->mockItem( 'SKU-A', 1 ) ]
 			);
+
+			$this->enqueueCasSuccess( true );
+			$this->enqueueCasSuccess( false );
 
 			$capturedNote = null;
 			$order->shouldReceive( 'add_order_note' )
@@ -664,12 +713,9 @@ namespace SpreadconnectPod\Tests {
 			$client->shouldReceive( 'createOrder' )
 				->andThrow( new SpreadconnectClientError( 'http_4xx', 'bad', 400, '/orders' ) );
 
-			$sm = $this->mockStateMachine();
-			$sm->shouldReceive( 'compareAndSet' )->andReturn( true );
-
 			Functions\when( 'wc_get_order' )->justReturn( $order );
 
-			$job = new OrderSubmitJob( $client, $sm, $this->recordingLogger() );
+			$job = new OrderSubmitJob( $client, $this->realStateMachine(), $this->recordingLogger() );
 
 			$thrown = null;
 			try {
@@ -686,21 +732,22 @@ namespace SpreadconnectPod\Tests {
 		}
 
 		// ===================================================================
-		// AC-6: 5xx transient path — rethrow for AS retry, no state mutation
-		//       beyond the initial submitting CAS.
+		// AC-6: 5xx transient path — rethrow for AS retry.
 		// ===================================================================
 
 		/**
 		 * AC-6 (c): GIVEN createOrder() throws SpreadconnectTransientError.
-		 *           THEN  the job rethrows the exact exception instance
-		 *                 unchanged for the AS retry cascade (1m/5m/15m).
+		 *           THEN  the job rethrows the exact same exception instance.
 		 */
 		public function test_handle_transient_5xx_rethrows_unchanged(): void
 		{
-			$order = $this->mockOrder( 7, '' );
+			$order = $this->mockOrder( 7 );
 			$order->shouldReceive( 'get_items' )->andReturn(
 				[ $this->mockItem( 'SKU-A', 1 ) ]
 			);
+
+			// Initial CAS ''->submitting succeeds. NO further CAS expected.
+			$this->enqueueCasSuccess( true );
 
 			$transient = new SpreadconnectTransientError(
 				'http_5xx',
@@ -712,21 +759,9 @@ namespace SpreadconnectPod\Tests {
 			$client = $this->mockClient();
 			$client->shouldReceive( 'createOrder' )->andThrow( $transient );
 
-			$sm = $this->mockStateMachine();
-			$sm->shouldReceive( 'compareAndSet' )
-				->with( $order, '', OrderStateMachine::STATE_SUBMITTING )
-				->once()
-				->andReturn( true );
-			// AC-6 (a): NO further compareAndSet call (neither to NEW nor to
-			// failed_to_submit).
-			$sm->shouldNotReceive( 'compareAndSet' )
-				->with( Mockery::any(), OrderStateMachine::STATE_SUBMITTING, OrderStateMachine::STATE_NEW );
-			$sm->shouldNotReceive( 'compareAndSet' )
-				->with( Mockery::any(), OrderStateMachine::STATE_SUBMITTING, OrderStateMachine::STATE_FAILED_TO_SUBMIT );
-
 			Functions\when( 'wc_get_order' )->justReturn( $order );
 
-			$job = new OrderSubmitJob( $client, $sm, $this->recordingLogger() );
+			$job = new OrderSubmitJob( $client, $this->realStateMachine(), $this->recordingLogger() );
 
 			$caught = null;
 			try {
@@ -736,10 +771,17 @@ namespace SpreadconnectPod\Tests {
 			}
 
 			self::assertNotNull( $caught, 'AC-6: a SpreadconnectTransientError MUST be rethrown.' );
-			self::assertSame( $transient, $caught, 'AC-6 (c): the rethrown instance MUST be identical (unchanged).' );
+			self::assertSame( $transient, $caught, 'AC-6 (c): rethrown instance MUST be identical.' );
 
-			// AC-6 (d): warning-level log with `transient error, AS retry`
-			// MUST be written before the rethrow.
+			// AC-6 (a): only the initial INSERT (submitting) ran — no follow-up
+			// UPDATE was executed (transient errors leave state at submitting).
+			self::assertCount(
+				1,
+				$this->capturedSqls,
+				'AC-6 (a): only the initial submitting-INSERT MUST run; no follow-up CAS.'
+			);
+
+			// AC-6 (d): warning-level log with `transient error, AS retry`.
 			$warningCalls = array_filter(
 				$this->loggerCalls,
 				static fn( array $c ): bool => 'warning' === $c['level']
@@ -747,21 +789,22 @@ namespace SpreadconnectPod\Tests {
 			);
 			self::assertNotEmpty(
 				$warningCalls,
-				'AC-6 (d): warning-level log entry with substring "transient error, AS retry" MUST be written.'
+				'AC-6 (d): a warning log entry with substring "transient error, AS retry" MUST exist.'
 			);
 		}
 
 		/**
-		 * AC-6 (a) + (b): GIVEN transient error, THEN no
-		 * `_spreadconnect_order_id` is persisted and no further state
-		 * transition is requested beyond the initial `submitting` CAS.
+		 * AC-6 (a) + (b): no `_spreadconnect_order_id` is persisted, no
+		 * advancing CAS beyond `submitting` is attempted.
 		 */
 		public function test_handle_transient_5xx_does_not_mutate_state(): void
 		{
-			$order = $this->mockOrder( 7, '' );
+			$order = $this->mockOrder( 7 );
 			$order->shouldReceive( 'get_items' )->andReturn(
 				[ $this->mockItem( 'SKU-A', 1 ) ]
 			);
+
+			$this->enqueueCasSuccess( true );
 
 			// AC-6 (b): No update_meta_data for the SC-Order-ID.
 			$order->shouldNotReceive( 'update_meta_data' )
@@ -771,19 +814,9 @@ namespace SpreadconnectPod\Tests {
 			$client->shouldReceive( 'createOrder' )
 				->andThrow( new SpreadconnectTransientError( 'network_error', 'timeout' ) );
 
-			$sm = $this->mockStateMachine();
-			$sm->shouldReceive( 'compareAndSet' )
-				->with( $order, '', OrderStateMachine::STATE_SUBMITTING )
-				->andReturn( true );
-			// No success / no failed_to_submit transition.
-			$sm->shouldNotReceive( 'compareAndSet' )
-				->with( Mockery::any(), OrderStateMachine::STATE_SUBMITTING, OrderStateMachine::STATE_NEW );
-			$sm->shouldNotReceive( 'compareAndSet' )
-				->with( Mockery::any(), OrderStateMachine::STATE_SUBMITTING, OrderStateMachine::STATE_FAILED_TO_SUBMIT );
-
 			Functions\when( 'wc_get_order' )->justReturn( $order );
 
-			$job = new OrderSubmitJob( $client, $sm, $this->recordingLogger() );
+			$job = new OrderSubmitJob( $client, $this->realStateMachine(), $this->recordingLogger() );
 
 			try {
 				$job->handle( [ 'order_id' => 7 ] );
@@ -791,15 +824,20 @@ namespace SpreadconnectPod\Tests {
 			} catch ( SpreadconnectTransientError $e ) {
 				self::assertInstanceOf( SpreadconnectTransientError::class, $e );
 			}
+
+			// SQL trace: only the submitting-INSERT ran.
+			self::assertCount( 1, $this->capturedSqls );
+			self::assertStringNotContainsString( "'NEW'", $this->capturedSqls[0] );
+			self::assertStringNotContainsString( "'failed_to_submit'", $this->capturedSqls[0] );
 		}
 
 		// ===================================================================
-		// AC-7: Internal idempotency — skip when meta already set at execution.
+		// AC-7: Internal idempotency — skip when meta already set at job time.
 		// ===================================================================
 
 		/**
-		 * AC-7: GIVEN the WC-Order has acquired `_spreadconnect_order_id`
-		 *       between enqueue and execution.
+		 * AC-7: GIVEN the WC-Order has `_spreadconnect_order_id` set at job
+		 *       execution time.
 		 *       WHEN  `OrderSubmitJob::handle(['order_id' => 7])`.
 		 *       THEN  `createOrder()` is NEVER called, no state mutation, no
 		 *             order-note; an info-level log with substring
@@ -807,20 +845,17 @@ namespace SpreadconnectPod\Tests {
 		 */
 		public function test_handle_skips_when_order_already_has_spreadconnect_order_id(): void
 		{
-			$order = $this->mockOrder( 7, 'sc_42' );
+			$order = $this->mockOrder( 7, [ '_spreadconnect_order_id' => 'sc_42' ] );
 
 			$client = $this->mockClient();
 			$client->shouldNotReceive( 'createOrder' );
-
-			$sm = $this->mockStateMachine();
-			$sm->shouldNotReceive( 'compareAndSet' );
 
 			$order->shouldNotReceive( 'add_order_note' );
 			$order->shouldNotReceive( 'update_meta_data' );
 
 			Functions\when( 'wc_get_order' )->justReturn( $order );
 
-			$job = new OrderSubmitJob( $client, $sm, $this->recordingLogger() );
+			$job = new OrderSubmitJob( $client, $this->realStateMachine(), $this->recordingLogger() );
 
 			$thrown = null;
 			try {
@@ -829,6 +864,10 @@ namespace SpreadconnectPod\Tests {
 				$thrown = $t;
 			}
 			self::assertNull( $thrown, 'AC-7: the job MUST return cleanly without throwing.' );
+
+			// No SQL must have been issued — the job bails before touching
+			// the state machine.
+			self::assertCount( 0, $this->capturedSqls, 'AC-7: no CAS SQL MUST be issued.' );
 
 			$infoCalls = array_filter(
 				$this->loggerCalls,
@@ -846,34 +885,26 @@ namespace SpreadconnectPod\Tests {
 		// ===================================================================
 
 		/**
-		 * AC-8: GIVEN CAS `submitting -> NEW` returns false (a parallel
-		 *       webhook already advanced state to PROCESSED).
+		 * AC-8: GIVEN CAS `submitting -> NEW` returns false (parallel webhook
+		 *       advanced state to PROCESSED).
 		 *       WHEN  the 2xx response is processed.
 		 *       THEN  `_spreadconnect_order_id` is still persisted; a
-		 *             race-aware order-note `Submitted to Spreadconnect
-		 *             (#SC-sc_42); state already advanced (race)` is added;
-		 *             no rethrow.
+		 *             race-aware order-note is added; no rethrow.
 		 */
 		public function test_handle_persists_order_id_even_when_cas_to_new_loses_race(): void
 		{
-			$order = $this->mockOrder( 7, '' );
+			$order = $this->mockOrder( 7 );
 			$order->shouldReceive( 'get_items' )->andReturn(
 				[ $this->mockItem( 'SKU-A', 1 ) ]
 			);
 
+			// Initial INSERT (CAS ''->submitting) succeeds.
+			$this->enqueueCasSuccess( true );
+			// CAS submitting->NEW LOSES — query() returns 0.
+			$this->enqueueCasFailure();
+
 			$client = $this->mockClient();
 			$client->shouldReceive( 'createOrder' )->andReturn( [ 'id' => 'sc_42', 'state' => 'PROCESSED' ] );
-
-			$sm = $this->mockStateMachine();
-			$sm->shouldReceive( 'compareAndSet' )
-				->with( $order, '', OrderStateMachine::STATE_SUBMITTING )
-				->once()
-				->andReturn( true );
-			// CAS to NEW loses race — webhook advanced state already.
-			$sm->shouldReceive( 'compareAndSet' )
-				->with( $order, OrderStateMachine::STATE_SUBMITTING, OrderStateMachine::STATE_NEW )
-				->once()
-				->andReturn( false );
 
 			$capturedMeta = [];
 			$order->shouldReceive( 'update_meta_data' )
@@ -890,7 +921,7 @@ namespace SpreadconnectPod\Tests {
 
 			Functions\when( 'wc_get_order' )->justReturn( $order );
 
-			$job = new OrderSubmitJob( $client, $sm, $this->recordingLogger() );
+			$job = new OrderSubmitJob( $client, $this->realStateMachine(), $this->recordingLogger() );
 
 			$thrown = null;
 			try {
@@ -898,7 +929,7 @@ namespace SpreadconnectPod\Tests {
 			} catch ( \Throwable $t ) {
 				$thrown = $t;
 			}
-			self::assertNull( $thrown, 'AC-8: the job MUST NOT throw when the submitting->NEW CAS loses the race.' );
+			self::assertNull( $thrown, 'AC-8: the job MUST NOT throw on CAS race-loss.' );
 
 			// (a) `_spreadconnect_order_id` is still persisted.
 			self::assertSame( 'sc_42', $capturedMeta['_spreadconnect_order_id'] ?? null );
@@ -914,20 +945,17 @@ namespace SpreadconnectPod\Tests {
 		// ===================================================================
 
 		/**
-		 * AC-10: GIVEN WC-Order with two items (each with a SKU + quantity),
-		 *        billing+shipping address, customer email + phone.
-		 *        WHEN  the job builds the OrderCreate DTO and calls
-		 *              `createOrder()`.
-		 *        THEN  the DTO carries:
+		 * AC-10: GIVEN WC-Order with two items, billing+shipping address,
+		 *        customer email + phone.
+		 *        THEN  the OrderCreate DTO carries:
 		 *              - externalOrderReference = (string) $order->get_id()
-		 *              - one OrderItem per WC line-item with SKU + quantity
-		 *                from `get_product()->get_sku()` / `get_quantity()`
-		 *              - billingAddress/shippingAddress as Address DTOs
-		 *              - shippingType remains null in this slice (Slice 31).
+		 *              - one OrderItem per line-item with sku + quantity
+		 *              - billingAddress + shippingAddress as Address DTOs
+		 *              - shippingType = null (Slice 28 scope).
 		 */
 		public function test_handle_builds_order_create_dto_from_wc_order(): void
 		{
-			$order = $this->mockOrder( 7, '' );
+			$order = $this->mockOrder( 7 );
 			$this->stubAddress( $order, 'billing', [
 				'first_name' => 'Anna',
 				'last_name'  => 'Hamann',
@@ -958,8 +986,11 @@ namespace SpreadconnectPod\Tests {
 				]
 			);
 
+			$this->enqueueCasSuccess( true );
+			$this->enqueueCasSuccess( false );
+
 			$captured = null;
-			$client = $this->mockClient();
+			$client   = $this->mockClient();
 			$client->shouldReceive( 'createOrder' )
 				->once()
 				->andReturnUsing( static function ( OrderCreate $dto ) use ( &$captured ): array {
@@ -967,16 +998,13 @@ namespace SpreadconnectPod\Tests {
 					return [ 'id' => 'sc_42' ];
 				} );
 
-			$sm = $this->mockStateMachine();
-			$sm->shouldReceive( 'compareAndSet' )->andReturn( true );
-
 			Functions\when( 'wc_get_order' )->justReturn( $order );
 
-			$job = new OrderSubmitJob( $client, $sm );
+			$job = new OrderSubmitJob( $client, $this->realStateMachine() );
 			$job->handle( [ 'order_id' => 7 ] );
 
 			self::assertInstanceOf( OrderCreate::class, $captured );
-			self::assertSame( '7', $captured->externalOrderReference, 'externalOrderReference MUST be the WC-Order-ID as string.' );
+			self::assertSame( '7', $captured->externalOrderReference );
 			self::assertCount( 2, $captured->orderItems );
 			self::assertSame( 'SKU-AAA', $captured->orderItems[0]->sku );
 			self::assertSame( 2, $captured->orderItems[0]->quantity );
@@ -996,48 +1024,36 @@ namespace SpreadconnectPod\Tests {
 			self::assertSame( 'anna@example.com', $captured->customerEmail );
 			self::assertSame( '+49 30 12345678', $captured->phone );
 
-			// Slice-28 keeps shippingType null — pre-submit wiring is Slice 31.
 			self::assertNull( $captured->shippingType, 'AC-10: shippingType MUST remain null in this slice.' );
 		}
 
 		/**
-		 * AC-10: GIVEN WC-Order with an item that has no SKU (DTO factory
-		 *        rejects empty SKUs via InvalidArgumentException).
-		 *        THEN  the job treats the validation failure as a permanent
-		 *              fail (analogous to AC-5): `compareAndSet(submitting,
-		 *              failed_to_submit)` is called, NO `createOrder()` call,
-		 *              NO `_spreadconnect_order_id` persisted, and the job
-		 *              returns without rethrowing.
+		 * AC-10: GIVEN WC-Order with an item that has no SKU.
+		 *        THEN  the validation failure is treated as permanent (analog
+		 *              to AC-5): no createOrder call, CAS to failed_to_submit,
+		 *              no rethrow.
 		 */
 		public function test_dto_validation_failure_is_treated_as_permanent_failure(): void
 		{
-			$order = $this->mockOrder( 7, '' );
-
-			// Item without SKU triggers InvalidArgumentException from
-			// OrderItem::fromArray().
+			$order = $this->mockOrder( 7 );
 			$order->shouldReceive( 'get_items' )->andReturn(
 				[ $this->mockItem( '', 1 ) ]
 			);
 
+			// Initial CAS ''->submitting succeeds; second CAS
+			// (submitting->failed_to_submit) succeeds.
+			$this->enqueueCasSuccess( true );
+			$this->enqueueCasSuccess( false );
+
 			$client = $this->mockClient();
 			$client->shouldNotReceive( 'createOrder' );
-
-			$sm = $this->mockStateMachine();
-			$sm->shouldReceive( 'compareAndSet' )
-				->with( $order, '', OrderStateMachine::STATE_SUBMITTING )
-				->once()
-				->andReturn( true );
-			$sm->shouldReceive( 'compareAndSet' )
-				->with( $order, OrderStateMachine::STATE_SUBMITTING, OrderStateMachine::STATE_FAILED_TO_SUBMIT )
-				->once()
-				->andReturn( true );
 
 			$order->shouldNotReceive( 'update_meta_data' )
 				->with( '_spreadconnect_order_id', Mockery::any() );
 
 			Functions\when( 'wc_get_order' )->justReturn( $order );
 
-			$job = new OrderSubmitJob( $client, $sm, $this->recordingLogger() );
+			$job = new OrderSubmitJob( $client, $this->realStateMachine(), $this->recordingLogger() );
 
 			$thrown = null;
 			try {
@@ -1048,11 +1064,9 @@ namespace SpreadconnectPod\Tests {
 
 			self::assertNull(
 				$thrown,
-				'AC-10: DTO-validation-failure path MUST NOT rethrow (treated as permanent fail like 4xx).'
+				'AC-10: DTO-validation failure MUST NOT rethrow (treated as permanent fail).'
 			);
 
-			// AC-5 (c) extension: failed_op_pending_record must be logged
-			// with `error_code = 'dto_validation'`.
 			$matches = array_filter(
 				$this->loggerCalls,
 				static fn( array $c ): bool => 'error' === $c['level']
@@ -1061,7 +1075,14 @@ namespace SpreadconnectPod\Tests {
 			);
 			self::assertNotEmpty(
 				$matches,
-				'AC-10: DTO-validation failure must emit failed_op_pending_record with error_code="dto_validation".'
+				'AC-10: DTO-validation failure MUST emit failed_op_pending_record with error_code="dto_validation".'
+			);
+
+			// SQL trace: INSERT (submitting) + UPDATE (-> failed_to_submit).
+			self::assertCount( 2, $this->capturedSqls );
+			self::assertMatchesRegularExpression(
+				"/UPDATE\s+wp_wc_orders_meta.+'failed_to_submit'.+'submitting'/is",
+				$this->capturedSqls[1]
 			);
 		}
 
@@ -1071,10 +1092,9 @@ namespace SpreadconnectPod\Tests {
 
 		/**
 		 * AC-9: GIVEN Plugin::init().
-		 *       THEN  (a) `woocommerce_order_status_processing` has a
-		 *             registered listener (priority 10, accepting 2 args).
-		 *             (b) `spreadconnect/create_order` has a registered
-		 *             listener (priority 10, accepting 1 arg).
+		 *       THEN  (a) `woocommerce_order_status_processing` listener
+		 *             registered; (b) `spreadconnect/create_order` listener
+		 *             registered.
 		 */
 		public function test_plugin_init_registers_processing_and_create_order_hooks(): void
 		{
@@ -1082,29 +1102,26 @@ namespace SpreadconnectPod\Tests {
 			$pluginFile = self::repoRoot()
 				. '/wordpress/plugins/spreadconnect-pod/spreadconnect-pod.php';
 
-			// Pre-condition: nothing registered yet.
 			self::assertFalse(
 				Actions\has( 'woocommerce_order_status_processing' ),
-				'AC-9 (precondition): no listeners before init().'
+				'AC-9 (precondition): no listener before init().'
 			);
 
 			$pluginFqcn::init( $pluginFile );
 
 			self::assertNotFalse(
 				Actions\has( 'woocommerce_order_status_processing' ),
-				'AC-9 (a): a listener for "woocommerce_order_status_processing" MUST be registered.'
+				'AC-9 (a): listener for "woocommerce_order_status_processing" MUST be registered.'
 			);
 			self::assertNotFalse(
 				Actions\has( 'spreadconnect/create_order' ),
-				'AC-9 (b): a listener for "spreadconnect/create_order" MUST be registered.'
+				'AC-9 (b): listener for "spreadconnect/create_order" MUST be registered.'
 			);
 		}
 
 		/**
-		 * AC-9: Idempotency — calling Plugin::init() twice must NOT register
-		 * the hooks twice. Brain\Monkey returns the priority of a single
-		 * matching listener via Actions\has() — the count of matching
-		 * registrations stays identical between the first and second init().
+		 * AC-9: idempotency on double init() — has_action() returns the same
+		 * priority before and after the second call.
 		 */
 		public function test_plugin_init_is_idempotent_on_double_call(): void
 		{
@@ -1114,29 +1131,28 @@ namespace SpreadconnectPod\Tests {
 
 			$pluginFqcn::init( $pluginFile );
 
-			$priorityProcessingFirst = Actions\has( 'woocommerce_order_status_processing' );
+			$priorityProcessingFirst  = Actions\has( 'woocommerce_order_status_processing' );
 			$priorityCreateOrderFirst = Actions\has( 'spreadconnect/create_order' );
 
-			// Second init() must be a no-op.
 			$pluginFqcn::init( $pluginFile );
 
-			$priorityProcessingSecond = Actions\has( 'woocommerce_order_status_processing' );
+			$priorityProcessingSecond  = Actions\has( 'woocommerce_order_status_processing' );
 			$priorityCreateOrderSecond = Actions\has( 'spreadconnect/create_order' );
 
 			self::assertSame(
 				$priorityProcessingFirst,
 				$priorityProcessingSecond,
-				'AC-9: doubled Plugin::init() MUST NOT change has_action() output for "woocommerce_order_status_processing".'
+				'AC-9: second init() MUST NOT register the processing listener again.'
 			);
 			self::assertSame(
 				$priorityCreateOrderFirst,
 				$priorityCreateOrderSecond,
-				'AC-9: doubled Plugin::init() MUST NOT change has_action() output for "spreadconnect/create_order".'
+				'AC-9: second init() MUST NOT register the create_order listener again.'
 			);
 		}
 
 		// ===================================================================
-		// Helpers (instance + static)
+		// Static helpers
 		// ===================================================================
 
 		private static function repoRoot(): string
@@ -1146,10 +1162,9 @@ namespace SpreadconnectPod\Tests {
 	}
 
 	/**
-	 * Minimal logger spy for the `wc_get_logger()` fallback path. The
-	 * production code resolves `wc_get_logger()` only when no WC_Logger was
-	 * injected — Slice28 tests inject a recording Mockery double almost
-	 * everywhere, but the fallback must not blow up either.
+	 * Minimal logger spy used as the `wc_get_logger()` fallback when no
+	 * WC_Logger is injected into the production class. Tests inject a
+	 * Mockery double almost everywhere — this spy is just defensive.
 	 */
 	final class Slice28LoggerSpy
 	{

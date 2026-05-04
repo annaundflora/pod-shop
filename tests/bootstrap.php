@@ -69,3 +69,14 @@ if (is_file($patchworkLoader)) {
 //    require, not the inline declaration in this bootstrap file).
 // --------------------------------------------------------------------
 require_once __DIR__ . '/stubs/wp-functions.php';
+
+// --------------------------------------------------------------------
+// 4. WC class stubs — minimal canonical declarations of `WC_Order`,
+//    `WC_Logger`, `WC_Product`, `WC_Order_Item_Product`, `wpdb`. These
+//    must be loaded BEFORE any individual slice test declares its own
+//    `class_exists()`-guarded stub, otherwise the FIRST slice test
+//    declares a partial stub and follow-up slices that need additional
+//    methods (e.g. slice-28's billing/shipping accessors) cannot
+//    `method_exists()` them.
+// --------------------------------------------------------------------
+require_once __DIR__ . '/stubs/wc-classes.php';
