@@ -37,6 +37,7 @@ use SpreadconnectPod\Inline\OrderListColumns as InlineOrderListColumns;
 use SpreadconnectPod\Inline\OrderMetaBox as InlineOrderMetaBox;
 use SpreadconnectPod\Inline\ProductListColumns as InlineProductListColumns;
 use SpreadconnectPod\Inline\ProductMetaBox as InlineProductMetaBox;
+use SpreadconnectPod\Logging\PurgeOldLogsJob;
 use SpreadconnectPod\Order\FetchTrackingJob;
 use SpreadconnectPod\Order\OrderCancelJob;
 use SpreadconnectPod\Order\OrderCancelMirrorJob;
@@ -156,6 +157,20 @@ final class Plugin
 			[ self::class, 'scheduleRecurringStockSync' ]
 		);
 
+		// slice-43: Schedule the daily `spreadconnect/purge_old_logs`
+		// Action-Scheduler job on plugin activation.
+		// `scheduleRecurringPurgeOldLogs()` is idempotent — it pre-checks
+		// `as_next_scheduled_action()` so a re-activate never produces a
+		// duplicate schedule (slice-43 AC-1). The hook handler binds inside
+		// the per-request hook block below; both halves must be wired for
+		// the recurring purge to do anything useful. Closes Discovery
+		// Slice 10 "Auto-Purge-Cron" + mitigates DB-bloat risk
+		// (architecture.md Z. 738).
+		register_activation_hook(
+			$plugin_file,
+			[ self::class, 'scheduleRecurringPurgeOldLogs' ]
+		);
+
 		// slice-36: Re-schedule the stock-sync recurring action when the
 		// admin saves a new `spreadconnect_stock_sync_interval`. The
 		// existing recurring action is unscheduled before the new one is
@@ -253,6 +268,23 @@ final class Plugin
 			[ StockSyncJob::class, 'handleStatic' ],
 			10,
 			1
+		);
+
+		// slice-43: Register the daily `spreadconnect/purge_old_logs`
+		// Action-Scheduler hook handler. The recurring schedule itself is
+		// laid down in the activation hook above (`scheduleRecurringPurgeOldLogs`);
+		// this `add_action` is the consumer side that AS dispatches against
+		// on every daily tick. Deletes rows older than the configured
+		// retention from `wp_spreadconnect_webhook_log` and
+		// `wp_spreadconnect_failed_ops` (architecture.md Z. 339-340 +
+		// Z. 556 + Z. 738). Hook is registered with priority 10 and zero
+		// accepted arguments — recurring schedules dispatch with `[]`, and
+		// `PurgeOldLogsJob::handle()` takes no parameters (slice-43
+		// Provides-To contract). Idempotency of this `init()` body keeps
+		// `add_action()` calls at exactly one per request.
+		add_action(
+			PurgeOldLogsJob::HOOK,
+			[ PurgeOldLogsJob::class, 'handle' ]
 		);
 
 		// slice-13: Mount the Spreadconnect Hub admin sub-page under the
@@ -911,6 +943,48 @@ final class Plugin
 		}
 
 		self::scheduleRecurringStockSync();
+	}
+
+	/**
+	 * Slice-43 AC-1: lay down the recurring `spreadconnect/purge_old_logs`
+	 * Action-Scheduler schedule (daily, group `spreadconnect`).
+	 *
+	 * Idempotent — pre-checks `as_next_scheduled_action()` so re-running
+	 * the activation hook never produces a duplicate schedule. Skipped
+	 * silently when AS functions are unavailable (e.g. unit-test bootstrap
+	 * without WC).
+	 *
+	 * Closes Discovery Slice 10 "Auto-Purge-Cron" and mitigates the
+	 * architecture-Risk row "Action-Scheduler jobs accumulate without
+	 * purge -> DB bloat" (architecture.md Z. 738). Hook fires daily and
+	 * runs {@see PurgeOldLogsJob::handle()}.
+	 */
+	public static function scheduleRecurringPurgeOldLogs(): void
+	{
+		if ( ! function_exists( 'as_next_scheduled_action' )
+			|| ! function_exists( 'as_schedule_recurring_action' ) ) {
+			return;
+		}
+
+		// Idempotency pre-check (slice-43 AC-1): bail when the recurring
+		// action is already on the schedule. AS returns either an int
+		// (timestamp) or `false` — anything truthy means "already scheduled".
+		$existing = as_next_scheduled_action(
+			PurgeOldLogsJob::HOOK,
+			array(),
+			PurgeOldLogsJob::AS_GROUP
+		);
+		if ( false !== $existing && null !== $existing && 0 !== $existing ) {
+			return;
+		}
+
+		as_schedule_recurring_action(
+			time(),
+			DAY_IN_SECONDS,
+			PurgeOldLogsJob::HOOK,
+			array(),
+			PurgeOldLogsJob::AS_GROUP
+		);
 	}
 
 	/**
