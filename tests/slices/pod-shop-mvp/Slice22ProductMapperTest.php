@@ -34,6 +34,25 @@ namespace {
 			private int $id;
 			private string $hash;
 
+			/**
+			 * Children variation IDs — public so slice-34 tests can configure
+			 * `$parent->children = [...]` directly without touching the
+			 * global state-tracker. Slice-22's mapper does not read this
+			 * field; it is purely a slice-34 affordance shared via the
+			 * canonical stub.
+			 *
+			 * @var int[]
+			 */
+			public array $children = [];
+
+			/**
+			 * Public price field — slice-34 tests configure
+			 * `$parent->price = '19.99'` directly. Slice-22's mapper writes
+			 * variant-level prices via `WC_Product_Variation::set_price()`
+			 * and never reads this field.
+			 */
+			public string $price = '';
+
 			public function __construct( int $id = 0 ) {
 				$this->id = $id;
 
@@ -61,6 +80,26 @@ namespace {
 
 			public function get_id(): int {
 				return $this->id;
+			}
+
+			/**
+			 * Returns the configured children IDs. Slice-22 does not call
+			 * this method (mapper writes children via WC_Product_Variation
+			 * `set_parent_id`), but slice-34's `ProductMetaBox` /
+			 * `ProductActions` enumerate variations through `get_children()`.
+			 *
+			 * @return int[]
+			 */
+			public function get_children(): array {
+				return $this->children;
+			}
+
+			/**
+			 * Returns the configured price string. Slice-34 reads this via
+			 * `wc_get_product()->get_price()` for the meta-box render.
+			 */
+			public function get_price(): string {
+				return $this->price;
 			}
 
 			public function set_status( $status ): void {
@@ -125,15 +164,30 @@ namespace {
 	if ( ! class_exists( 'WC_Product_Variation', false ) ) {
 		/**
 		 * Stub mirroring the public surface used by ProductMapper.
-		 * Tracks all set_*() calls per-instance.
+		 * Tracks all set_*() calls per-instance. Extends `WC_Product`
+		 * (canonical stub from `tests/stubs/wc-classes.php`) so that
+		 * production code's `instanceof WC_Product` checks
+		 * (e.g. slice-34 `ProductActions::collectVariationSkus`) succeed
+		 * when slice-22 registers the stub first.
 		 */
-		class WC_Product_Variation
+		class WC_Product_Variation extends \WC_Product
 		{
 			private int $id;
 			private string $hash;
 
-			public function __construct( int $id = 0 ) {
-				$this->id = $id;
+			/**
+			 * Public sku/price fields — slice-34 tests construct via
+			 * `new WC_Product_Variation($id, $sku, $price)` and read back
+			 * via `get_sku()` / `get_price()`. Slice-22 ignores these
+			 * fields and goes through the set_*() trackers below.
+			 */
+			public string $sku   = '';
+			public string $price = '';
+
+			public function __construct( int $id = 0, string $sku = '', string $price = '' ) {
+				$this->id    = $id;
+				$this->sku   = $sku;
+				$this->price = $price;
 
 				// Stable per-instance counter — see WC_Product_Variable::__construct
 				// for the rationale behind not using spl_object_hash().
@@ -155,6 +209,24 @@ namespace {
 
 			public function get_id(): int {
 				return $this->id;
+			}
+
+			/**
+			 * Slice-34 reads `get_sku()` after constructing the variation
+			 * via the third constructor argument. Slice-22 mocks
+			 * `wc_get_product` to return `null`, so this method is never
+			 * exercised in slice-22's own tests.
+			 */
+			public function get_sku( string $context = 'view' ): string {
+				return $this->sku;
+			}
+
+			/**
+			 * Slice-34 reads `get_price()` for the meta-box render. Slice-22
+			 * does not exercise this getter.
+			 */
+			public function get_price(): string {
+				return $this->price;
 			}
 
 			public function set_parent_id( $parent_id ): void {

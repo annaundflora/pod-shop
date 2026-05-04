@@ -21,10 +21,23 @@
 
 declare(strict_types=1);
 
+if ( ! defined( 'ARRAY_A' ) ) {
+	define( 'ARRAY_A', 'ARRAY_A' );
+}
+
+if ( ! defined( 'ARRAY_N' ) ) {
+	define( 'ARRAY_N', 'ARRAY_N' );
+}
+
+if ( ! defined( 'OBJECT' ) ) {
+	define( 'OBJECT', 'OBJECT' );
+}
+
 if ( ! class_exists( 'wpdb', false ) ) {
 	/**
 	 * Minimal `wpdb` stub. Mockery doubles in slice tests override
-	 * `prepare()`, `query()`, `get_var()` and read the `prefix` property.
+	 * `prepare()`, `query()`, `get_var()`, `get_row()`, `get_results()`
+	 * and read the `prefix` property.
 	 */
 	class wpdb // phpcs:ignore WordPress.NamingConventions.ValidVariableName.InterpolatedVariableNotSnakeCase
 	{
@@ -46,6 +59,28 @@ if ( ! class_exists( 'wpdb', false ) ) {
 		public function get_var( string $query )
 		{
 			return null;
+		}
+
+		/**
+		 * @param string $query
+		 * @param string $output OBJECT|ARRAY_A|ARRAY_N constant.
+		 *
+		 * @return mixed null = no row.
+		 */
+		public function get_row( string $query, $output = 'OBJECT' )
+		{
+			return null;
+		}
+
+		/**
+		 * @param string $query
+		 * @param string $output OBJECT|ARRAY_A|ARRAY_N constant.
+		 *
+		 * @return array<int, mixed> empty by default.
+		 */
+		public function get_results( string $query, $output = 'OBJECT' ): array
+		{
+			return array();
 		}
 	}
 }

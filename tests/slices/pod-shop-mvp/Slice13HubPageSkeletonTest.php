@@ -21,14 +21,14 @@ use SpreadconnectPod\Hub\View\Sidebar;
 // die `($fqcn)::render()`-Aufrufe verzweigen kann, definieren wir sie
 // hier als leere `final class` mit `public static function render()`.
 //
-// Settings (Slice 11) und Dashboard (Slice 13) werden von Production-
-// Code geliefert und sind via Autoloader verfuegbar.
+// Settings (Slice 11), Dashboard (Slice 13) und Catalog (Slice 26) werden
+// von Production-Code geliefert und sind via Autoloader verfuegbar — ihre
+// Stub-Variante wuerde den Klassen-Konflikt erzeugen, deshalb ueber
+// `class_exists()`-Guards uebersprungen. Slice-13 verifiziert das Catalog-
+// Routing daher uber Output-Marker statt uber einen $renderCount-Spy
+// (siehe `test_dispatch_routes_catalog_section_to_catalog_view`).
 // ---------------------------------------------------------------------
 
-if (! class_exists(\SpreadconnectPod\Hub\View\Catalog::class)) {
-    /** @phpstan-ignore-next-line */
-    eval('namespace SpreadconnectPod\\Hub\\View; final class Catalog { public static int $renderCount = 0; public static function render(): void { self::$renderCount++; } }');
-}
 if (! class_exists(\SpreadconnectPod\Hub\View\Orders::class)) {
     /** @phpstan-ignore-next-line */
     eval('namespace SpreadconnectPod\\Hub\\View; final class Orders { public static int $renderCount = 0; public static function render(): void { self::$renderCount++; } }');
@@ -193,11 +193,12 @@ final class Slice13HubPageSkeletonTest extends TestCase
 
     /**
      * Reset Render-Counter aller stub View-Klassen, damit Tests
-     * unabhaengig sind.
+     * unabhaengig sind. Catalog ist seit Slice-26 eine echte Production-
+     * Klasse ohne $renderCount und wird hier nicht zurueckgesetzt — das
+     * Catalog-Routing wird ueber Output-Marker verifiziert.
      */
     private static function resetStubRenderCounts(): void
     {
-        \SpreadconnectPod\Hub\View\Catalog::$renderCount       = 0;
         \SpreadconnectPod\Hub\View\Orders::$renderCount        = 0;
         \SpreadconnectPod\Hub\View\Webhooks::$renderCount      = 0;
         \SpreadconnectPod\Hub\View\FailedOps::$renderCount     = 0;
@@ -207,11 +208,12 @@ final class Slice13HubPageSkeletonTest extends TestCase
 
     /**
      * @return list<string> Render-Counts als Snapshot fuer Cross-View-Vergleich.
+     *                    Catalog ist seit Slice-26 echt und wird ueber
+     *                    Output-Marker getestet, nicht ueber $renderCount.
      */
     private static function stubRenderCounts(): array
     {
         return [
-            'catalog'       => \SpreadconnectPod\Hub\View\Catalog::$renderCount,
             'orders'        => \SpreadconnectPod\Hub\View\Orders::$renderCount,
             'webhooks'      => \SpreadconnectPod\Hub\View\Webhooks::$renderCount,
             'failed'        => \SpreadconnectPod\Hub\View\FailedOps::$renderCount,
@@ -483,9 +485,10 @@ final class Slice13HubPageSkeletonTest extends TestCase
      */
     public function test_dispatch_routes_each_known_section_to_correct_view_class(): void
     {
-        // Stub-Views verfolgen ihre Render-Counts; fuer Dashboard und Settings
-        // (echte Klassen) muessen wir den Output-Marker pruefen.
-        $stubSlugs = ['catalog', 'orders', 'webhooks', 'failed', 'logs', 'subscriptions'];
+        // Stub-Views verfolgen ihre Render-Counts; fuer Dashboard, Settings
+        // (Slice 11/13) und Catalog (Slice 26 — echte Klasse) wird das
+        // Routing ueber Output-Marker verifiziert (separate Tests).
+        $stubSlugs = ['orders', 'webhooks', 'failed', 'logs', 'subscriptions'];
 
         foreach ($stubSlugs as $slug) {
             // Reset alle Mocks pro Iteration.
@@ -573,6 +576,76 @@ final class Slice13HubPageSkeletonTest extends TestCase
         // Stub-Views NICHT gerendert.
         foreach (self::stubRenderCounts() as $count) {
             $this->assertSame(0, $count);
+        }
+    }
+
+    /**
+     * AC-3: ?section=catalog ruft Catalog::render() (echte Slice-26 Klasse).
+     *
+     * Verifikation ueber Output-Marker `spreadconnect-catalog__controls`,
+     * der nur von Catalog::render() emittiert wird. Ein $renderCount-Spy
+     * ist nicht moeglich, weil Catalog seit Slice-26 eine echte Production-
+     * Klasse ist — Slice-13 darf sie weder ueberschreiben noch shadowen.
+     */
+    public function test_dispatch_routes_catalog_section_to_catalog_view(): void
+    {
+        self::stubI18nAndEscapeHelpers();
+        self::stubUrlHelpers();
+        self::stubSanitizeHelpers();
+        Monkey\Functions\when('current_user_can')->justReturn(true);
+
+        // Stubs fuer Catalog::render-Abhaengigkeiten (Slice-26):
+        Monkey\Functions\when('wp_create_nonce')->justReturn('test-nonce');
+        Monkey\Functions\when('esc_url_raw')->returnArg(1);
+        Monkey\Functions\when('rest_url')->alias(function ($path = '') {
+            return 'http://example.test/wp-json/' . ltrim((string) $path, '/');
+        });
+        Monkey\Functions\when('wp_json_encode')->alias(function ($value) {
+            return json_encode($value);
+        });
+
+        // Provide a minimal $wpdb global so SyncHistoryRepo's get_row /
+        // get_results calls return null/[] (kein active run, leere History).
+        // The base wpdb stub from tests/stubs/wc-classes.php already returns
+        // these defaults, so a fresh `new wpdb()` is sufficient.
+        $previousWpdb       = $GLOBALS['wpdb'] ?? null;
+        $GLOBALS['wpdb']    = new \wpdb();
+
+        $_GET['section'] = 'catalog';
+
+        try {
+            $initialObLevel = ob_get_level();
+            ob_start();
+            try {
+                Controller::dispatch();
+            } finally {
+                $output = (string) ob_get_clean();
+                while (ob_get_level() > $initialObLevel) {
+                    ob_end_clean();
+                }
+            }
+
+            $this->assertStringContainsString(
+                'spreadconnect-catalog__controls',
+                $output,
+                'AC-3: ?section=catalog MUSS Catalog::render() aufrufen ' .
+                '(Output-Marker `spreadconnect-catalog__controls` aus Slice-26).'
+            );
+
+            // Stub-Views (Orders/Webhooks/...) NICHT gerendert.
+            foreach (self::stubRenderCounts() as $slug => $count) {
+                $this->assertSame(
+                    0,
+                    $count,
+                    sprintf('AC-3: Stub-View "%s" darf NICHT bei ?section=catalog rendern.', $slug)
+                );
+            }
+        } finally {
+            if (null === $previousWpdb) {
+                unset($GLOBALS['wpdb']);
+            } else {
+                $GLOBALS['wpdb'] = $previousWpdb;
+            }
         }
     }
 
@@ -903,7 +976,13 @@ final class Slice13HubPageSkeletonTest extends TestCase
             return is_string($key) ? strtolower(preg_replace('/[^a-z0-9_\-]/i', '', $key) ?? '') : '';
         });
 
-        $_GET['section'] = 'CATALOG';
+        // Use DASHBOARD (not CATALOG) as the upper-case probe value: after
+        // sanitize_key() lower-cases it, the dispatcher will route to the
+        // real Dashboard::render() — which has no DB / repo dependencies.
+        // Routing to Catalog would otherwise pull in SyncHistoryRepo +
+        // $wpdb global wiring that this test deliberately does not stub
+        // (the test is single-purpose: verify sanitize_key() is called).
+        $_GET['section'] = 'DASHBOARD';
 
         $initialObLevel = ob_get_level();
         ob_start();
@@ -921,7 +1000,7 @@ final class Slice13HubPageSkeletonTest extends TestCase
             'AC-6: dispatch() MUSS sanitize_key() auf $_GET["section"] aufrufen.'
         );
         $this->assertContains(
-            'CATALOG',
+            'DASHBOARD',
             $sanitizeKeyCalls,
             'AC-6: sanitize_key() MUSS mit dem Original-$_GET-Wert aufgerufen werden.'
         );
