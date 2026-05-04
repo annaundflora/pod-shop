@@ -5,16 +5,19 @@ declare(strict_types=1);
 // Test Bootstrap (file-scope, runs once at first include)
 // ---------------------------------------------------------------------------
 //
-// `SyncArticleJob` references `WP_Error` (Catalog\ImageSideloader return) and
-// uses Action-Scheduler / WordPress globals. Mocking-Strategy `mock_external`:
-//   - Brain\Monkey alias for `get_posts`, `get_transient`, `set_transient`,
-//     `update_post_meta`, `wp_json_encode`, `add_action` (verified via
-//     Brain\Monkey hook spy).
-//   - `WP_Error` stub class (in case Slice 21 bootstrap has not been loaded
-//     in this test process) so the partial-sideload AC-3 path can return a
-//     real `instanceof WP_Error` instance.
-//   - Mockery doubles for `SpreadconnectClient`, `ImageSideloader`,
-//     `ProductMapper`, `SyncHistoryRepo` (all 4 Konstruktor-injectables).
+// Slice 23 testet `Catalog\SyncArticleJob` (Per-Article-Sync Orchestrator).
+// Mocking-Strategy `mock_external` (laut Slice-Spec Z. 28):
+//
+//   - `SpreadconnectClient` ist NICHT final -> klassischer `Mockery::mock()`.
+//   - `ImageSideloader`, `ProductMapper`, `SyncHistoryRepo` sind `final` -> wir
+//      verwenden `Mockery::mock('overload:...')` in `#[RunInSeparateProcess]`-
+//      Tests. Der Overload-Generator ersetzt die Klassen-Definition komplett,
+//      bevor SyncArticleJob die Type-Hints durchsetzt.
+//   - WP-Funktionen (`get_posts`, `get_transient`, `set_transient`,
+//     `update_post_meta`, `wp_json_encode`) via Brain\Monkey aliased.
+//   - `WP_Error` als minimale Stub-Klasse (idempotent gegenueber Slice 21).
+//
+// Jeder Test ist 1:1 aus einem GIVEN/WHEN/THEN abgeleitet.
 // ---------------------------------------------------------------------------
 
 namespace {
@@ -52,10 +55,9 @@ namespace {
 
 	// `SyncArticleJob::sideloadPreviews()` calls
 	// `ImageSideloader::ensureAdminIncludesLoaded()` (static). The real method
-	// is harmless in tests — `function_exists('media_sideload_image')` short-
-	// circuits the require_once chain when the Slice 21 bootstrap has run.
-	// To be safe across test-isolation boundaries, we declare the function as
-	// a no-op so the static method never tries to require the WP admin files.
+	// is harmless in tests — it short-circuits when `media_sideload_image()`
+	// is already defined. We declare a no-op so the static method never tries
+	// to require WP admin files.
 	if ( ! function_exists( 'media_sideload_image' ) ) {
 		function media_sideload_image( string $url, int $post_id = 0, $desc = null, string $return_mode = 'html' ) {
 			return 0;
@@ -63,24 +65,24 @@ namespace {
 	}
 }
 
+
 namespace SpreadconnectPod\Tests {
 
 	use Brain\Monkey;
 	use Brain\Monkey\Actions;
 	use Brain\Monkey\Functions;
 	use Mockery;
+	use PHPUnit\Framework\Attributes\PreserveGlobalState;
+	use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 	use PHPUnit\Framework\TestCase;
 	use ReflectionClass;
 	use SpreadconnectPod\Api\Dto\ArticleDetail;
 	use SpreadconnectPod\Api\Dto\Preview;
-	use SpreadconnectPod\Api\Dto\ProductTypeDetail;
 	use SpreadconnectPod\Api\Dto\Variant;
 	use SpreadconnectPod\Api\SpreadconnectClient;
 	use SpreadconnectPod\Api\SpreadconnectClientError;
 	use SpreadconnectPod\Api\SpreadconnectTransientError;
 	use SpreadconnectPod\Bootstrap\Plugin;
-	use SpreadconnectPod\Catalog\ImageSideloader;
-	use SpreadconnectPod\Catalog\ProductMapper;
 	use SpreadconnectPod\Catalog\ProductMapperException;
 	use SpreadconnectPod\Catalog\SyncArticleJob;
 	use SpreadconnectPod\Catalog\SyncHistoryRepo;
@@ -89,15 +91,13 @@ namespace SpreadconnectPod\Tests {
 	/**
 	 * Slice 23 — Catalog\SyncArticleJob (Per-Article-Sync Orchestrator).
 	 *
-	 * Acceptance Tests gegen `slice-23-sync-article-job.md`. Mocking-Strategy
-	 * `mock_external` (laut Slice-Spec Z. 28):
-	 *   - Brain\Monkey aliases `get_posts`, `get_transient`, `set_transient`,
-	 *     `update_post_meta`, `wp_json_encode`, `add_action` (Spy via
-	 *     `\Brain\Monkey\Actions\has`).
-	 *   - Mockery-Doubles fuer SpreadconnectClient, ImageSideloader,
-	 *     ProductMapper, SyncHistoryRepo (DI-Inject in `SyncArticleJob`).
+	 * Acceptance Tests gegen `slice-23-sync-article-job.md`.
 	 *
-	 * Jeder Test ist 1:1 aus einem GIVEN/WHEN/THEN abgeleitet.
+	 * Tests die `ImageSideloader` / `ProductMapper` / `SyncHistoryRepo`
+	 * brauchen, laufen in `#[RunInSeparateProcess]`, weil Mockery's
+	 * `overload:`-Generator die finale Klassen-Definition VOR dem Autoload
+	 * ersetzen muss. Tests die nur `SpreadconnectClient` (nicht final)
+	 * mocken, laufen in-process.
 	 */
 	final class Slice23SyncArticleJobTest extends TestCase
 	{
@@ -131,8 +131,6 @@ namespace SpreadconnectPod\Tests {
 			$this->transientWrites = [];
 			$this->transientStore  = [];
 
-			// Defaults: spy-style aliases, tracking every call into the
-			// per-test arrays so assertions can inspect call-counts and args.
 			$metaUpdates = & $this->metaUpdates;
 			Functions\when( 'update_post_meta' )->alias(
 				static function ( $post_id, $key, $value ) use ( &$metaUpdates ) {
@@ -151,7 +149,7 @@ namespace SpreadconnectPod\Tests {
 			$transientWrites = & $this->transientWrites;
 			Functions\when( 'set_transient' )->alias(
 				static function ( $key, $value, $ttl = 0 ) use ( &$transientWrites, &$transientStore ) {
-					$transientWrites[]              = [ (string) $key, $value, (int) $ttl ];
+					$transientWrites[]               = [ (string) $key, $value, (int) $ttl ];
 					$transientStore[ (string) $key ] = $value;
 					return true;
 				}
@@ -163,9 +161,6 @@ namespace SpreadconnectPod\Tests {
 			Functions\when( 'wp_json_encode' )->alias(
 				static fn( $value ) => json_encode( $value )
 			);
-
-			// `ProductTypeDetail::fromResponse()` validates `id` as non-empty
-			// string. We do not stub this — the real DTO is constructed.
 		}
 
 		protected function tearDown(): void
@@ -243,31 +238,53 @@ namespace SpreadconnectPod\Tests {
 		}
 
 		/**
-		 * Build a fully-mocked SyncArticleJob with default `null` expectations.
-		 * Tests configure call expectations on the returned mocks before the
-		 * `handle()` call.
+		 * Build all four collaborators using overload-mocks for the final
+		 * classes (ImageSideloader/ProductMapper/SyncHistoryRepo) and a
+		 * standard Mockery mock for SpreadconnectClient (not final).
+		 *
+		 * MUSS aus einem `#[RunInSeparateProcess]`-Test heraus aufgerufen
+		 * werden — Mockery's `overload:`-Generator funktioniert nur, wenn
+		 * die Ziel-Klasse noch nicht autoloaded ist.
 		 *
 		 * @return array{0:SyncArticleJob,
 		 *               1:SpreadconnectClient&\Mockery\MockInterface,
-		 *               2:ImageSideloader&\Mockery\MockInterface,
-		 *               3:ProductMapper&\Mockery\MockInterface,
-		 *               4:SyncHistoryRepo&\Mockery\MockInterface}
+		 *               2:\Mockery\MockInterface,
+		 *               3:\Mockery\MockInterface,
+		 *               4:\Mockery\MockInterface}
 		 */
-		private function buildJob(): array
+		private function buildJobWithOverloadMocks(): array
 		{
+			// Pre-declare a structurally-identical ProductMapperException
+			// stub IF the real ProductMapper.php has not yet been autoloaded
+			// in this (separate) PHP process. Both classes live in the SAME
+			// file, so referencing ProductMapperException would normally pull
+			// in ProductMapper too — defeating Mockery's overload generator.
+			// Skipping the stub when the real class is already loaded keeps
+			// the in-process tests (AC-8, AC-9) compatible with sibling
+			// suites (e.g. Slice22ProductMapperTest) that exercise the real
+			// ProductMapper.
+			if ( ! class_exists( 'SpreadconnectPod\\Catalog\\ProductMapperException', false ) ) {
+				eval( 'namespace SpreadconnectPod\\Catalog; final class ProductMapperException extends \\RuntimeException {}' );
+			}
+
 			/** @var SpreadconnectClient&\Mockery\MockInterface $client */
 			$client = Mockery::mock( SpreadconnectClient::class );
 
-			/** @var ImageSideloader&\Mockery\MockInterface $sideloader */
-			$sideloader = Mockery::mock( ImageSideloader::class );
+			$sideloader = Mockery::mock( 'overload:SpreadconnectPod\\Catalog\\ImageSideloader' );
+			$mapper     = Mockery::mock( 'overload:SpreadconnectPod\\Catalog\\ProductMapper' );
+			$repo       = Mockery::mock( 'overload:SpreadconnectPod\\Catalog\\SyncHistoryRepo' );
 
-			/** @var ProductMapper&\Mockery\MockInterface $mapper */
-			$mapper = Mockery::mock( ProductMapper::class );
-
-			/** @var SyncHistoryRepo&\Mockery\MockInterface $repo */
-			$repo = Mockery::mock( SyncHistoryRepo::class );
-
-			$job = new SyncArticleJob( $client, $sideloader, $mapper, $repo );
+			// `Mockery::mock('overload:Foo')` returns an object that IS the
+			// class-level mock AND a valid `instanceof Foo` instance. Pass the
+			// returned mock objects directly into the SUT — every `new Foo()`
+			// elsewhere in the process would also produce instances bound to
+			// the same expectations.
+			$job = new SyncArticleJob(
+				$client,
+				$sideloader,
+				$mapper,
+				$repo,
+			);
 
 			return [ $job, $client, $sideloader, $mapper, $repo ];
 		}
@@ -277,9 +294,11 @@ namespace SpreadconnectPod\Tests {
 		//       sideload -> upsert; Detail status=created.
 		// ===================================================================
 
+		#[RunInSeparateProcess]
+		#[PreserveGlobalState( false )]
 		public function test_handle_executes_full_sequence_and_writes_created_detail(): void
 		{
-			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJob();
+			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJobWithOverloadMocks();
 
 			$article  = $this->makeArticle();
 			$rawPt    = $this->rawProductType( 'PT-7' );
@@ -295,13 +314,15 @@ namespace SpreadconnectPod\Tests {
 				->with( 'PT-7', 'D-1', 'H-1', [ 'V-FRONT', 'V-BACK' ] )
 				->andReturn( $previews );
 
-			// Sideload returns the integer attachment ID for both URLs.
+			// `ensureAdminIncludesLoaded` is a static method on the final class —
+			// the overload mock replaces the class entirely; we accept any call.
+			$sideloader->shouldReceive( 'ensureAdminIncludesLoaded' )->zeroOrMoreTimes();
+
 			$sideloader->shouldReceive( 'sideload' )
 				->with( 'https://sc.test/p1.jpg', 0 )->once()->andReturn( 101 );
 			$sideloader->shouldReceive( 'sideload' )
 				->with( 'https://sc.test/p2.jpg', 0 )->once()->andReturn( 102 );
 
-			// Mapper receives the article, productType DTO and attachment IDs.
 			$capturedAttachmentIds = null;
 			$mapper->shouldReceive( 'upsert' )
 				->once()
@@ -312,7 +333,6 @@ namespace SpreadconnectPod\Tests {
 					}
 				);
 
-			// History append with status='created'.
 			$capturedDetail = null;
 			$repo->shouldReceive( 'appendDetail' )
 				->once()
@@ -330,12 +350,15 @@ namespace SpreadconnectPod\Tests {
 			$this->assertSame( 'ART-1', $capturedDetail[1]['article_id'] ?? null );
 			$this->assertSame( 'Demo T-Shirt', $capturedDetail[1]['title'] ?? null );
 			$this->assertSame( 'created', $capturedDetail[1]['status'] ?? null, 'AC-1: status MUSS = "created" sein wenn kein bestehendes Produkt.' );
-			$this->assertNull( $capturedDetail[1]['notes'] ?? 'unset' );
+			$this->assertArrayHasKey( 'notes', $capturedDetail[1], 'AC-1: notes-Key MUSS im Detail-Eintrag vorhanden sein.' );
+			$this->assertNull( $capturedDetail[1]['notes'], 'AC-1: notes MUSS null sein wenn keine Fehler auftraten.' );
 		}
 
+		#[RunInSeparateProcess]
+		#[PreserveGlobalState( false )]
 		public function test_handle_calls_endpoints_in_documented_order(): void
 		{
-			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJob();
+			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJobWithOverloadMocks();
 
 			$callOrder = [];
 
@@ -364,6 +387,7 @@ namespace SpreadconnectPod\Tests {
 					return $preview;
 				} );
 
+			$sideloader->shouldReceive( 'ensureAdminIncludesLoaded' )->zeroOrMoreTimes();
 			$sideloader->shouldReceive( 'sideload' )
 				->once()
 				->andReturnUsing( static function () use ( &$callOrder ) {
@@ -397,9 +421,11 @@ namespace SpreadconnectPod\Tests {
 		// AC-2: Bestehendes Produkt mit _spreadconnect_article_id -> updated.
 		// ===================================================================
 
+		#[RunInSeparateProcess]
+		#[PreserveGlobalState( false )]
 		public function test_handle_writes_updated_detail_when_product_exists(): void
 		{
-			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJob();
+			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJobWithOverloadMocks();
 
 			// Reverse-Lookup: existing product 777 with article_id=ART-1.
 			Functions\when( 'get_posts' )->alias(
@@ -421,6 +447,8 @@ namespace SpreadconnectPod\Tests {
 			$client->shouldReceive( 'getArticle' )->once()->andReturn( $article );
 			$client->shouldReceive( 'getProductType' )->once()->andReturn( $rawPt );
 			$client->shouldReceive( 'createPreviews' )->once()->andReturn( $preview );
+
+			$sideloader->shouldReceive( 'ensureAdminIncludesLoaded' )->zeroOrMoreTimes();
 			$sideloader->shouldReceive( 'sideload' )->once()->andReturn( 101 );
 			$mapper->shouldReceive( 'upsert' )->once()->andReturn( 777 );
 
@@ -449,9 +477,11 @@ namespace SpreadconnectPod\Tests {
 		//       _spreadconnect_sync_state=partial; KEINE Exception.
 		// ===================================================================
 
+		#[RunInSeparateProcess]
+		#[PreserveGlobalState( false )]
 		public function test_handle_writes_partial_detail_on_image_sideload_failure(): void
 		{
-			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJob();
+			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJobWithOverloadMocks();
 
 			$article = $this->makeArticle();
 			$rawPt   = $this->rawProductType( 'PT-7' );
@@ -464,7 +494,7 @@ namespace SpreadconnectPod\Tests {
 			$client->shouldReceive( 'getProductType' )->once()->andReturn( $rawPt );
 			$client->shouldReceive( 'createPreviews' )->once()->andReturn( $previews );
 
-			// First URL OK, second returns WP_Error.
+			$sideloader->shouldReceive( 'ensureAdminIncludesLoaded' )->zeroOrMoreTimes();
 			$sideloader->shouldReceive( 'sideload' )
 				->with( 'https://sc.test/ok.jpg', 0 )->once()->andReturn( 101 );
 			$sideloader->shouldReceive( 'sideload' )
@@ -497,7 +527,6 @@ namespace SpreadconnectPod\Tests {
 				'AC-3: notes MUSS WP_Error->get_error_message() enthalten.'
 			);
 
-			// _spreadconnect_sync_state='partial' wurde auf das WC-Produkt geschrieben.
 			$syncStateMeta = array_filter(
 				$this->metaUpdates,
 				static fn( $row ) => $row[1] === '_spreadconnect_sync_state' && $row[0] === 555
@@ -514,9 +543,11 @@ namespace SpreadconnectPod\Tests {
 			);
 		}
 
+		#[RunInSeparateProcess]
+		#[PreserveGlobalState( false )]
 		public function test_handle_calls_mapper_with_partial_attachment_list(): void
 		{
-			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJob();
+			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJobWithOverloadMocks();
 
 			$article  = $this->makeArticle();
 			$rawPt    = $this->rawProductType( 'PT-7' );
@@ -530,6 +561,7 @@ namespace SpreadconnectPod\Tests {
 			$client->shouldReceive( 'getProductType' )->once()->andReturn( $rawPt );
 			$client->shouldReceive( 'createPreviews' )->once()->andReturn( $previews );
 
+			$sideloader->shouldReceive( 'ensureAdminIncludesLoaded' )->zeroOrMoreTimes();
 			$sideloader->shouldReceive( 'sideload' )
 				->with( 'https://sc.test/ok.jpg', 0 )->once()->andReturn( 101 );
 			$sideloader->shouldReceive( 'sideload' )
@@ -559,9 +591,11 @@ namespace SpreadconnectPod\Tests {
 			);
 		}
 
+		#[RunInSeparateProcess]
+		#[PreserveGlobalState( false )]
 		public function test_handle_does_not_throw_on_image_sideload_failure(): void
 		{
-			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJob();
+			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJobWithOverloadMocks();
 
 			$article = $this->makeArticle();
 			$rawPt   = $this->rawProductType( 'PT-7' );
@@ -571,6 +605,7 @@ namespace SpreadconnectPod\Tests {
 			$client->shouldReceive( 'getProductType' )->once()->andReturn( $rawPt );
 			$client->shouldReceive( 'createPreviews' )->once()->andReturn( $preview );
 
+			$sideloader->shouldReceive( 'ensureAdminIncludesLoaded' )->zeroOrMoreTimes();
 			$sideloader->shouldReceive( 'sideload' )
 				->once()
 				->andReturn( new WP_Error( 'http_500', 'all failed' ) );
@@ -595,9 +630,11 @@ namespace SpreadconnectPod\Tests {
 		// AC-4: SpreadconnectClientError (4xx) -> status=error, re-thrown.
 		// ===================================================================
 
+		#[RunInSeparateProcess]
+		#[PreserveGlobalState( false )]
 		public function test_handle_writes_error_detail_and_rethrows_client_error(): void
 		{
-			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJob();
+			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJobWithOverloadMocks();
 
 			$exception = new SpreadconnectClientError(
 				'http_4xx',
@@ -651,9 +688,11 @@ namespace SpreadconnectPod\Tests {
 		// AC-5: SpreadconnectTransientError (5xx) -> KEIN Detail, re-thrown.
 		// ===================================================================
 
+		#[RunInSeparateProcess]
+		#[PreserveGlobalState( false )]
 		public function test_handle_rethrows_transient_error_without_detail(): void
 		{
-			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJob();
+			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJobWithOverloadMocks();
 
 			$exception = new SpreadconnectTransientError(
 				'http_5xx',
@@ -689,9 +728,11 @@ namespace SpreadconnectPod\Tests {
 		// AC-6: ProductMapperException -> status=error, re-thrown.
 		// ===================================================================
 
+		#[RunInSeparateProcess]
+		#[PreserveGlobalState( false )]
 		public function test_handle_writes_error_detail_on_product_mapper_exception(): void
 		{
-			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJob();
+			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJobWithOverloadMocks();
 
 			$article = $this->makeArticle();
 			$rawPt   = $this->rawProductType( 'PT-7' );
@@ -700,6 +741,8 @@ namespace SpreadconnectPod\Tests {
 			$client->shouldReceive( 'getArticle' )->once()->andReturn( $article );
 			$client->shouldReceive( 'getProductType' )->once()->andReturn( $rawPt );
 			$client->shouldReceive( 'createPreviews' )->once()->andReturn( $preview );
+
+			$sideloader->shouldReceive( 'ensureAdminIncludesLoaded' )->zeroOrMoreTimes();
 			$sideloader->shouldReceive( 'sideload' )->once()->andReturn( 101 );
 
 			$mapperException = new ProductMapperException( 'ART-1: no variants — refusing to upsert.' );
@@ -740,16 +783,16 @@ namespace SpreadconnectPod\Tests {
 		// AC-7: ProductType-Cache via Transient sc_pt_{id}.
 		// ===================================================================
 
+		#[RunInSeparateProcess]
+		#[PreserveGlobalState( false )]
 		public function test_handle_caches_product_type_via_transient(): void
 		{
-			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJob();
+			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJobWithOverloadMocks();
 
 			$article  = $this->makeArticle( id: 'ART-1', productTypeId: 'PT-7' );
 			$article2 = $this->makeArticle( id: 'ART-2', productTypeId: 'PT-7' );
 			$rawPt    = $this->rawProductType( 'PT-7' );
 
-			// First call: getArticle for ART-1, then getProductType('PT-7') ONCE,
-			// then createPreviews + sideload + upsert.
 			$client->shouldReceive( 'getArticle' )->with( 'ART-1' )->once()->andReturn( $article );
 			$client->shouldReceive( 'getArticle' )->with( 'ART-2' )->once()->andReturn( $article2 );
 
@@ -759,6 +802,7 @@ namespace SpreadconnectPod\Tests {
 			$preview = $this->makePreviews( [ 'https://sc.test/p.jpg' ] );
 			$client->shouldReceive( 'createPreviews' )->twice()->andReturn( $preview );
 
+			$sideloader->shouldReceive( 'ensureAdminIncludesLoaded' )->zeroOrMoreTimes();
 			$sideloader->shouldReceive( 'sideload' )->twice()->andReturn( 101 );
 			$mapper->shouldReceive( 'upsert' )->twice()->andReturn( 555 );
 			$repo->shouldReceive( 'appendDetail' )->twice();
@@ -789,6 +833,10 @@ namespace SpreadconnectPod\Tests {
 		// ===================================================================
 		// AC-8: Bootstrap registriert add_action('spreadconnect/sync_article').
 		// ===================================================================
+		//
+		// Dieser Test braucht KEIN Overload-Mocking — er prueft nur die
+		// Bootstrap::init()-Hook-Registrierung. Lauft in-process.
+		// ===================================================================
 
 		public function test_bootstrap_registers_sync_article_action_hook(): void
 		{
@@ -803,15 +851,22 @@ namespace SpreadconnectPod\Tests {
 			Plugin::init( '/tmp/spreadconnect-pod-fake.php' );
 
 			// Brain\Monkey records every add_action call. AC-8 requires the
-			// `spreadconnect/sync_article` hook to be registered with priority
-			// 10 and exactly 1 accepted argument, calling
-			// SyncArticleJob::handleStatic.
-			$this->assertTrue(
-				Actions\has(
-					'spreadconnect/sync_article',
-					[ SyncArticleJob::class, 'handleStatic' ]
-				),
+			// `spreadconnect/sync_article` hook to be registered.
+			// `Actions\has` returns the registered priority (int) when the
+			// hook is registered with the given callback, or `false` otherwise.
+			$priority = Actions\has(
+				'spreadconnect/sync_article',
+				[ SyncArticleJob::class, 'handleStatic' ]
+			);
+
+			$this->assertNotFalse(
+				$priority,
 				'AC-8: add_action("spreadconnect/sync_article", [SyncArticleJob::class, "handleStatic"]) MUSS registriert sein.'
+			);
+			$this->assertSame(
+				10,
+				$priority,
+				'AC-8: Hook-Prioritaet MUSS 10 sein.'
 			);
 
 			// Verify static bridge method is callable (signature contract).
@@ -826,7 +881,8 @@ namespace SpreadconnectPod\Tests {
 
 		// ===================================================================
 		// AC-9: SyncHistoryRepo::appendDetail merged neuen Eintrag in
-		//       bestehende details-JSON.
+		//       bestehende details-JSON. Lauft in-process mit echter
+		//       SyncHistoryRepo-Klasse + Fake $wpdb.
 		// ===================================================================
 
 		public function test_sync_history_repo_appends_detail_to_existing_json_array(): void
@@ -835,94 +891,100 @@ namespace SpreadconnectPod\Tests {
 				[ 'article_id' => 'ART-OLD', 'title' => 'Old', 'status' => 'created', 'notes' => null ],
 			] );
 
-			$wpdbMock         = new SyncHistoryRepoFakeWpdb();
-			$wpdbMock->prefix = 'wp_';
+			$wpdbMock                 = new SyncHistoryRepoFakeWpdb();
+			$wpdbMock->prefix         = 'wp_';
 			$wpdbMock->detailsByRunId = [ 42 => $existing ];
 
 			$GLOBALS['wpdb'] = $wpdbMock;
 
-			$repo = new SyncHistoryRepo();
-			$repo->appendDetail(
-				42,
-				[ 'article_id' => 'ART-NEW', 'title' => 'New', 'status' => 'updated', 'notes' => null ]
-			);
+			try {
+				$repo = new SyncHistoryRepo();
+				$repo->appendDetail(
+					42,
+					[ 'article_id' => 'ART-NEW', 'title' => 'New', 'status' => 'updated', 'notes' => null ]
+				);
 
-			$this->assertCount( 1, $wpdbMock->updateCalls, 'AC-9: $wpdb->update() MUSS exakt 1x aufgerufen werden.' );
-			$update = $wpdbMock->updateCalls[0];
+				$this->assertCount( 1, $wpdbMock->updateCalls, 'AC-9: $wpdb->update() MUSS exakt 1x aufgerufen werden.' );
+				$update = $wpdbMock->updateCalls[0];
 
-			$this->assertSame( 'wp_spreadconnect_sync_history', $update['table'], 'AC-9: Update MUSS auf wp_spreadconnect_sync_history erfolgen.' );
-			$this->assertSame( [ 'id' => 42 ], $update['where'], 'AC-9: WHERE-Klausel MUSS id=42 sein.' );
+				$this->assertSame( 'wp_spreadconnect_sync_history', $update['table'], 'AC-9: Update MUSS auf wp_spreadconnect_sync_history erfolgen.' );
+				$this->assertSame( [ 'id' => 42 ], $update['where'], 'AC-9: WHERE-Klausel MUSS id=42 sein.' );
 
-			$decoded = json_decode( $update['data']['details'] ?? 'null', true );
-			$this->assertIsArray( $decoded, 'AC-9: details MUSS valid JSON-encodiertes Array sein.' );
-			$this->assertCount(
-				2,
-				$decoded,
-				'AC-9: Neuer Eintrag MUSS an bestehende details[]-Liste angefuegt werden — total = 2.'
-			);
-			$this->assertSame(
-				'ART-OLD',
-				$decoded[0]['article_id'] ?? null,
-				'AC-9: bestehender Eintrag MUSS erhalten bleiben.'
-			);
-			$this->assertSame(
-				'ART-NEW',
-				$decoded[1]['article_id'] ?? null,
-				'AC-9: neuer Eintrag MUSS am Ende stehen.'
-			);
-
-			unset( $GLOBALS['wpdb'] );
+				$decoded = json_decode( $update['data']['details'] ?? 'null', true );
+				$this->assertIsArray( $decoded, 'AC-9: details MUSS valid JSON-encodiertes Array sein.' );
+				$this->assertCount(
+					2,
+					$decoded,
+					'AC-9: Neuer Eintrag MUSS an bestehende details[]-Liste angefuegt werden — total = 2.'
+				);
+				$this->assertSame(
+					'ART-OLD',
+					$decoded[0]['article_id'] ?? null,
+					'AC-9: bestehender Eintrag MUSS erhalten bleiben.'
+				);
+				$this->assertSame(
+					'ART-NEW',
+					$decoded[1]['article_id'] ?? null,
+					'AC-9: neuer Eintrag MUSS am Ende stehen.'
+				);
+			} finally {
+				unset( $GLOBALS['wpdb'] );
+			}
 		}
 
 		public function test_sync_history_repo_detail_schema_matches_architecture(): void
 		{
-			$wpdbMock         = new SyncHistoryRepoFakeWpdb();
-			$wpdbMock->prefix = 'wp_';
+			$wpdbMock                 = new SyncHistoryRepoFakeWpdb();
+			$wpdbMock->prefix         = 'wp_';
 			$wpdbMock->detailsByRunId = [ 7 => '[]' ];
 
 			$GLOBALS['wpdb'] = $wpdbMock;
 
-			$detail = [
-				'article_id' => 'ART-1',
-				'title'      => 'Tee',
-				'status'     => 'partial',
-				'notes'      => 'Image sideload failed (http_500)',
-			];
+			try {
+				$detail = [
+					'article_id' => 'ART-1',
+					'title'      => 'Tee',
+					'status'     => 'partial',
+					'notes'      => 'Image sideload failed (http_500)',
+				];
 
-			$repo = new SyncHistoryRepo();
-			$repo->appendDetail( 7, $detail );
+				$repo = new SyncHistoryRepo();
+				$repo->appendDetail( 7, $detail );
 
-			$decoded = json_decode( $wpdbMock->updateCalls[0]['data']['details'] ?? 'null', true );
-			$this->assertIsArray( $decoded );
-			$this->assertCount( 1, $decoded );
+				$decoded = json_decode( $wpdbMock->updateCalls[0]['data']['details'] ?? 'null', true );
+				$this->assertIsArray( $decoded );
+				$this->assertCount( 1, $decoded );
 
-			$entry = $decoded[0];
-			$this->assertArrayHasKey( 'article_id', $entry, 'AC-9: details-Schema MUSS "article_id" enthalten (architecture.md).' );
-			$this->assertArrayHasKey( 'title', $entry, 'AC-9: details-Schema MUSS "title" enthalten.' );
-			$this->assertArrayHasKey( 'status', $entry, 'AC-9: details-Schema MUSS "status" enthalten.' );
-			$this->assertArrayHasKey( 'notes', $entry, 'AC-9: details-Schema MUSS "notes" enthalten.' );
+				$entry = $decoded[0];
+				$this->assertArrayHasKey( 'article_id', $entry, 'AC-9: details-Schema MUSS "article_id" enthalten (architecture.md).' );
+				$this->assertArrayHasKey( 'title', $entry, 'AC-9: details-Schema MUSS "title" enthalten.' );
+				$this->assertArrayHasKey( 'status', $entry, 'AC-9: details-Schema MUSS "status" enthalten.' );
+				$this->assertArrayHasKey( 'notes', $entry, 'AC-9: details-Schema MUSS "notes" enthalten.' );
 
-			$this->assertSame( 'ART-1', $entry['article_id'] );
-			$this->assertSame( 'Tee', $entry['title'] );
-			$this->assertSame( 'partial', $entry['status'] );
-			$this->assertSame( 'Image sideload failed (http_500)', $entry['notes'] );
+				$this->assertSame( 'ART-1', $entry['article_id'] );
+				$this->assertSame( 'Tee', $entry['title'] );
+				$this->assertSame( 'partial', $entry['status'] );
+				$this->assertSame( 'Image sideload failed (http_500)', $entry['notes'] );
 
-			$this->assertContains(
-				$entry['status'],
-				[ 'created', 'updated', 'skipped', 'error', 'partial' ],
-				'AC-9: status MUSS einer der dokumentierten Enum-Werte sein (architecture.md "details JSON shape").'
-			);
-
-			unset( $GLOBALS['wpdb'] );
+				$this->assertContains(
+					$entry['status'],
+					[ 'created', 'updated', 'skipped', 'error', 'partial' ],
+					'AC-9: status MUSS einer der dokumentierten Enum-Werte sein (architecture.md "details JSON shape").'
+				);
+			} finally {
+				unset( $GLOBALS['wpdb'] );
+			}
 		}
 
 		// ===================================================================
 		// AC-10: run_id=null -> KEIN appendDetail-Call, Sequenz laeuft trotzdem.
 		// ===================================================================
 
+		#[RunInSeparateProcess]
+		#[PreserveGlobalState( false )]
 		public function test_handle_skips_history_when_run_id_is_null(): void
 		{
-			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJob();
+			[ $job, $client, $sideloader, $mapper, $repo ] = $this->buildJobWithOverloadMocks();
 
 			$article = $this->makeArticle();
 			$rawPt   = $this->rawProductType( 'PT-7' );
@@ -932,18 +994,18 @@ namespace SpreadconnectPod\Tests {
 			$client->shouldReceive( 'getArticle' )->once()->andReturn( $article );
 			$client->shouldReceive( 'getProductType' )->once()->andReturn( $rawPt );
 			$client->shouldReceive( 'createPreviews' )->once()->andReturn( $preview );
+
+			$sideloader->shouldReceive( 'ensureAdminIncludesLoaded' )->zeroOrMoreTimes();
 			$sideloader->shouldReceive( 'sideload' )->once()->andReturn( 101 );
 			$mapper->shouldReceive( 'upsert' )->once()->andReturn( 555 );
 
 			// CRITICAL: KEIN appendDetail darf aufgerufen werden.
 			$repo->shouldNotReceive( 'appendDetail' );
 
-			// `handle()` darf nicht werfen.
 			$job->handle( [ 'article_id' => 'ART-1' ] );
 
 			// Implicit assertion via Mockery::close() — `shouldNotReceive`
-			// would fail if appendDetail had been called. We add an explicit
-			// assertion so PHPUnit reports a passing test rather than risky.
+			// would fail if appendDetail had been called.
 			$this->addToAssertionCount( 1 );
 		}
 	}
@@ -951,8 +1013,7 @@ namespace SpreadconnectPod\Tests {
 	// -----------------------------------------------------------------------
 	// Helper: minimal $wpdb stub with prepare/get_var/update spies.
 	// Used by AC-9 tests to verify SyncHistoryRepo::appendDetail() behaviour
-	// without loading WordPress core. Implemented as a class to avoid Mockery
-	// magic-method clashes with `$wpdb->prefix` (string property).
+	// without loading WordPress core.
 	// -----------------------------------------------------------------------
 	final class SyncHistoryRepoFakeWpdb
 	{
@@ -968,10 +1029,6 @@ namespace SpreadconnectPod\Tests {
 
 		public function prepare( string $sql, ...$args ): string
 		{
-			// Naive substitution for assertion readability — the actual SQL
-			// goes back to get_var() which uses $sql to extract the run-id
-			// for the lookup. We just return the SQL with placeholders
-			// replaced.
 			$out = $sql;
 			foreach ( $args as $arg ) {
 				$replacement = is_int( $arg ) ? (string) $arg : "'" . str_replace( "'", "''", (string) $arg ) . "'";
@@ -982,7 +1039,6 @@ namespace SpreadconnectPod\Tests {
 
 		public function get_var( string $sql ): ?string
 		{
-			// Extract `id = N` from the SQL to look up the stored details JSON.
 			if ( preg_match( '/id\s*=\s*(\d+)/', $sql, $m ) ) {
 				$runId = (int) $m[1];
 				return $this->detailsByRunId[ $runId ] ?? null;
