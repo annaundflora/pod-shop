@@ -183,6 +183,19 @@ final class Settings
 			array( SettingsValidator::class, 'gateAutoConfirmOnPreUpdate' )
 		);
 
+		// --- Slice-12 section ② Test-Connection markup hook --------------.
+		// The slice-11 Settings::render() emits a
+		// `do_action('spreadconnect_settings_section_test_connection')`
+		// extension slot. Slice 12 fills the slot here so the markup lives
+		// next to the rest of the Settings-view code (single source of
+		// truth for the field IDs, label strings and nonce contract).
+		// `add_action` de-duplicates identical callable/priority pairs, so
+		// re-running `registerSettings()` keeps the listener count at 1.
+		add_action(
+			'spreadconnect_settings_section_test_connection',
+			array( self::class, 'renderTestConnectionSection' )
+		);
+
 		// --- Sections ----------------------------------------------------.
 		add_settings_section(
 			self::SECTION_API,
@@ -525,6 +538,122 @@ final class Settings
 			$checked ? ' checked="checked"' : '',
 			esc_html__( 'Route requests to the Spreadconnect staging environment.', self::TEXT_DOMAIN )
 		);
+	}
+
+	// =====================================================================
+	// Slice-12: Section ② "Test This Key" markup
+	// =====================================================================
+
+	/**
+	 * Render the Test-Connection control block (slice-12).
+	 *
+	 * Hooked from {@see self::registerSettings()} onto the
+	 * `spreadconnect_settings_section_test_connection` action that
+	 * {@see self::render()} fires after the API-Connection section. The
+	 * block emits three pieces:
+	 *   - a `<button type="button">` that triggers the AJAX call from JS
+	 *     (NEVER `<input type="submit">` — that would submit the Settings
+	 *     form prematurely);
+	 *   - an empty status `<span>` the JS fills with the localised result
+	 *     message via `textContent`;
+	 *   - an inline `<script>` that wires the click handler against the
+	 *     globally-available `ajaxurl`, posting `action`, `_ajax_nonce`
+	 *     (created via `wp_create_nonce`) and the *current* (unsaved) value
+	 *     of the API-Key input.
+	 *
+	 * The nonce is re-generated on every page load (no leak from previous
+	 * sessions). The API-Key field value is read via `document.getElementById`
+	 * at click-time so the user can type a new key, click Test, get a
+	 * verdict, and only then save — exactly the slice-12 UX contract
+	 * (architecture.md Z. 141). Server-supplied messages are inserted via
+	 * `textContent` (NEVER `innerHTML`) so a translation file containing
+	 * `<` / `&` cannot become an XSS vector.
+	 *
+	 * @return void
+	 */
+	public static function renderTestConnectionSection(): void
+	{
+		$nonce = wp_create_nonce( 'spreadconnect_test_connection' );
+
+		echo '<h2 class="title">' . esc_html__( 'Test Connection', self::TEXT_DOMAIN ) . '</h2>';
+		echo '<p>' . esc_html__(
+			'Verify the API key currently entered above without saving it. The key is sent only over HTTPS to Spreadconnect.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+
+		echo '<p>';
+		printf(
+			'<button type="button" class="button" id="%1$s" data-nonce="%2$s">%3$s</button> ',
+			esc_attr( 'spreadconnect-test-connection' ),
+			esc_attr( $nonce ),
+			esc_html__( 'Test This Key', self::TEXT_DOMAIN )
+		);
+		printf(
+			'<span id="%1$s" class="spreadconnect-test-status" role="status" aria-live="polite"></span>',
+			esc_attr( 'spreadconnect-test-status' )
+		);
+		echo '</p>';
+
+		// Inline script — kept inline (rather than enqueued) because the
+		// payload is tiny and self-contained. The `ajaxurl` global is
+		// always defined by WP core in admin pages. We read the API-Key
+		// value at click-time (NOT at script-eval-time) so freshly-typed
+		// values are picked up. `textContent` (never `innerHTML`) is used
+		// to render the server-supplied message — the message is
+		// translatable (`__()`) and could in theory contain HTML-special
+		// characters; insertion via `textContent` makes that safe by
+		// construction.
+		$inlineJs = <<<'JS'
+(function () {
+	var btn = document.getElementById('spreadconnect-test-connection');
+	if (!btn) { return; }
+	var status = document.getElementById('spreadconnect-test-status');
+	var keyInput = document.getElementById('spreadconnect_api_key');
+	btn.addEventListener('click', function () {
+		if (btn.disabled) { return; }
+		btn.disabled = true;
+		if (status) {
+			status.textContent = '';
+			status.className = 'spreadconnect-test-status spreadconnect-test-status--pending';
+		}
+		var body = new URLSearchParams();
+		body.append('action', 'spreadconnect_test_connection');
+		body.append('_ajax_nonce', btn.getAttribute('data-nonce') || '');
+		body.append('api_key', keyInput ? keyInput.value : '');
+		fetch(window.ajaxurl, {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+			body: body.toString()
+		}).then(function (resp) {
+			return resp.json().catch(function () { return null; });
+		}).then(function (json) {
+			var data = json && json.data ? json.data : { ok: false, message: '' };
+			if (status) {
+				status.textContent = data.message || '';
+				status.className = 'spreadconnect-test-status ' + (data.ok ? 'spreadconnect-test-status--ok' : 'spreadconnect-test-status--error');
+			}
+		}).catch(function () {
+			if (status) {
+				status.textContent = '';
+				status.className = 'spreadconnect-test-status spreadconnect-test-status--error';
+			}
+		}).finally(function () {
+			btn.disabled = false;
+		});
+	});
+})();
+JS;
+
+		// `wp_print_inline_script_tag()` (WP 5.7+) emits a `<script>` block
+		// with proper CSP nonce support when present. Falls back to a
+		// hand-rolled tag for environments that lack the helper (very old
+		// WP, isolated unit-test bootstraps).
+		if ( function_exists( 'wp_print_inline_script_tag' ) ) {
+			wp_print_inline_script_tag( $inlineJs );
+		} else {
+			echo '<script>' . $inlineJs . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		}
 	}
 
 	// =====================================================================

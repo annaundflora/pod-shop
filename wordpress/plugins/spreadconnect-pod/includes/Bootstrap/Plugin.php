@@ -16,6 +16,7 @@ namespace SpreadconnectPod\Bootstrap;
 use Automattic\WooCommerce\Utilities\FeaturesUtil;
 use SpreadconnectPod\Catalog\AttributeProvisioner;
 use SpreadconnectPod\Catalog\SyncArticleJob;
+use SpreadconnectPod\Hub\Ajax\TestConnection as HubAjaxTestConnection;
 use SpreadconnectPod\Hub\Controller as HubController;
 use SpreadconnectPod\Hub\View\Settings as HubSettingsView;
 
@@ -156,6 +157,14 @@ final class Plugin
 		// and the `self::$initialized` guard above keeps the hook count
 		// at 1 per request anyway.
 		add_action( 'admin_init', [ HubSettingsView::class, 'registerSettings' ] );
+
+		// slice-12: Register the `wp_ajax_spreadconnect_test_connection`
+		// handler so the Settings -> "Test This Key" button can verify an
+		// unsaved API key against `GET /authentication`. The handler
+		// terminates via `wp_send_json_success/error` and never persists
+		// the POST-body key — slice-11's `SettingsValidator` remains the
+		// only persistence path. No `wp_ajax_nopriv_*` variant — admin-only.
+		HubAjaxTestConnection::register();
 	}
 
 	/**
