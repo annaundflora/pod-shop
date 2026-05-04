@@ -19,6 +19,7 @@ use SpreadconnectPod\Catalog\ArticleRemovedJob;
 use SpreadconnectPod\Catalog\AttributeProvisioner;
 use SpreadconnectPod\Catalog\SyncArticleJob;
 use SpreadconnectPod\Catalog\SyncCatalogJob;
+use SpreadconnectPod\Hub\Ajax\ExportImportSettings as HubAjaxExportImportSettings;
 use SpreadconnectPod\Hub\Ajax\OrderActions as HubAjaxOrderActions;
 use SpreadconnectPod\Hub\Ajax\ProductActions as HubAjaxProductActions;
 use SpreadconnectPod\Hub\Ajax\RegenerateSecret as HubAjaxRegenerateSecret;
@@ -313,6 +314,19 @@ final class Plugin
 		// pairs and the `self::$initialized` guard above keeps the
 		// registration count at exactly 1 per request.
 		HubAjaxSimulateEvent::register();
+
+		// slice-45: Register the Settings -> Footer Export/Import AJAX
+		// handlers (`spreadconnect_export_settings` +
+		// `spreadconnect_import_settings`). Both share the
+		// `manage_woocommerce` capability gate but mint SEPARATE nonces
+		// (per slice-45 AC-9) so a CSRF on one button cannot replay the
+		// other. Only the authenticated `wp_ajax_*` variant is registered
+		// — anonymous callers must never be able to read or rewrite
+		// operational settings, even with secrets filtered out at both
+		// ends of the roundtrip. `add_action` de-duplicates identical
+		// callable/priority pairs and the `self::$initialized` guard
+		// above keeps the registration count at exactly 1 per request.
+		HubAjaxExportImportSettings::register();
 
 		// slice-26: Register the Catalog sub-page "Sync now" AJAX handler.
 		// `Hub\Ajax\SyncNow::register()` hooks itself onto

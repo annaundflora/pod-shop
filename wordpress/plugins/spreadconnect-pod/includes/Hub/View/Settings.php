@@ -20,6 +20,7 @@ declare(strict_types=1);
 namespace SpreadconnectPod\Hub\View;
 
 use SpreadconnectPod\Bootstrap\OptionsDefaults;
+use SpreadconnectPod\Hub\Ajax\ExportImportSettings;
 use SpreadconnectPod\Settings\SettingsValidator;
 use SpreadconnectPod\Subscription\WebhookSecretManager;
 
@@ -227,6 +228,21 @@ final class Settings
 		add_action(
 			'spreadconnect_settings_section_dev_tools',
 			array( SettingsDevTools::class, 'render' )
+		);
+
+		// --- Slice-45 Export/Import footer markup hook -------------------.
+		// The slice-11 Settings::render() emits a
+		// `do_action('spreadconnect_settings_section_footer')` extension
+		// slot inside the Footer `<p class="submit">` block. Slice 45 fills
+		// the slot here so the [Export Settings JSON] + [Import Settings JSON]
+		// buttons + the inline JS click-handlers render right next to the
+		// canonical [Save Changes] button (wireframes.md Z. 614). Slice 11
+		// Constraints reserved this position explicitly. `add_action`
+		// de-duplicates identical callable/priority pairs, so re-running
+		// `registerSettings()` keeps the listener count at 1.
+		add_action(
+			'spreadconnect_settings_section_footer',
+			array( self::class, 'renderExportImportSection' )
 		);
 
 		// --- Sections ----------------------------------------------------.
@@ -890,6 +906,190 @@ JS;
 		}
 
 		return gmdate( 'Y-m-d H:i', $timestamp );
+	}
+
+	// =====================================================================
+	// Slice-45: Section ⑨ Footer "Export / Import Settings" markup
+	// =====================================================================
+
+	/**
+	 * Render the Export + Import buttons in the Settings footer (slice-45).
+	 *
+	 * Hooked from {@see self::registerSettings()} onto the
+	 * `spreadconnect_settings_section_footer` extension action that
+	 * {@see self::render()} fires inside the Footer `<p class="submit">`
+	 * block (right after the canonical [Save Changes] button). The block
+	 * emits three pieces:
+	 *
+	 *   - a `<button type="button">` that triggers a navigation to
+	 *     `admin-ajax.php?action=spreadconnect_export_settings` so the
+	 *     browser presents the response as a `.json` download;
+	 *   - a `<button type="button">` that delegates a click to a hidden
+	 *     `<input type="file" accept="application/json">`. Once the user
+	 *     picks a file, JS reads it via `FileReader.readAsText()` and POSTs
+	 *     the contents under the `payload` field;
+	 *   - a status `<span>` filled via `textContent` with the localised
+	 *     server response.
+	 *
+	 * Each button carries its own `data-nonce` attribute (separate nonces
+	 * per action — slice-45 AC-9). The nonces are minted via
+	 * `wp_create_nonce()` against the canonical action constants
+	 * {@see ExportImportSettings::ACTION_EXPORT} /
+	 * {@see ExportImportSettings::ACTION_IMPORT} so a future rename only
+	 * touches the AJAX handler class and never drifts.
+	 *
+	 * Server-supplied messages are inserted via `textContent` (NEVER
+	 * `innerHTML`) so a translation file containing `<` / `&` cannot become
+	 * an XSS vector — same rule as slice-12 / slice-14.
+	 *
+	 * @return void
+	 */
+	public static function renderExportImportSection(): void
+	{
+		$exportNonce = wp_create_nonce( ExportImportSettings::ACTION_EXPORT );
+		$importNonce = wp_create_nonce( ExportImportSettings::ACTION_IMPORT );
+
+		// AC-9: the two buttons sit beside the [Save Changes] submit. We
+		// emit them inside the same `<p class="submit">` block — the slot
+		// from `Settings::render()` already opens the paragraph, so we just
+		// append the controls.
+		printf(
+			' <button type="button" class="button" id="%1$s" data-nonce="%2$s" title="%3$s">%4$s</button>',
+			esc_attr( 'spreadconnect-export-settings' ),
+			esc_attr( $exportNonce ),
+			esc_attr__( 'Contains operational settings; transfer over a secure channel.', self::TEXT_DOMAIN ),
+			esc_html__( 'Export Settings JSON', self::TEXT_DOMAIN )
+		);
+
+		printf(
+			' <button type="button" class="button" id="%1$s" data-nonce="%2$s">%3$s</button>',
+			esc_attr( 'spreadconnect-import-settings' ),
+			esc_attr( $importNonce ),
+			esc_html__( 'Import Settings JSON', self::TEXT_DOMAIN )
+		);
+
+		// Hidden file picker — clicked by the [Import Settings JSON] button
+		// via JS. `accept="application/json"` is a soft filter (browsers do
+		// not enforce it) but improves the file-picker UX. The element is
+		// `aria-hidden` because keyboard users interact with the visible
+		// button instead.
+		printf(
+			'<input type="file" id="%1$s" accept="application/json" style="display:none" aria-hidden="true" />',
+			esc_attr( 'spreadconnect-import-settings-file' )
+		);
+
+		// Status pane mirrors the slice-12 / slice-14 convention.
+		printf(
+			' <span id="%1$s" class="spreadconnect-export-import-status" role="status" aria-live="polite"></span>',
+			esc_attr( 'spreadconnect-export-import-status' )
+		);
+
+		// Inline script — kept inline (rather than enqueued) because the
+		// payload is tiny and self-contained. The `ajaxurl` global is
+		// always defined by WP core in admin pages.
+		//
+		// Export-flow: build a hidden `<form method="POST" action="ajaxurl">`
+		// carrying `action` + `_wpnonce`, append it to `<body>`, submit it,
+		// and remove it. The browser reacts to the
+		// `Content-Disposition: attachment` header by streaming the
+		// response into a download — a `fetch()` call would receive the
+		// body as a JSON string, which is not what we want here.
+		//
+		// Import-flow: delegate the click to the hidden file picker, read
+		// the chosen file via `FileReader.readAsText`, then POST it via
+		// `fetch` with `payload` + `action` + `_wpnonce` form-encoded.
+		// `textContent` is used to render the server-supplied message so
+		// translations containing HTML-special chars are safe.
+		$inlineJs = <<<'JS'
+(function () {
+	var exportBtn = document.getElementById('spreadconnect-export-settings');
+	var importBtn = document.getElementById('spreadconnect-import-settings');
+	var fileInput = document.getElementById('spreadconnect-import-settings-file');
+	var status    = document.getElementById('spreadconnect-export-import-status');
+
+	function setStatus(message, kind) {
+		if (!status) { return; }
+		status.textContent = message || '';
+		status.className   = 'spreadconnect-export-import-status spreadconnect-export-import-status--' + (kind || 'idle');
+	}
+
+	if (exportBtn) {
+		exportBtn.addEventListener('click', function () {
+			if (exportBtn.disabled) { return; }
+			setStatus('', 'pending');
+			var form = document.createElement('form');
+			form.method = 'POST';
+			form.action = window.ajaxurl;
+			form.style.display = 'none';
+			var actionField = document.createElement('input');
+			actionField.type = 'hidden';
+			actionField.name = 'action';
+			actionField.value = 'spreadconnect_export_settings';
+			form.appendChild(actionField);
+			var nonceField = document.createElement('input');
+			nonceField.type = 'hidden';
+			nonceField.name = '_wpnonce';
+			nonceField.value = exportBtn.getAttribute('data-nonce') || '';
+			form.appendChild(nonceField);
+			document.body.appendChild(form);
+			form.submit();
+			document.body.removeChild(form);
+		});
+	}
+
+	if (importBtn && fileInput) {
+		importBtn.addEventListener('click', function () {
+			if (importBtn.disabled) { return; }
+			fileInput.value = '';
+			fileInput.click();
+		});
+		fileInput.addEventListener('change', function () {
+			if (!fileInput.files || !fileInput.files[0]) { return; }
+			var file   = fileInput.files[0];
+			var reader = new FileReader();
+			setStatus('', 'pending');
+			importBtn.disabled = true;
+			reader.onload = function () {
+				var payload = (reader.result || '').toString();
+				var body    = new URLSearchParams();
+				body.append('action', 'spreadconnect_import_settings');
+				body.append('_wpnonce', importBtn.getAttribute('data-nonce') || '');
+				body.append('payload', payload);
+				fetch(window.ajaxurl, {
+					method: 'POST',
+					credentials: 'same-origin',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+					body: body.toString()
+				}).then(function (resp) {
+					return resp.json().catch(function () { return null; });
+				}).then(function (json) {
+					var data = json && json.data ? json.data : {};
+					if (json && json.success) {
+						setStatus('Imported ' + (data.imported || 0) + ' option(s).', 'ok');
+					} else {
+						setStatus(data.message || 'Import failed.', 'error');
+					}
+				}).catch(function () {
+					setStatus('Import failed.', 'error');
+				}).finally(function () {
+					importBtn.disabled = false;
+				});
+			};
+			reader.onerror = function () {
+				setStatus('Could not read file.', 'error');
+				importBtn.disabled = false;
+			};
+			reader.readAsText(file);
+		});
+	}
+})();
+JS;
+
+		if ( function_exists( 'wp_print_inline_script_tag' ) ) {
+			wp_print_inline_script_tag( $inlineJs );
+		} else {
+			echo '<script>' . $inlineJs . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		}
 	}
 
 	// =====================================================================
