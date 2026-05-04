@@ -18,6 +18,7 @@ use SpreadconnectPod\Api\SpreadconnectClient;
 use SpreadconnectPod\Catalog\AttributeProvisioner;
 use SpreadconnectPod\Catalog\SyncArticleJob;
 use SpreadconnectPod\Catalog\SyncCatalogJob;
+use SpreadconnectPod\Hub\Ajax\OrderActions as HubAjaxOrderActions;
 use SpreadconnectPod\Hub\Ajax\ProductActions as HubAjaxProductActions;
 use SpreadconnectPod\Hub\Ajax\RegenerateSecret as HubAjaxRegenerateSecret;
 use SpreadconnectPod\Hub\Ajax\RepairSubscriptions as HubAjaxRepairSubscriptions;
@@ -26,6 +27,7 @@ use SpreadconnectPod\Hub\Ajax\TestConnection as HubAjaxTestConnection;
 use SpreadconnectPod\Hub\Controller as HubController;
 use SpreadconnectPod\Hub\Rest\SyncProgress as HubRestSyncProgress;
 use SpreadconnectPod\Hub\View\Settings as HubSettingsView;
+use SpreadconnectPod\Inline\OrderMetaBox as InlineOrderMetaBox;
 use SpreadconnectPod\Inline\ProductMetaBox as InlineProductMetaBox;
 use SpreadconnectPod\Order\OrderCancelJob;
 use SpreadconnectPod\Order\OrderConfirmJob;
@@ -385,6 +387,24 @@ final class Plugin
 			'wp_ajax_spreadconnect_refresh_stock',
 			[ HubAjaxProductActions::class, 'refreshStockStatic' ]
 		);
+
+		// slice-32: Mount the WC-Order-Edit "Spreadconnect" sidebar meta-box
+		// and its five AJAX handlers (Confirm / Cancel / Refresh-State /
+		// Save-Shipping-Type / Cancel-Auto-Confirm).
+		//
+		// `add_meta_boxes` registers the box on BOTH the HPOS screen-id
+		// (`woocommerce_page_wc-orders`) and the legacy `shop_order` screen
+		// — the callback inspects its argument to dual-register without
+		// rendering on unrelated screens. `admin_enqueue_scripts` is screen-
+		// guarded inside the callback so the JS never loads on unrelated
+		// admin pages. The five `wp_ajax_*` actions share the
+		// `spreadconnect_admin` nonce minted by `enqueueAssets()` and the
+		// `manage_woocommerce` capability gate; only the authenticated
+		// `wp_ajax_*` variant is registered — admin-only (no `nopriv_*`).
+		add_action( 'add_meta_boxes', [ InlineOrderMetaBox::class, 'registerOnAddMetaBoxes' ] );
+		add_action( 'admin_enqueue_scripts', [ InlineOrderMetaBox::class, 'enqueueAssets' ] );
+
+		HubAjaxOrderActions::register();
 	}
 
 	/**
