@@ -96,7 +96,6 @@ namespace {
 			public function get_var( string $query ) { return null; }
 		}
 	}
-}
 
 namespace SpreadconnectPod\Tests {
 
