@@ -23,6 +23,7 @@ use SpreadconnectPod\Hub\Ajax\OrderActions as HubAjaxOrderActions;
 use SpreadconnectPod\Hub\Ajax\ProductActions as HubAjaxProductActions;
 use SpreadconnectPod\Hub\Ajax\RegenerateSecret as HubAjaxRegenerateSecret;
 use SpreadconnectPod\Hub\Ajax\RepairSubscriptions as HubAjaxRepairSubscriptions;
+use SpreadconnectPod\Hub\Ajax\SimulateEvent as HubAjaxSimulateEvent;
 use SpreadconnectPod\Hub\Ajax\SyncNow as HubAjaxSyncNow;
 use SpreadconnectPod\Hub\Ajax\TestConnection as HubAjaxTestConnection;
 use SpreadconnectPod\Hub\Controller as HubController;
@@ -298,6 +299,20 @@ final class Plugin
 		// authenticated `wp_ajax_*` variant — anonymous callers must never
 		// be able to rewrite subscriptions.
 		HubAjaxRepairSubscriptions::register();
+
+		// slice-44: Register the Settings -> Developer-Tools "Simulate-*"
+		// AJAX handler (`spreadconnect_simulate_event`). The handler is
+		// gated on `manage_woocommerce` + `spreadconnect_simulate_event`
+		// nonce + the server-side `spreadconnect_use_staging` toggle, and
+		// dispatches to one of three `SpreadconnectClient::simulate*()`
+		// wrappers (slice-10) on success. Cap + nonce + staging gates
+		// terminate via 403 before any business logic runs; client/transient
+		// errors map to 400/502. Only the authenticated `wp_ajax_*` variant
+		// is registered — anonymous callers must never trigger Simulate
+		// calls. `add_action` de-duplicates identical callable/priority
+		// pairs and the `self::$initialized` guard above keeps the
+		// registration count at exactly 1 per request.
+		HubAjaxSimulateEvent::register();
 
 		// slice-26: Register the Catalog sub-page "Sync now" AJAX handler.
 		// `Hub\Ajax\SyncNow::register()` hooks itself onto

@@ -212,6 +212,23 @@ final class Settings
 			array( self::class, 'renderWebhookSecuritySection' )
 		);
 
+		// --- Slice-44 Dev-Tools section markup hook ----------------------.
+		// The slice-11 Settings::render() emits a
+		// `do_action('spreadconnect_settings_section_dev_tools')` extension
+		// slot above the ⑨ Footer section. Slice 44 fills the slot here so
+		// the Simulate-* buttons + Test-Order-ID input + status pane render
+		// in the canonical Dev-Tools position (wireframes.md Z. 647). The
+		// `SettingsDevTools::render()` method self-gates on
+		// `spreadconnect_use_staging` + `manage_woocommerce` and emits
+		// nothing in production — the empty render keeps the production DOM
+		// clean. `add_action` de-duplicates identical callable/priority
+		// pairs, so re-running `registerSettings()` keeps the listener
+		// count at 1.
+		add_action(
+			'spreadconnect_settings_section_dev_tools',
+			array( SettingsDevTools::class, 'render' )
+		);
+
 		// --- Sections ----------------------------------------------------.
 		add_settings_section(
 			self::SECTION_API,
