@@ -33,3 +33,8 @@
 {"ts":"2026-05-04T16:00:00+00:00","slice":"slice-11","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":3,"resolution":"pre_update_option filter + registration order invariant"}
 {"ts":"2026-05-04T16:30:00+00:00","slice":"slice-11","gate":"tests","result":"PASSED","retries":0}
 {"ts":"2026-05-04T16:30:00+00:00","slice":"slice-23","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T17:00:00+00:00","slice":"slice-13","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T17:00:00+00:00","slice":"slice-12","gate":"code_review","verdict":"REJECTED","findings_count":1,"attempt":1,"reason":"em-dash i18n string mismatch"}
+{"ts":"2026-05-04T17:10:00+00:00","slice":"slice-12","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":2,"resolution":"replaced -- with em-dash U+2014"}
+{"ts":"2026-05-04T17:00:00+00:00","slice":"slice-24","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T17:00:00+00:00","slice":"slice-28","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}

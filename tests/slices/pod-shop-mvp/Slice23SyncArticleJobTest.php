@@ -274,6 +274,17 @@ namespace SpreadconnectPod\Tests {
 			$mapper     = Mockery::mock( 'overload:SpreadconnectPod\\Catalog\\ProductMapper' );
 			$repo       = Mockery::mock( 'overload:SpreadconnectPod\\Catalog\\SyncHistoryRepo' );
 
+			// slice-24 AC-8: SyncArticleJob calls one of the four counter-
+			// increment methods AFTER appendDetail() (status-driven dispatch).
+			// Slice-23 specs do NOT exercise these calls, so we accept zero-
+			// or-more on every variant — keeps slice-23 ACs green while the
+			// overload mock still satisfies the new method-existence check
+			// inside SyncArticleJob::incrementCounterForStatus().
+			$repo->shouldReceive( 'incrementCreated' )->zeroOrMoreTimes();
+			$repo->shouldReceive( 'incrementUpdated' )->zeroOrMoreTimes();
+			$repo->shouldReceive( 'incrementSkipped' )->zeroOrMoreTimes();
+			$repo->shouldReceive( 'incrementError' )->zeroOrMoreTimes();
+
 			// `Mockery::mock('overload:Foo')` returns an object that IS the
 			// class-level mock AND a valid `instanceof Foo` instance. Pass the
 			// returned mock objects directly into the SUT — every `new Foo()`
