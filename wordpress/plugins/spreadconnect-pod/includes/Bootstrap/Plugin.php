@@ -16,6 +16,8 @@ namespace SpreadconnectPod\Bootstrap;
 use Automattic\WooCommerce\Utilities\FeaturesUtil;
 use SpreadconnectPod\Catalog\AttributeProvisioner;
 use SpreadconnectPod\Catalog\SyncArticleJob;
+use SpreadconnectPod\Hub\Controller as HubController;
+use SpreadconnectPod\Hub\View\Settings as HubSettingsView;
 
 /**
  * Central bootstrap for the Spreadconnect POD plugin.
@@ -136,6 +138,24 @@ final class Plugin
 			10,
 			1
 		);
+
+		// slice-13: Mount the Spreadconnect Hub admin sub-page under the
+		// `WooCommerce` parent menu. `Hub\Controller::registerMenu()` is
+		// hooked to `admin_menu` (priority 10) so it fires after WC has
+		// registered its own top-level menu but before WP renders the
+		// admin chrome. The dispatcher inside the controller handles
+		// capability gating + section routing.
+		add_action( 'admin_menu', [ HubController::class, 'registerMenu' ] );
+
+		// slice-13: Wire the slice-11 Settings registrar to `admin_init`.
+		// Slice 11 deferred this hook explicitly to slice-13 (see Settings
+		// docblock @see registerSettings — "Hooked from Bootstrap\Plugin
+		// (slice-13) on `admin_init`."). Without this hook the Settings
+		// API would have no fields to render even though the page is
+		// reachable. WP de-duplicates identical callable/priority pairs,
+		// and the `self::$initialized` guard above keeps the hook count
+		// at 1 per request anyway.
+		add_action( 'admin_init', [ HubSettingsView::class, 'registerSettings' ] );
 	}
 
 	/**
