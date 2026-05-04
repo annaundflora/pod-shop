@@ -14,12 +14,16 @@ declare(strict_types=1);
 namespace SpreadconnectPod\Bootstrap;
 
 use Automattic\WooCommerce\Utilities\FeaturesUtil;
+use SpreadconnectPod\Api\SpreadconnectClient;
 use SpreadconnectPod\Catalog\AttributeProvisioner;
 use SpreadconnectPod\Catalog\SyncArticleJob;
 use SpreadconnectPod\Catalog\SyncCatalogJob;
 use SpreadconnectPod\Hub\Ajax\TestConnection as HubAjaxTestConnection;
 use SpreadconnectPod\Hub\Controller as HubController;
 use SpreadconnectPod\Hub\View\Settings as HubSettingsView;
+use SpreadconnectPod\Order\OrderHandler;
+use SpreadconnectPod\Order\OrderStateMachine;
+use SpreadconnectPod\Order\OrderSubmitJob;
 
 /**
  * Central bootstrap for the Spreadconnect POD plugin.
@@ -184,6 +188,43 @@ final class Plugin
 		// the POST-body key — slice-11's `SettingsValidator` remains the
 		// only persistence path. No `wp_ajax_nopriv_*` variant — admin-only.
 		HubAjaxTestConnection::register();
+
+		// slice-28: Wire the WC processing-hook listener and the
+		// `spreadconnect/create_order` Action-Scheduler job handler.
+		//
+		// The two hooks together implement the outbound order-submit
+		// pipeline (architecture.md Z. 401-430 — Flow C). The handler
+		// instances are constructed inline; the real DI container is
+		// introduced in slice-37 (RetryPolicyListener wiring). Idempotency
+		// of this `init()` body keeps `add_action()` calls at exactly one
+		// per request — `has_action()` returns identical for repeated
+		// `init()` invocations (slice-28 AC-9).
+		add_action(
+			'woocommerce_order_status_processing',
+			[ new OrderHandler(), 'on_processing' ],
+			10,
+			2
+		);
+
+		// `spreadconnect/create_order` AS-job handler. AS dispatches the
+		// args-array as the first parameter (AC-9: priority 10, args 1).
+		// The closure resolves the `$wpdb` global lazily so the production
+		// path always sees the live DB connection while unit tests can
+		// stub the dependencies via `OrderSubmitJob::__construct()` directly.
+		add_action(
+			'spreadconnect/create_order',
+			static function ( array $args ): void {
+				global $wpdb;
+
+				$job = new OrderSubmitJob(
+					new SpreadconnectClient(),
+					new OrderStateMachine( $wpdb )
+				);
+				$job->handle( $args );
+			},
+			10,
+			1
+		);
 	}
 
 	/**
