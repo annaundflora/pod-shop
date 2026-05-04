@@ -232,39 +232,51 @@ final class SettingsValidator
 	}
 
 	/**
-	 * Cross-field gating enforced after every `update_option` call.
+	 * Cross-field gating enforced *before* `spreadconnect_auto_confirm` is
+	 * written to the database.
 	 *
 	 * Wired from {@see \SpreadconnectPod\Hub\View\Settings::registerSettings()}
-	 * via `add_action('updated_option', …, 10, 3)`. WP fires this action
-	 * after every successful `update_option` call. Because per-option
-	 * `sanitize_callback`s run independently, the Auto-Confirm-Gating
-	 * cross-field rule (slice-11 AC-3) cannot be enforced inside
-	 * {@see self::sanitizeOne()} alone — when an admin saves
-	 * `spreadconnect_default_shipping_type = ''` the auto-confirm option
-	 * has already been written by an earlier per-option call. This action
-	 * corrects that: it forces `spreadconnect_auto_confirm = 'off'`
-	 * whenever the (just-updated) default shipping type collapses to ''.
+	 * via `add_filter('pre_update_option_spreadconnect_auto_confirm', …)`.
+	 * WP runs `pre_update_option_{$option_name}` filters during
+	 * `update_option()` after the per-option `sanitize_callback`
+	 * ({@see self::sanitizeOne()}) has produced a per-field-valid value but
+	 * BEFORE the value is written to `wp_options`. That ordering is the
+	 * autoritative correction for the Auto-Confirm-Gating rule (slice-11
+	 * AC-3, `architecture.md` Z. 326):
 	 *
-	 * Idempotent — when auto-confirm is already `'off'` `update_option()`
-	 * is a no-op, so no recursive `updated_option` fires meaningfully.
+	 *   1. `wp-admin/options.php` iterates options in `register_setting`
+	 *      registration order. {@see \SpreadconnectPod\Hub\View\Settings::registerSettings()}
+	 *      registers `spreadconnect_default_shipping_type` BEFORE
+	 *      `spreadconnect_auto_confirm`, so by the time WP processes the
+	 *      auto-confirm option the new shipping-type value has already been
+	 *      persisted.
+	 *   2. This filter therefore reads the *just-updated* shipping type via
+	 *      `get_option()` and, if it collapsed to `''` (= None), overrides
+	 *      `$value` with `'off'`. Otherwise the per-field-validated value
+	 *      from {@see self::sanitizeOne()} passes through unchanged.
 	 *
-	 * @param string $option_name The option key WP just persisted.
-	 * @param mixed  $old_value   Pre-update value (unused).
-	 * @param mixed  $value       Post-update value just written.
+	 * The filter is idempotent: running it twice with the same input yields
+	 * the same output, so a `pre_update_option` re-entrancy would be safe.
 	 *
-	 * @return void
+	 * @param mixed $value New value WP is about to persist for
+	 *                     `spreadconnect_auto_confirm` (already
+	 *                     per-field-validated by
+	 *                     {@see self::sanitizeOne()}).
+	 *
+	 * @return mixed Either the validated `$value` unchanged, or the literal
+	 *               string `'off'` when the gating rule kicks in.
 	 */
-	public static function enforceAutoConfirmGating( string $option_name, mixed $old_value, mixed $value ): void
+	public static function gateAutoConfirmOnPreUpdate( mixed $value ): mixed
 	{
-		if ( 'spreadconnect_default_shipping_type' !== $option_name ) {
-			return;
-		}
+		$shipping_type = get_option( 'spreadconnect_default_shipping_type', '' );
 
 		// Empty (= None) shipping type forces auto-confirm off, mirroring
 		// the array-mode gating in {@see self::sanitize()}.
-		if ( is_string( $value ) && '' === $value ) {
-			update_option( 'spreadconnect_auto_confirm', 'off' );
+		if ( ! is_string( $shipping_type ) || '' === $shipping_type ) {
+			return 'off';
 		}
+
+		return $value;
 	}
 
 	/**

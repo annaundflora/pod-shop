@@ -160,20 +160,27 @@ final class Settings
 	public static function registerSettings(): void
 	{
 		// --- Cross-field gating hook -------------------------------------.
-		// `updated_option` fires after every successful `update_option()`.
-		// The Auto-Confirm-Gating rule (slice-11 AC-3,
-		// architecture.md Z. 326) cannot be expressed inside a per-option
-		// `sanitize_callback` because each callback sees only one key, so
-		// we listen to `updated_option` and force `spreadconnect_auto_confirm`
-		// to `'off'` whenever `spreadconnect_default_shipping_type` is
-		// saved as an empty string. WP de-duplicates identical
-		// callable/priority pairs, so re-running `registerSettings()` (e.g.
-		// twice on the same `admin_init`) leaves the hook count at 1.
-		add_action(
-			'updated_option',
-			array( SettingsValidator::class, 'enforceAutoConfirmGating' ),
-			10,
-			3
+		// `pre_update_option_spreadconnect_auto_confirm` fires during
+		// `update_option()` AFTER the per-option `sanitize_callback` has
+		// produced a per-field-valid value but BEFORE the value is written
+		// to `wp_options`. That ordering is the authoritative correction
+		// for the Auto-Confirm-Gating rule (slice-11 AC-3,
+		// architecture.md Z. 326): a previous `updated_option`-based fix
+		// was order-dependent and got overwritten by WP's own
+		// `options.php`-iteration. Because this slice registers
+		// `spreadconnect_default_shipping_type` BEFORE
+		// `spreadconnect_auto_confirm` (see registration order below) and
+		// `wp-admin/options.php` iterates options in registration order,
+		// the just-updated shipping type is already persisted by the time
+		// this filter runs — so {@see SettingsValidator::gateAutoConfirmOnPreUpdate()}
+		// can read it with a plain `get_option()` and override `$value`
+		// with `'off'` when it collapsed to `''` (= None).
+		// WP de-duplicates identical callable/priority pairs, so re-running
+		// `registerSettings()` (e.g. twice on the same `admin_init`) leaves
+		// the filter count at 1.
+		add_filter(
+			'pre_update_option_spreadconnect_auto_confirm',
+			array( SettingsValidator::class, 'gateAutoConfirmOnPreUpdate' )
 		);
 
 		// --- Sections ----------------------------------------------------.
@@ -212,9 +219,10 @@ final class Settings
 		// of one option via `sanitize_option_{$name}`, so the dispatcher
 		// resolves the option name from its 2nd argument or
 		// `current_filter()` and runs only the per-field validation.
-		// Cross-field auto-confirm gating runs separately on the
-		// `updated_option` action below — a per-option callback alone
-		// cannot enforce it because each callback sees only one key.
+		// Cross-field auto-confirm gating runs separately via the
+		// `pre_update_option_spreadconnect_auto_confirm` filter registered
+		// above — a per-option `sanitize_callback` alone cannot enforce it
+		// because each callback sees only one key.
 		$sanitize = array( SettingsValidator::class, 'sanitizeOne' );
 
 		// ① API Connection.
@@ -235,6 +243,12 @@ final class Settings
 		);
 
 		// ⑥ Order Behavior.
+		// IMPORTANT: `spreadconnect_default_shipping_type` MUST be registered
+		// BEFORE `spreadconnect_auto_confirm`. `wp-admin/options.php` iterates
+		// options in registration order, and the cross-field gating filter
+		// {@see SettingsValidator::gateAutoConfirmOnPreUpdate()} relies on the
+		// new shipping-type value being persisted before the auto-confirm
+		// option is written. Reordering these two calls breaks slice-11 AC-3.
 		self::registerOption( 'spreadconnect_default_shipping_type', $sanitize, 'string' );
 		self::addField(
 			'spreadconnect_default_shipping_type',
