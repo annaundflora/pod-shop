@@ -587,25 +587,40 @@ final class Slice06I18nTextdomainTest extends TestCase
     // ===================================================================
 
     /**
-     * AC-4: Stub-Datei existiert mit Pflicht-Headern.
+     * AC-4: PO-Datei existiert mit Pflicht-Headern.
+     *
+     * Slice-46 hat den Slice-06 Stub durch eine vollstaendige Uebersetzung
+     * ersetzt (siehe `slice-46-i18n-de-readme.md` AC-1). Die Pflicht-Header
+     * sind jetzt:
+     *   - Project-Id-Version: Spreadconnect POD <Version>
+     *     (Slice-46 AC-1, NICHT mehr "spreadconnect-pod 2.0.0")
+     *   - Language: de_DE
+     *   - MIME-Version: 1.0
+     *   - Content-Type: text/plain; charset=UTF-8
+     *   - Plural-Forms: nplurals=2; plural=(n != 1);
+     *   - X-Domain: spreadconnect-pod
      */
     public function test_de_de_po_stub_file_exists_with_required_headers(): void
     {
         $file = self::deDeStubFile();
         $this->assertFileExists(
             $file,
-            'AC-4: PO-Stub muss unter languages/spreadconnect-pod-de_DE.po existieren.'
+            'AC-4: PO-Datei muss unter languages/spreadconnect-pod-de_DE.po existieren.'
         );
 
         $contents = (string) file_get_contents($file);
-        $this->assertNotSame('', $contents, 'AC-4: PO-Stub darf nicht leer sein.');
+        $this->assertNotSame('', $contents, 'AC-4: PO-Datei darf nicht leer sein.');
 
-        // Pflicht-Header laut AC-4.
+        // Pflicht-Header laut Slice-46 AC-1 (ersetzt den Slice-06-Stub-Vertrag).
+        // Project-Id-Version traegt jetzt den humanlesbaren Plugin-Namen
+        // ("Spreadconnect POD <Version>") statt des Plugin-Slugs.
         $required = [
-            'Project-Id-Version' => 'spreadconnect-pod 2.0.0',
+            'Project-Id-Version' => 'Spreadconnect POD 2.0.0',
             'Language'           => 'de_DE',
             'MIME-Version'       => '1.0',
             'Content-Type'       => 'text/plain; charset=UTF-8',
+            'Plural-Forms'       => 'nplurals=2; plural=(n != 1);',
+            'X-Domain'           => 'spreadconnect-pod',
         ];
 
         foreach ($required as $headerName => $expectedValue) {
@@ -617,7 +632,7 @@ final class Slice06I18nTextdomainTest extends TestCase
                 $pattern,
                 $contents,
                 sprintf(
-                    'AC-4: PO-Stub muss den gettext-Header "%s: %s" enthalten — '
+                    'AC-4: PO-Datei muss den gettext-Header "%s: %s" enthalten — '
                     . 'andernfalls scheitert msgfmt --check und WP findet das .mo nicht.',
                     $headerName,
                     $expectedValue
@@ -627,45 +642,82 @@ final class Slice06I18nTextdomainTest extends TestCase
     }
 
     /**
-     * AC-4: PO-Stub enthaelt null Translation-Eintraege — nur der
-     * Header-Block (msgid "" + msgstr "<headers>"). Inhalt kommt in Slice 46.
+     * AC-4 (Slice-46-aktualisiert): PO-Datei enthaelt vollstaendige
+     * Translations.
+     *
+     * Slice-06 hatte einen Header-only Stub vorgesehen (`# Inhalt kommt in
+     * Slice 46`). Slice-46 (`slice-46-i18n-de-readme.md` AC-1) hat den Stub
+     * durch eine vollstaendige Uebersetzung aller `__()`-Strings aus den
+     * Slices 02-45 ersetzt. Daher pruefen wir jetzt das Gegenteil:
+     *
+     *   - Der Header-Block (msgid "" + msgstr "<headers>") ist weiterhin
+     *     vorhanden (msgfmt-Pflicht).
+     *   - Mehrere Translation-Eintraege existieren (msgid "<source>" mit
+     *     non-empty msgstr "<translation>").
+     *   - Keine User-facing msgid hat ein leeres msgstr "" (Slice-46
+     *     Constraint "Keine `msgstr ""` (leere Uebersetzung) fuer
+     *     User-facing Strings").
      */
     public function test_de_de_po_stub_has_no_translation_entries(): void
     {
         $file = self::deDeStubFile();
-        $this->assertFileExists($file, 'AC-4: PO-Stub muss existieren.');
+        $this->assertFileExists($file, 'AC-4: PO-Datei muss existieren.');
 
         $contents = (string) file_get_contents($file);
 
         // Anzahl `msgid`-Direktiven am Zeilenanfang zaehlen.
         // Der Header-Eintrag ist `msgid ""` (leer). Jeder weitere
-        // `msgid "..."` ist ein Translation-Eintrag und damit verboten.
+        // `msgid "..."` ist ein User-facing Translation-Eintrag.
         $allMsgIds   = preg_match_all('/^msgid\s+"/m', $contents) ?: 0;
         $emptyMsgIds = preg_match_all('/^msgid\s+""\s*$/m', $contents) ?: 0;
 
-        $this->assertSame(
-            1,
-            $allMsgIds,
-            'AC-4: PO-Stub muss genau EINEN msgid-Eintrag enthalten (den Header-Eintrag '
-            . 'msgid ""). Translation-Strings folgen erst in Slice 46.'
-        );
-
+        // Header-Block: genau EIN `msgid ""` am Anfang.
         $this->assertSame(
             1,
             $emptyMsgIds,
-            'AC-4: Der eine msgid-Eintrag MUSS msgid "" (leer) sein — der gettext-'
-            . 'Header-Block. Jeder gefuellte msgid waere ein Translation-Eintrag.'
+            'AC-4: PO-Datei MUSS genau einen leeren `msgid ""` (Header-Block) enthalten — '
+            . 'msgfmt verlangt diesen Header-Eintrag.'
         );
 
-        // Zum Sanity-Check: der msgstr-Block muss multi-line sein
-        // (Header-Lines), nicht ein einzelnes leeres msgstr "".
-        // Wir pruefen: nach dem ersten `msgstr ""` MUSS mindestens eine
-        // weitere Zeile mit `"<Header-Name>: ...\n"` folgen.
+        // Slice-46: ZUSAETZLICH zum Header-Block muessen mehrere Translation-
+        // Eintraege existieren. Wir setzen die Untergrenze grosszuegig auf
+        // 50, weil die tatsaechliche Anzahl je nach hinzukommenden Slices
+        // schwanken kann (aktuell 334).
+        $this->assertGreaterThan(
+            50,
+            $allMsgIds,
+            sprintf(
+                'AC-4 (Slice-46): PO-Datei MUSS deutsche Uebersetzungen aller __()-Strings '
+                . 'aus den Slices 02-45 enthalten. Erwartet > 50 msgid-Eintraege; gefunden: %d',
+                $allMsgIds
+            )
+        );
+
+        // Der msgstr-Block direkt nach dem Header-`msgid ""` MUSS multi-line
+        // sein (Header-Lines), nicht ein einzelnes leeres msgstr "".
         $this->assertMatchesRegularExpression(
             '/msgstr\s+""\s*\n\s*"[A-Z][A-Za-z\-]+:/',
             $contents,
             'AC-4: Auf msgstr "" muss mindestens eine Header-Zeile folgen '
             . '(Project-Id-Version, Language, MIME-Version, Content-Type).'
+        );
+
+        // Slice-46 AC-1 Constraint: Keine User-facing msgid darf ein leeres
+        // msgstr "" haben. Wir suchen nach `msgid "<non-empty>"` direkt
+        // gefolgt von `msgstr ""` (auf Zeilenanfang) — wenn das vorkommt,
+        // waere die Translation versehentlich leer.
+        $emptyTranslationCount = preg_match_all(
+            '/^msgid\s+"[^"]+"\s*\nmsgstr\s+""\s*$/m',
+            $contents
+        ) ?: 0;
+        $this->assertSame(
+            0,
+            $emptyTranslationCount,
+            sprintf(
+                'AC-4 (Slice-46 Constraint): Keine User-facing msgid darf ein leeres '
+                . 'msgstr "" haben. Gefunden: %d leere Uebersetzungen.',
+                $emptyTranslationCount
+            )
         );
     }
 

@@ -507,6 +507,14 @@ final class WebhookLogRepo
 	{
 		global $wpdb;
 
+		// Defensive guard for non-WP test contexts where `$wpdb` may not be
+		// bootstrapped. A missing `$wpdb` is treated as "no rows", never as
+		// a fatal — mirrors the existing `function_exists()` defensiveness
+		// elsewhere in the codebase.
+		if ( ! isset( $wpdb ) || null === $wpdb || ! is_object( $wpdb ) ) {
+			return null;
+		}
+
 		$table = $wpdb->prefix . self::TABLE_SUFFIX;
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared

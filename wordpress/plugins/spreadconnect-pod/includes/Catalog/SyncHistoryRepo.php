@@ -423,6 +423,14 @@ final class SyncHistoryRepo
 	{
 		global $wpdb;
 
+		// Defensive guard for non-WP test contexts where `$wpdb` may not be
+		// bootstrapped. Mirrors the existing `function_exists()` defensiveness
+		// elsewhere in the codebase — a missing `$wpdb` is treated as "no
+		// rows", never as a fatal.
+		if ( ! isset( $wpdb ) || null === $wpdb || ! is_object( $wpdb ) ) {
+			return null;
+		}
+
 		$table = $wpdb->prefix . self::TABLE_SUFFIX;
 
 		$sql = $wpdb->prepare(

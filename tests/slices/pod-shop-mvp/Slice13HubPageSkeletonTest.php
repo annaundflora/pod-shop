@@ -184,6 +184,54 @@ final class Slice13HubPageSkeletonTest extends TestCase
     }
 
     /**
+     * Stub Dashboard real-impl dependencies (Slice-46).
+     *
+     * Slice-46 turned the Dashboard from a placeholder view into a real impl
+     * that reads from FailedOpsRepo, SyncHistoryRepo, WebhookLogRepo and
+     * SubscriptionManager. To keep Slice-13 routing tests green, we stub the
+     * collaborators with empty / no-op responses so each card body renders
+     * its empty-state branch without performing any real persistence work.
+     *
+     * Brain\Monkey state-pollution: once any earlier test in the suite has
+     * stubbed `wc_get_logger`, `function_exists('wc_get_logger')` keeps
+     * returning `true` for the rest of the process — even after
+     * `Monkey\tearDown()` removes the expectation. So if a Dashboard render
+     * ever lands in `WcLoggerAdapter::log()` (e.g. from the per-card
+     * `try/catch` fallback), it would throw `MissingFunctionExpectations`.
+     * Stubbing `wc_get_logger` here defends against that drift.
+     *
+     * Also seeds `$GLOBALS['wpdb']` with the canonical stub so
+     * `FailedOpsRepo`'s `$this->wpdb` reference resolves to the in-memory
+     * stub from `tests/stubs/wc-classes.php` (returns `null` for `get_var()`
+     * and an empty array for `get_results()`).
+     */
+    private static function stubDashboardDependencies(): void
+    {
+        // Brain\Monkey: silence wc_get_logger so WcLoggerAdapter::log() is a no-op.
+        Monkey\Functions\when('wc_get_logger')->justReturn(null);
+
+        // Seed $wpdb so FailedOpsRepo + SyncHistoryRepo + WebhookLogRepo all
+        // see a real (stub) wpdb instance.
+        if (! isset($GLOBALS['wpdb']) || ! ($GLOBALS['wpdb'] instanceof \wpdb)) {
+            $GLOBALS['wpdb'] = new \wpdb();
+        }
+
+        // Connection card reads sc_health; Webhooks card reads
+        // sc_subscriptions_status. Both default to false → empty-state.
+        Monkey\Functions\when('get_transient')->justReturn(false);
+        // Connection card retest-button + Failed-Ops card deep-link only if
+        // count > 0; AdminNoticeStore::loadList() guards itself.
+        Monkey\Functions\when('get_option')->alias(function ($key, $default = false) {
+            return $default;
+        });
+        // date_i18n is only invoked when checked_at > 0 / started_at present —
+        // none of those code-paths trigger here, but stub defensively.
+        Monkey\Functions\when('date_i18n')->alias(function ($format, $timestamp = false) {
+            return is_int($timestamp) ? gmdate('Y-m-d H:i:s', $timestamp) : '';
+        });
+    }
+
+    /**
      * Reset Render-Counter aller stub View-Klassen, damit Tests
      * unabhaengig sind. Catalog (Slice-26), Subscriptions (Slice-19),
      * Webhooks (Slice-41), Logs (Slice-42) und FailedOps (Slice-38)
@@ -235,6 +283,10 @@ final class Slice13HubPageSkeletonTest extends TestCase
     {
         unset($_GET['section']);
         unset($_GET['page']);
+        // Drop the per-test $wpdb seed (set by stubDashboardDependencies and
+        // a few AC-3 tests). Tests that explicitly back up $previousWpdb
+        // restore it themselves — this only affects tests that left a stub.
+        unset($GLOBALS['wpdb']);
         Monkey\tearDown();
         parent::tearDown();
     }
@@ -388,6 +440,7 @@ final class Slice13HubPageSkeletonTest extends TestCase
         self::stubI18nAndEscapeHelpers();
         self::stubUrlHelpers();
         self::stubSanitizeHelpers();
+        self::stubDashboardDependencies();
 
         Monkey\Functions\when('current_user_can')->justReturn(true);
 
@@ -433,6 +486,7 @@ final class Slice13HubPageSkeletonTest extends TestCase
         self::stubI18nAndEscapeHelpers();
         self::stubUrlHelpers();
         self::stubSanitizeHelpers();
+        self::stubDashboardDependencies();
 
         Monkey\Functions\when('current_user_can')->justReturn(true);
 
@@ -542,6 +596,7 @@ final class Slice13HubPageSkeletonTest extends TestCase
         self::stubI18nAndEscapeHelpers();
         self::stubUrlHelpers();
         self::stubSanitizeHelpers();
+        self::stubDashboardDependencies();
         Monkey\Functions\when('current_user_can')->justReturn(true);
 
         $_GET['section'] = 'dashboard';
@@ -945,6 +1000,7 @@ final class Slice13HubPageSkeletonTest extends TestCase
         self::stubI18nAndEscapeHelpers();
         self::stubUrlHelpers();
         self::stubSanitizeHelpers();
+        self::stubDashboardDependencies();
         Monkey\Functions\when('current_user_can')->justReturn(true);
 
         $_GET['section'] = 'foo-unknown-slug';
@@ -1167,6 +1223,7 @@ final class Slice13HubPageSkeletonTest extends TestCase
         self::stubI18nAndEscapeHelpers();
         self::stubUrlHelpers();
         self::stubSanitizeHelpers();
+        self::stubDashboardDependencies();
         Monkey\Functions\when('current_user_can')->justReturn(true);
 
         $_GET['section'] = '<script>alert(1)</script>';
@@ -1213,6 +1270,7 @@ final class Slice13HubPageSkeletonTest extends TestCase
         self::stubI18nAndEscapeHelpers();
         self::stubUrlHelpers();
         self::stubSanitizeHelpers();
+        self::stubDashboardDependencies();
         Monkey\Functions\when('current_user_can')->justReturn(true);
 
         $_GET['section'] = "settings'OR'1'='1";
@@ -1247,6 +1305,7 @@ final class Slice13HubPageSkeletonTest extends TestCase
     {
         self::stubI18nAndEscapeHelpers();
         self::stubUrlHelpers();
+        self::stubDashboardDependencies();
         Monkey\Functions\when('current_user_can')->justReturn(true);
         Monkey\Functions\when('wp_unslash')->returnArg(1);
 
@@ -1258,12 +1317,13 @@ final class Slice13HubPageSkeletonTest extends TestCase
             return is_string($key) ? strtolower(preg_replace('/[^a-z0-9_\-]/i', '', $key) ?? '') : '';
         });
 
-        // Use DASHBOARD (not CATALOG) as the upper-case probe value: after
-        // sanitize_key() lower-cases it, the dispatcher will route to the
-        // real Dashboard::render() — which has no DB / repo dependencies.
-        // Routing to Catalog would otherwise pull in SyncHistoryRepo +
-        // $wpdb global wiring that this test deliberately does not stub
-        // (the test is single-purpose: verify sanitize_key() is called).
+        // Use DASHBOARD as the upper-case probe value: after sanitize_key()
+        // lower-cases it, the dispatcher will route to the real
+        // Dashboard::render(). Slice-46 turned Dashboard into a real-impl
+        // view that pulls in `SyncHistoryRepo` / `WebhookLogRepo` /
+        // `FailedOpsRepo` / `SubscriptionManager`; `stubDashboardDependencies()`
+        // wires up the `$wpdb` global + transient stubs so each card body
+        // renders its empty-state branch.
         $_GET['section'] = 'DASHBOARD';
 
         $initialObLevel = ob_get_level();
@@ -1449,6 +1509,7 @@ final class Slice13HubPageSkeletonTest extends TestCase
     public function test_dashboard_render_emits_five_card_slots_in_wireframe_order(): void
     {
         self::stubI18nAndEscapeHelpers();
+        self::stubDashboardDependencies();
 
         $initialObLevel = ob_get_level();
         ob_start();
@@ -1500,29 +1561,14 @@ final class Slice13HubPageSkeletonTest extends TestCase
      */
     public function test_dashboard_render_contains_slice_placeholder_strings(): void
     {
-        self::stubI18nAndEscapeHelpers();
-
-        $initialObLevel = ob_get_level();
-        ob_start();
-        try {
-            Dashboard::render();
-        } finally {
-            $output = (string) ob_get_clean();
-            while (ob_get_level() > $initialObLevel) {
-                ob_end_clean();
-            }
-        }
-
-        // "Wird in Slice {N} befuellt"-Pattern (5x — eine pro Card).
-        $placeholderCount = preg_match_all('/Wird in Slice\s+\d+\s+bef[uü]llt/u', $output);
-        $this->assertSame(
-            5,
-            $placeholderCount,
-            sprintf(
-                'AC-8: Dashboard MUSS GENAU 5 "Wird in Slice {N} befuellt"-Platzhalter ' .
-                'enthalten (einen pro Card-Slot). Gefunden: %d',
-                $placeholderCount
-            )
+        // Slice-46 replaced the "Wird in Slice {N} befuellt"-Platzhalter mit
+        // echten Card-Bodies (Connection-Status, Catalog-Linked-Count,
+        // Orders-Buckets, Webhooks-Status, Failed-Ops-Count). Der ehemalige
+        // Slice-13 Placeholder existiert nicht mehr — daher ist dieser Test
+        // durch die neuen Slice-46-Real-Impl-Tests ersetzt.
+        $this->markTestSkipped(
+            'Superseded by slice-46 Dashboard real-impl tests — placeholders ' .
+            'were replaced by aggregate-count card bodies (see Slice46Dashboard*Test).'
         );
     }
 
@@ -1536,46 +1582,17 @@ final class Slice13HubPageSkeletonTest extends TestCase
      */
     public function test_dashboard_render_does_not_perform_data_queries(): void
     {
-        self::stubI18nAndEscapeHelpers();
-
-        // Wir spy'en auf gaengige Daten-Query-Funktionen. Wenn render()
-        // sie aufruft, wuerde der Spy zaehlen — wir erwarten NULL Aufrufe.
-        $queryCalls = [];
-        Monkey\Functions\when('get_option')->alias(function ($key) use (&$queryCalls) {
-            $queryCalls[] = ['fn' => 'get_option', 'arg' => $key];
-            return false;
-        });
-        Monkey\Functions\when('get_transient')->alias(function ($key) use (&$queryCalls) {
-            $queryCalls[] = ['fn' => 'get_transient', 'arg' => $key];
-            return false;
-        });
-        Monkey\Functions\when('wp_count_posts')->alias(function () use (&$queryCalls) {
-            $queryCalls[] = ['fn' => 'wp_count_posts'];
-            return (object) [];
-        });
-        Monkey\Functions\when('as_get_scheduled_actions')->alias(function () use (&$queryCalls) {
-            $queryCalls[] = ['fn' => 'as_get_scheduled_actions'];
-            return [];
-        });
-
-        $initialObLevel = ob_get_level();
-        ob_start();
-        try {
-            Dashboard::render();
-        } finally {
-            ob_end_clean();
-            while (ob_get_level() > $initialObLevel) {
-                ob_end_clean();
-            }
-        }
-
-        $this->assertSame(
-            [],
-            $queryCalls,
-            sprintf(
-                'AC-8: Dashboard::render() darf KEINE Daten-Queries ausfuehren. Gefunden: %s',
-                json_encode(array_column($queryCalls, 'fn'))
-            )
+        // Slice-46 turned the Dashboard from a placeholder view into a real
+        // impl that *does* read aggregate counts (sc_health Transient,
+        // SyncHistoryRepo, FailedOpsRepo, WebhookLogRepo, SubscriptionManager).
+        // The slice-13 "no queries" invariant therefore no longer applies —
+        // it is replaced by slice-46 AC-8 (Constraints) which mandates *only
+        // local persistence reads* (transients + custom tables — no live API
+        // calls).
+        $this->markTestSkipped(
+            'Superseded by slice-46 Dashboard real-impl tests — Slice-46 ' .
+            'AC-8 Constraints replace the "no data queries" invariant with ' .
+            '"local persistence reads only, no live API calls".'
         );
     }
 
@@ -1585,6 +1602,7 @@ final class Slice13HubPageSkeletonTest extends TestCase
     public function test_dashboard_render_emits_h1_title(): void
     {
         self::stubI18nAndEscapeHelpers();
+        self::stubDashboardDependencies();
 
         $initialObLevel = ob_get_level();
         ob_start();
@@ -1776,6 +1794,8 @@ final class Slice13HubPageSkeletonTest extends TestCase
     {
         Monkey\Functions\when('__')->returnArg(1);
         Monkey\Functions\when('esc_html__')->returnArg(1);
+        Monkey\Functions\when('esc_url')->returnArg(1);
+        self::stubDashboardDependencies();
 
         $escAttrCalls = [];
         $escHtmlCalls = [];
@@ -1800,15 +1820,17 @@ final class Slice13HubPageSkeletonTest extends TestCase
             }
         }
 
-        // 5 Card-Slugs als Attribute -> mindestens 5 esc_attr.
+        // 5 Card-Slugs als Attribute -> mindestens 5 esc_attr (slice-46 keeps
+        // the slice-13 markup contract `<div class="...--{slug}">` per AC-1).
         $this->assertGreaterThanOrEqual(
             5,
             count($escAttrCalls),
             'AC-9: Dashboard MUSS esc_attr() fuer Card-Slug-Klassen-Attribute verwenden.'
         );
 
-        // 5 Card-Titel + 5 Placeholders -> mindestens 5 esc_html-Aufrufe
-        // (esc_html__ wird separat gezaehlt, daher Mindestschwelle 5).
+        // 5 Card-Titel + dynamische Inhalte (Status-Label, Zähler, "Last
+        // check"-String, "Failed Operations"-Label, …) -> mindestens 5
+        // esc_html-Aufrufe (esc_html__ wird separat gezaehlt).
         $this->assertGreaterThanOrEqual(
             5,
             count($escHtmlCalls),
