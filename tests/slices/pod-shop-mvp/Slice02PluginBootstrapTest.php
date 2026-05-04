@@ -492,79 +492,100 @@ final class Slice02PluginBootstrapTest extends TestCase
     //       WHEN zweimal mit demselben $plugin_file aufgerufen
     //       THEN idempotent: kein Throw, keine doppelte State-Mutation;
     //            pluginFile() returns gleichen Wert.
+    //
+    // WP-Mocking: dieser eine Test ruft Plugin::init() direkt auf, das ab
+    // Slice 03 `add_action()` registriert. Da PHPUnit kein WordPress lädt,
+    // stubben wir die WP-Funktion lokal via Brain\Monkey in setUp/tearDown
+    // dieses einzelnen Tests — die anderen 9 Tests in dieser Datei rufen
+    // init() NICHT auf und brauchen kein Mocking. Folge-Slices (04/05/06),
+    // die ebenfalls init() direkt testen, replizieren dieses Muster.
     // -------------------------------------------------------------------
     public function test_bootstrap_plugin_init_is_idempotent(): void
     {
-        $fqcn = 'SpreadconnectPod\\Bootstrap\\Plugin';
-        $this->assertTrue(class_exists($fqcn), 'AC-5: Bootstrap-Klasse muss autoloadbar sein.');
+        \Brain\Monkey\setUp();
 
-        // Reset internen State, falls ein vorausgehender Test in dieser
-        // PHPUnit-Run-Session bereits init() aufgerufen hat. Tests duerfen
-        // einander nicht beeinflussen — der idempotenz-Guard wird vom
-        // `private static $initialized = false` gesteuert.
-        $reflection = new ReflectionClass($fqcn);
-        if ($reflection->hasProperty('initialized')) {
-            $initProp = $reflection->getProperty('initialized');
-            $initProp->setValue(null, false);
-        }
-        if ($reflection->hasProperty('pluginFile')) {
-            $fileProp = $reflection->getProperty('pluginFile');
-            $fileProp->setValue(null, '');
-        }
-
-        $pluginFile = self::pluginMainFile();
-
-        // Erster Aufruf: setzt $initialized=true und merkt sich $pluginFile.
         try {
-            $fqcn::init($pluginFile);
-        } catch (\Throwable $e) {
-            $this->fail(
-                'AC-5: Erster init()-Aufruf darf nicht werfen, warf jedoch: '
-                . $e::class . ' — ' . $e->getMessage()
+            // Stub `add_action` als No-Op. Slice 03 ruft es einmal pro
+            // init() auf; der Idempotenz-Guard verhindert, dass es bei
+            // Re-Entry erneut aufgerufen wird. Andere WP-Funktionen
+            // werden in init() (Stand Slice 03) NICHT aufgerufen.
+            \Brain\Monkey\Functions\stubs([
+                'add_action' => null,
+            ]);
+
+            $fqcn = 'SpreadconnectPod\\Bootstrap\\Plugin';
+            $this->assertTrue(class_exists($fqcn), 'AC-5: Bootstrap-Klasse muss autoloadbar sein.');
+
+            // Reset internen State, falls ein vorausgehender Test in dieser
+            // PHPUnit-Run-Session bereits init() aufgerufen hat. Tests duerfen
+            // einander nicht beeinflussen — der idempotenz-Guard wird vom
+            // `private static $initialized = false` gesteuert.
+            $reflection = new ReflectionClass($fqcn);
+            if ($reflection->hasProperty('initialized')) {
+                $initProp = $reflection->getProperty('initialized');
+                $initProp->setValue(null, false);
+            }
+            if ($reflection->hasProperty('pluginFile')) {
+                $fileProp = $reflection->getProperty('pluginFile');
+                $fileProp->setValue(null, '');
+            }
+
+            $pluginFile = self::pluginMainFile();
+
+            // Erster Aufruf: setzt $initialized=true und merkt sich $pluginFile.
+            try {
+                $fqcn::init($pluginFile);
+            } catch (\Throwable $e) {
+                $this->fail(
+                    'AC-5: Erster init()-Aufruf darf nicht werfen, warf jedoch: '
+                    . $e::class . ' — ' . $e->getMessage()
+                );
+            }
+
+            $this->assertSame(
+                $pluginFile,
+                $fqcn::pluginFile(),
+                'AC-5: Nach dem ersten init() muss pluginFile() den uebergebenen Pfad zurueckgeben.'
             );
-        }
 
-        $this->assertSame(
-            $pluginFile,
-            $fqcn::pluginFile(),
-            'AC-5: Nach dem ersten init() muss pluginFile() den uebergebenen Pfad zurueckgeben.'
-        );
+            // Zweiter Aufruf mit demselben Pfad — MUSS Re-Entry-Guard triggern,
+            // darf weder werfen noch State doppelt mutieren.
+            try {
+                $fqcn::init($pluginFile);
+            } catch (\Throwable $e) {
+                $this->fail(
+                    'AC-5: Zweiter init()-Aufruf (gleicher $plugin_file) muss No-Op sein, '
+                    . 'warf jedoch: ' . $e::class . ' — ' . $e->getMessage()
+                );
+            }
 
-        // Zweiter Aufruf mit demselben Pfad — MUSS Re-Entry-Guard triggern,
-        // darf weder werfen noch State doppelt mutieren.
-        try {
-            $fqcn::init($pluginFile);
-        } catch (\Throwable $e) {
-            $this->fail(
-                'AC-5: Zweiter init()-Aufruf (gleicher $plugin_file) muss No-Op sein, '
-                . 'warf jedoch: ' . $e::class . ' — ' . $e->getMessage()
+            $this->assertSame(
+                $pluginFile,
+                $fqcn::pluginFile(),
+                'AC-5: pluginFile() muss nach Doppelaufruf identisch bleiben (kein Drift).'
             );
-        }
 
-        $this->assertSame(
-            $pluginFile,
-            $fqcn::pluginFile(),
-            'AC-5: pluginFile() muss nach Doppelaufruf identisch bleiben (kein Drift).'
-        );
+            // Adversarial: dritter Aufruf mit ANDEREM Pfad — Idempotenz-Guard
+            // muss den Wert NICHT ueberschreiben (sonst waere "init" nicht
+            // wirklich idempotent, sondern wuerde State leise mutieren).
+            try {
+                $fqcn::init('/dev/null/another-plugin-path.php');
+            } catch (\Throwable $e) {
+                $this->fail(
+                    'AC-5: Re-Entry mit anderem Pfad darf ebenfalls nicht werfen, '
+                    . 'warf jedoch: ' . $e::class . ' — ' . $e->getMessage()
+                );
+            }
 
-        // Adversarial: dritter Aufruf mit ANDEREM Pfad — Idempotenz-Guard
-        // muss den Wert NICHT ueberschreiben (sonst waere "init" nicht
-        // wirklich idempotent, sondern wuerde State leise mutieren).
-        try {
-            $fqcn::init('/dev/null/another-plugin-path.php');
-        } catch (\Throwable $e) {
-            $this->fail(
-                'AC-5: Re-Entry mit anderem Pfad darf ebenfalls nicht werfen, '
-                . 'warf jedoch: ' . $e::class . ' — ' . $e->getMessage()
+            $this->assertSame(
+                $pluginFile,
+                $fqcn::pluginFile(),
+                'AC-5: Idempotenz-Guard MUSS State-Mutation bei Re-Entry verhindern — '
+                . 'pluginFile() darf den ersten Pfad nicht ueberschreiben.'
             );
+        } finally {
+            \Brain\Monkey\tearDown();
         }
-
-        $this->assertSame(
-            $pluginFile,
-            $fqcn::pluginFile(),
-            'AC-5: Idempotenz-Guard MUSS State-Mutation bei Re-Entry verhindern — '
-            . 'pluginFile() darf den ersten Pfad nicht ueberschreiben.'
-        );
     }
 
     // -------------------------------------------------------------------
