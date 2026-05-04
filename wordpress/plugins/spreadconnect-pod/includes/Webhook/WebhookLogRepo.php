@@ -207,6 +207,240 @@ final class WebhookLogRepo
 	}
 
 	/**
+	 * Spalten-Whitelist fuer {@see self::findFiltered()} und {@see self::countFiltered()}.
+	 *
+	 * Defense-in-depth: das UI (Slice 41) validiert Filter bereits gegen Whitelists,
+	 * aber der Repo-Layer wiederholt die Validierung damit jeder Aufrufer (zukuenftige
+	 * Slices, Tests, Tools) durch denselben Gate laeuft. Werte ausserhalb dieser
+	 * Whitelist werden silently ignoriert (siehe Filter-Validierung unten).
+	 *
+	 * @var list<string>
+	 */
+	private const FILTER_COLUMNS = array(
+		'event_type',
+		'received_at',
+		'hmac_status',
+		'processing_status',
+	);
+
+	/**
+	 * Slice 41 AC-3 / AC-4: gefilterte Listen-Query mit Pagination.
+	 *
+	 * Defense-in-depth: jeder Filter-Wert wird hier erneut gegen seine Whitelist
+	 * geprueft, bevor er via `$wpdb->prepare()` in die SQL geht. Unbekannte
+	 * Werte fallen silently auf `'all'` zurueck (= kein WHERE-Predikat fuer
+	 * dieses Feld). Die Indexes `idx_received_at` und `idx_processing_status`
+	 * (Slice 04 / architecture.md Z. 228-231) decken die WHERE-Klausel ab.
+	 *
+	 * @param array{
+	 *     event?: string,
+	 *     range?: string,
+	 *     hmac?: string,
+	 *     proc?: string
+	 * }   $filters Whitelist-validierte Filter-Werte (Strings).
+	 * @param int $limit  Maximale Zeilenanzahl (Page-Size, > 0).
+	 * @param int $offset OFFSET (>= 0).
+	 *
+	 * @return array<int, array<string, mixed>> Rows DESC nach `received_at`.
+	 */
+	public static function findFiltered( array $filters, int $limit, int $offset ): array
+	{
+		if ( $limit <= 0 || $offset < 0 ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$args  = array();
+		$where = self::buildFilterWhereClause( $filters, $args );
+		$table = $wpdb->prefix . self::TABLE_SUFFIX;
+
+		// Append the LIMIT + OFFSET binds AFTER all WHERE-binds so the
+		// `prepare()` argument-order matches the placeholder-order in the SQL.
+		$args[] = $limit;
+		$args[] = $offset;
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $wpdb->prepare(
+			"SELECT * FROM {$table} {$where} ORDER BY received_at DESC LIMIT %d OFFSET %d",
+			$args
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$rows = $wpdb->get_results( $sql, ARRAY_A );
+
+		if ( ! is_array( $rows ) ) {
+			return array();
+		}
+
+		$out = array();
+		foreach ( $rows as $row ) {
+			if ( is_array( $row ) ) {
+				$out[] = $row;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Slice 41 AC-5: Total-Count fuer den Pager. Nutzt dieselbe WHERE-Klausel
+	 * wie {@see self::findFiltered()} so dass die beiden Queries denselben
+	 * Index-Pfad teilen.
+	 *
+	 * @param array{
+	 *     event?: string,
+	 *     range?: string,
+	 *     hmac?: string,
+	 *     proc?: string
+	 * } $filters Whitelist-validierte Filter-Werte.
+	 *
+	 * @return int Anzahl der Zeilen, die die WHERE-Klausel erfuellen.
+	 */
+	public static function countFiltered( array $filters ): int
+	{
+		global $wpdb;
+
+		$args  = array();
+		$where = self::buildFilterWhereClause( $filters, $args );
+		$table = $wpdb->prefix . self::TABLE_SUFFIX;
+
+		if ( array() === $args ) {
+			// `prepare()` requires at least one argument; use an unparameterised
+			// COUNT(*) when the WHERE is empty (= no filters active).
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$value = $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+		} else {
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$sql = $wpdb->prepare(
+				"SELECT COUNT(*) FROM {$table} {$where}",
+				$args
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+			$value = $wpdb->get_var( $sql );
+		}
+
+		return is_numeric( $value ) ? (int) $value : 0;
+	}
+
+	/**
+	 * Build the WHERE-clause used by {@see self::findFiltered()} and
+	 * {@see self::countFiltered()}.
+	 *
+	 * Defense-in-depth: Filter-Werte werden gegen ihre eigene Whitelist
+	 * geprueft, bevor sie in `$args` (=  `prepare()`-Binds) wandern. Das
+	 * spiegelt die UI-Sanitisierung (Slice 41 AC-3) im Repo wider.
+	 *
+	 * Spalten-Namen sind Literale aus {@see self::FILTER_COLUMNS} (no
+	 * variable-interpolation). Das `range`-Feld wird in einen UTC-DATETIME-
+	 * String umgewandelt und gegen `received_at >= %s` gebunden.
+	 *
+	 * @param array<string, mixed> $filters Eingehende Filter-Map.
+	 * @param array<int, mixed>    $args    Out-Parameter — wird mit `prepare()`-
+	 *                                       Binds in WHERE-Reihenfolge befuellt.
+	 *
+	 * @return string `''` (kein Filter) oder `WHERE col = %s AND ...` ohne
+	 *                trailing-Whitespace.
+	 */
+	private static function buildFilterWhereClause( array $filters, array &$args ): string
+	{
+		$predicates = array();
+
+		// event_type ($filters['event'])
+		$event = isset( $filters['event'] ) && is_string( $filters['event'] ) ? $filters['event'] : 'all';
+		if ( in_array( $event, self::EVENT_TYPES_WHITELIST, true ) ) {
+			$predicates[] = 'event_type = %s';
+			$args[]       = $event;
+		}
+
+		// received_at ($filters['range']) — interval lookup against the
+		// whitelist and resolved to a UTC-MySQL-DATETIME-string before the bind.
+		$range = isset( $filters['range'] ) && is_string( $filters['range'] ) ? $filters['range'] : 'all';
+		if ( in_array( $range, array( '24h', '7d', '30d' ), true ) ) {
+			$cutoff = self::resolveRangeCutoff( $range );
+			if ( '' !== $cutoff ) {
+				$predicates[] = 'received_at >= %s';
+				$args[]       = $cutoff;
+			}
+		}
+
+		// hmac_status ($filters['hmac'])
+		$hmac = isset( $filters['hmac'] ) && is_string( $filters['hmac'] ) ? $filters['hmac'] : 'all';
+		if ( in_array( $hmac, array( 'valid', 'invalid' ), true ) ) {
+			$predicates[] = 'hmac_status = %s';
+			$args[]       = $hmac;
+		}
+
+		// processing_status ($filters['proc'])
+		$proc = isset( $filters['proc'] ) && is_string( $filters['proc'] ) ? $filters['proc'] : 'all';
+		if ( in_array( $proc, array( self::STATUS_SUCCESS, self::STATUS_ERROR, self::STATUS_PENDING, self::STATUS_DUPLICATE ), true ) ) {
+			$predicates[] = 'processing_status = %s';
+			$args[]       = $proc;
+		}
+
+		if ( array() === $predicates ) {
+			return '';
+		}
+
+		return 'WHERE ' . implode( ' AND ', $predicates );
+	}
+
+	/**
+	 * Resolve a range-enum value into a UTC MySQL DATETIME-string suitable for
+	 * `received_at >= %s` binding.
+	 *
+	 * Uses `current_time('mysql', true)` (UTC) so the cutoff matches the
+	 * `received_at` column's timezone semantics.
+	 */
+	private static function resolveRangeCutoff( string $range ): string
+	{
+		$intervalSeconds = match ( $range ) {
+			'24h'   => 86400,
+			'7d'    => 604800,
+			'30d'   => 2592000,
+			default => 0,
+		};
+
+		if ( 0 === $intervalSeconds ) {
+			return '';
+		}
+
+		// `current_time('mysql', true)` returns the current GMT/UTC time as
+		// `YYYY-MM-DD HH:MM:SS`. Subtract the interval via strtotime + gmdate
+		// so the cutoff is timezone-agnostic.
+		$nowMysql = function_exists( 'current_time' )
+			? (string) current_time( 'mysql', true )
+			: gmdate( 'Y-m-d H:i:s' );
+
+		$nowTs = strtotime( $nowMysql );
+		if ( false === $nowTs ) {
+			$nowTs = time();
+		}
+
+		return gmdate( 'Y-m-d H:i:s', $nowTs - $intervalSeconds );
+	}
+
+	/**
+	 * The 8 webhook event-type Whitelist values (architecture.md Z. 41 + Z. 175).
+	 *
+	 * Spelled identically to the values that arrive on the wire so a
+	 * `===` comparison resolves without case-folding or trim helpers.
+	 *
+	 * @var list<string>
+	 */
+	public const EVENT_TYPES_WHITELIST = array(
+		'all',
+		'Article.added',
+		'Article.updated',
+		'Article.removed',
+		'Order.processed',
+		'Order.cancelled',
+		'Order.needs-action',
+		'Shipment.sent',
+	);
+
+	/**
 	 * Slice 32 AC-5: return the most-recent webhook-log rows for one
 	 * Spreadconnect-Order-ID, newest first.
 	 *
