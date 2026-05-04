@@ -5,8 +5,9 @@
  * Loaded by WordPress when the user clicks "Delete" on the plugin in
  * `wp-admin/plugins.php`. Must NOT run during deactivation.
  *
- * Slice-02 ships this file as a guarded stub only — no DB mutations.
- * Schema cleanup is added in slice-04 (Bootstrap\Schema::uninstall()).
+ * Slice-04 wires this file to `Bootstrap\Schema::uninstall()`, which drops
+ * the three custom tables installed during activation. The constant guard
+ * remains the sole entry-point check (slice-02 AC-6 + slice-04 AC-7).
  *
  * @package SpreadconnectPod
  */
@@ -17,4 +18,4 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
-// Schema cleanup added in Slice 04 (Bootstrap\Schema::uninstall()).
+\SpreadconnectPod\Bootstrap\Schema::uninstall();

@@ -76,6 +76,13 @@ final class Plugin
 		// listener twice (`add_action` does not dedupe static-method callables
 		// on identical classes).
 		add_action( 'before_woocommerce_init', [ self::class, 'declareHposCompatibility' ] );
+
+		// slice-04: Register the schema installer on plugin activation. The
+		// activation hook fires once per activation event; together with the
+		// idempotency guard above it stays exactly-once per `init()` run.
+		// `dbDelta()` itself is additive-only, so re-activating the plugin
+		// is safe and never destroys existing rows.
+		register_activation_hook( $plugin_file, [ Schema::class, 'install' ] );
 	}
 
 	/**
