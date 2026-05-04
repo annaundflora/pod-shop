@@ -19,6 +19,8 @@ use SpreadconnectPod\Catalog\ArticleRemovedJob;
 use SpreadconnectPod\Catalog\AttributeProvisioner;
 use SpreadconnectPod\Catalog\SyncArticleJob;
 use SpreadconnectPod\Catalog\SyncCatalogJob;
+use SpreadconnectPod\Failure\FailedOpsRepo;
+use SpreadconnectPod\Failure\RetryPolicyListener;
 use SpreadconnectPod\Hub\Ajax\ExportImportSettings as HubAjaxExportImportSettings;
 use SpreadconnectPod\Hub\Ajax\OrderActions as HubAjaxOrderActions;
 use SpreadconnectPod\Hub\Ajax\ProductActions as HubAjaxProductActions;
@@ -762,6 +764,30 @@ final class Plugin
 		add_action(
 			'wp_ajax_' . HubLogsView::CSV_AJAX_ACTION,
 			[ HubLogsView::class, 'handleCsvExport' ]
+		);
+
+		// slice-37: Wire the AS retry-policy listener. The listener observes
+		// `action_scheduler_failed_action` and decides — based on the thrown
+		// exception class + the AS retry-counter — whether to record a row in
+		// `wp_spreadconnect_failed_ops` (DLQ).
+		//
+		// Construction is inline (no DI container) per slice-37 Constraints
+		// — the same pattern slice-28 uses for the OrderHandler chain. The
+		// `$wpdb` global is captured at registration time; tests inject a
+		// mock by constructing the collaborators directly. The
+		// `self::$initialized` guard above keeps the `add_action` call at
+		// exactly one per request, so a re-entrant `init()` call cannot
+		// double-register the listener (slice-37 AC-11).
+		global $wpdb;
+
+		$failedOpsRepo       = new FailedOpsRepo( $wpdb );
+		$retryPolicyListener = new RetryPolicyListener( $failedOpsRepo );
+
+		add_action(
+			'action_scheduler_failed_action',
+			[ $retryPolicyListener, 'on_action_failed' ],
+			10,
+			1
 		);
 	}
 
