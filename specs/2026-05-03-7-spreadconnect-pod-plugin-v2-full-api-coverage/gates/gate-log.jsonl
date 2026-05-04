@@ -58,3 +58,7 @@
 {"ts":"2026-05-04T20:30:00+00:00","slice":"slice-32","gate":"code_review","verdict":"REJECTED","findings_count":2,"attempt":1,"reason":"WebhookLogRepo slice-16 contract drift"}
 {"ts":"2026-05-04T20:45:00+00:00","slice":"slice-32","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":2}
 {"ts":"2026-05-04T20:30:00+00:00","slice":"slice-35","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T21:30:00+00:00","slice":"slice-15","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T21:30:00+00:00","slice":"slice-19","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T21:30:00+00:00","slice":"slice-32","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T21:30:00+00:00","slice":"slice-35","gate":"tests","result":"PASSED","retries":1,"resolution":"Slice13 isolation fix for slice-19 Subscriptions class promotion"}

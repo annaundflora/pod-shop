@@ -3,10 +3,10 @@
   "feature_name": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
   "status": "in_progress",
   "current_state": "implementing",
-  "current_slice_id": "wave-8",
-  "current_wave": 8,
-  "next_wave": 9,
-  "next_slices": ["slice-16", "slice-17", "slice-25"],
+  "current_slice_id": "wave-9",
+  "current_wave": 9,
+  "next_wave": 10,
+  "next_slices": ["slice-30", "slice-31", "slice-33", "slice-36", "slice-41", "slice-42", "slice-44", "slice-45"],
   "retry_count": 0,
   "failed_stage": null,
   "default_branch": "master",
@@ -20,40 +20,37 @@
   "completed_slices": [
     "slice-01", "slice-02", "slice-03", "slice-04", "slice-05", "slice-06",
     "slice-07", "slice-08", "slice-09", "slice-10", "slice-11", "slice-12",
-    "slice-13", "slice-14", "slice-18", "slice-20", "slice-21", "slice-22",
-    "slice-23", "slice-24", "slice-26", "slice-27", "slice-28", "slice-29",
-    "slice-34"
+    "slice-13", "slice-14", "slice-15", "slice-18", "slice-19", "slice-20",
+    "slice-21", "slice-22", "slice-23", "slice-24", "slice-26", "slice-27",
+    "slice-28", "slice-29", "slice-32", "slice-34", "slice-35"
   ],
   "evidence_files": [
-    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/wave-2.json",
-    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/wave-4-checkpoint.json",
-    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/wave-5.json",
-    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/wave-6.json",
-    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/wave-7.json"
+    "specs/.../evidence/wave-2.json",
+    "specs/.../evidence/wave-4-checkpoint.json",
+    "specs/.../evidence/wave-5.json",
+    "specs/.../evidence/wave-6.json",
+    "specs/.../evidence/wave-7.json",
+    "specs/.../evidence/wave-8.json"
   ],
   "worktree_path": "/home/dev/pod-shop/.claude/worktrees/7-spreadconnect-pod-plugin-v2-full-api-coverage",
   "branch": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
   "github_available": true,
   "repo": "annaundflora/pod-shop",
   "pr_number": 8,
-  "test_naming_convention": "Slice<NN><PascalCaseTopic>Test.php (PHPUnit 11.5.55)",
   "infrastructure_decisions": [
-    "Slice-13 routing tests use real Slice-26 Catalog class via autoload (eval-stub removed)",
-    "tests/stubs/wc-classes.php: WC_Order/WC_Logger/WC_Product/WC_Product_Variable (with get_children)/WC_Product_Variation/WC_Order_Item_Product/wpdb canonical stubs",
-    "Slice-11: sanitize(array) + sanitizeOne(mixed,?string) + pre_update_option filter",
-    "Slice-14 WebhookSecretManager: protected static generateRandomBytes() Patchwork-redefine seam",
-    "Slice-18 SubscriptionManager: protected static makeClient() seam (final class -> Mockery overload alias)"
+    "Slice-13 isolation: real classes (Catalog, Subscriptions) win autoload; routing tests use output-marker via Patchwork-stubbed dependencies",
+    "Slice-15: patchwork.json placed at project-root AND plugin-root for cwd-walk-up resolution",
+    "Slice-32 created WebhookLogRepo early per its deliverable (binary insertOrIgnore contract for slice-16)"
   ],
   "test_suite_status": {
-    "total_tests": 524,
-    "total_assertions": 3175,
+    "total_tests": 639,
+    "total_assertions": 3648,
     "failures": 0,
     "errors": 0
   },
   "remaining_slices": [
-    "slice-15", "slice-16", "slice-17", "slice-19", "slice-25",
-    "slice-30", "slice-31", "slice-32", "slice-33", "slice-35",
-    "slice-36", "slice-37", "slice-38", "slice-39", "slice-40",
-    "slice-41", "slice-42", "slice-43", "slice-44", "slice-45", "slice-46"
+    "slice-16", "slice-17", "slice-25", "slice-30", "slice-31", "slice-33",
+    "slice-36", "slice-37", "slice-38", "slice-39", "slice-40", "slice-41",
+    "slice-42", "slice-43", "slice-44", "slice-45", "slice-46"
   ]
 }
