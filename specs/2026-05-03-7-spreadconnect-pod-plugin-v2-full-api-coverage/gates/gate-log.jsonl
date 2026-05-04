@@ -27,3 +27,7 @@
 {"ts":"2026-05-04T14:00:00+00:00","slice":"slice-10","gate":"tests","result":"PASSED","retries":0}
 {"ts":"2026-05-04T14:00:00+00:00","slice":"slice-22","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1,"note":"DTO gap-fill (ProductTypeDetail/Size/Color) approved"}
 {"ts":"2026-05-04T14:00:00+00:00","slice":"slice-22","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T15:00:00+00:00","slice":"slice-23","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T15:30:00+00:00","slice":"slice-11","gate":"code_review","verdict":"REJECTED","findings_count":2,"attempt":1,"reason":"per-option register_setting incompatible with array-based sanitize"}
+{"ts":"2026-05-04T15:45:00+00:00","slice":"slice-11","gate":"code_review","verdict":"REJECTED","findings_count":1,"attempt":2,"reason":"updated_option hook order-dependent; auto_confirm overwrite"}
+{"ts":"2026-05-04T16:00:00+00:00","slice":"slice-11","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":3,"resolution":"pre_update_option filter + registration order invariant"}
