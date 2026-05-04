@@ -24,6 +24,7 @@ use SpreadconnectPod\Failure\FailedOpsRepo;
 use SpreadconnectPod\Failure\FailureNotifier;
 use SpreadconnectPod\Failure\RetryPolicyListener;
 use SpreadconnectPod\Hub\Ajax\ExportImportSettings as HubAjaxExportImportSettings;
+use SpreadconnectPod\Hub\Ajax\FailedOpsActions as HubAjaxFailedOpsActions;
 use SpreadconnectPod\Hub\Ajax\OrderActions as HubAjaxOrderActions;
 use SpreadconnectPod\Hub\Ajax\ProductActions as HubAjaxProductActions;
 use SpreadconnectPod\Hub\Ajax\RegenerateSecret as HubAjaxRegenerateSecret;
@@ -876,6 +877,48 @@ final class Plugin
 			},
 			10,
 			0
+		);
+
+		// slice-38: Wire the three Failed-Ops AJAX handlers
+		// (`spreadconnect_resend_failed_op`, `spreadconnect_dismiss_failed_op`,
+		// `spreadconnect_resolve_create_order`). The class itself is
+		// constructor-DI on `Failure\FailedOpsRepo`; production wiring
+		// constructs both objects inside a closure that fires on the
+		// admin-ajax dispatch path so `$wpdb` is always live (mirrors the
+		// slice-37 lazy-listener fix — Bootstrap eagerness during test-suite
+		// `init()` would otherwise trip the `FailedOpsRepo::__construct`
+		// `wpdb` type-hint when `$GLOBALS['wpdb']` is absent).
+		//
+		// Idempotency: the `self::$initialized` guard above keeps the three
+		// `add_action` calls at exactly one per request; `add_action()`
+		// further de-duplicates identical closure pairs, so a re-entrant
+		// `init()` cannot double-register the hooks (slice-38 AC-5
+		// "register exactly once").
+		$failedOpsAjaxLazy = static function ( string $method ): void {
+			global $wpdb;
+
+			$repo    = new FailedOpsRepo( $wpdb );
+			$actions = new HubAjaxFailedOpsActions( $repo );
+			$actions->{$method}();
+		};
+
+		add_action(
+			'wp_ajax_spreadconnect_resend_failed_op',
+			static function () use ( $failedOpsAjaxLazy ): void {
+				$failedOpsAjaxLazy( 'resend' );
+			}
+		);
+		add_action(
+			'wp_ajax_spreadconnect_dismiss_failed_op',
+			static function () use ( $failedOpsAjaxLazy ): void {
+				$failedOpsAjaxLazy( 'dismiss' );
+			}
+		);
+		add_action(
+			'wp_ajax_spreadconnect_resolve_create_order',
+			static function () use ( $failedOpsAjaxLazy ): void {
+				$failedOpsAjaxLazy( 'resolve' );
+			}
 		);
 	}
 
