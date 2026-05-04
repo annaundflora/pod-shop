@@ -28,6 +28,7 @@ use SpreadconnectPod\Hub\Controller as HubController;
 use SpreadconnectPod\Hub\Rest\SyncProgress as HubRestSyncProgress;
 use SpreadconnectPod\Hub\View\Settings as HubSettingsView;
 use SpreadconnectPod\Inline\OrderMetaBox as InlineOrderMetaBox;
+use SpreadconnectPod\Inline\ProductListColumns as InlineProductListColumns;
 use SpreadconnectPod\Inline\ProductMetaBox as InlineProductMetaBox;
 use SpreadconnectPod\Order\OrderCancelJob;
 use SpreadconnectPod\Order\OrderConfirmJob;
@@ -386,6 +387,42 @@ final class Plugin
 		add_action(
 			'wp_ajax_spreadconnect_refresh_stock',
 			[ HubAjaxProductActions::class, 'refreshStockStatic' ]
+		);
+
+		// slice-35: Mount the WC-Product-List columns + "Spreadconnect"
+		// filter drop-down + sort hooks on the
+		// `wp-admin/edit.php?post_type=product` screen.
+		//
+		// Five hooks total (AC-11): three render hooks
+		// (`manage_edit-product_columns`, `manage_product_posts_custom_column`,
+		// `manage_edit-product_sortable_columns` + `restrict_manage_posts`)
+		// and one combined `pre_get_posts` handler that dispatches both
+		// sort (AC-7) and filter (AC-9/10) inside a single closure. The
+		// adapter is read-only — no postmeta writes, no API calls — so
+		// only the `pre_get_posts` mutation is `manage_woocommerce`-cap
+		// gated; the render hooks are admin-list-only by virtue of the
+		// `manage_edit-*` / `manage_*_posts_custom_column` hook surface.
+		add_filter(
+			'manage_edit-product_columns',
+			[ InlineProductListColumns::class, 'registerColumnsStatic' ]
+		);
+		add_action(
+			'manage_product_posts_custom_column',
+			[ InlineProductListColumns::class, 'renderColumnStatic' ],
+			10,
+			2
+		);
+		add_filter(
+			'manage_edit-product_sortable_columns',
+			[ InlineProductListColumns::class, 'registerSortableColumnsStatic' ]
+		);
+		add_action(
+			'pre_get_posts',
+			[ InlineProductListColumns::class, 'preGetPostsStatic' ]
+		);
+		add_action(
+			'restrict_manage_posts',
+			[ InlineProductListColumns::class, 'renderFilterDropdownStatic' ]
 		);
 
 		// slice-32: Mount the WC-Order-Edit "Spreadconnect" sidebar meta-box
