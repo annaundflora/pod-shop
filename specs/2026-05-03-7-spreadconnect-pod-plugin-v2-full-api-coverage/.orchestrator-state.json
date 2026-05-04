@@ -3,10 +3,10 @@
   "feature_name": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
   "status": "in_progress",
   "current_state": "implementing",
-  "current_slice_id": "slice-14",
-  "current_wave": 7,
-  "next_wave": 8,
-  "next_slices": ["slice-15", "slice-19", "slice-32", "slice-35"],
+  "current_slice_id": "wave-8",
+  "current_wave": 8,
+  "next_wave": 9,
+  "next_slices": ["slice-16", "slice-17", "slice-25"],
   "retry_count": 0,
   "failed_stage": null,
   "default_branch": "master",
@@ -20,14 +20,16 @@
   "completed_slices": [
     "slice-01", "slice-02", "slice-03", "slice-04", "slice-05", "slice-06",
     "slice-07", "slice-08", "slice-09", "slice-10", "slice-11", "slice-12",
-    "slice-13", "slice-20", "slice-21", "slice-22", "slice-23", "slice-24",
-    "slice-27", "slice-28"
+    "slice-13", "slice-14", "slice-18", "slice-20", "slice-21", "slice-22",
+    "slice-23", "slice-24", "slice-26", "slice-27", "slice-28", "slice-29",
+    "slice-34"
   ],
   "evidence_files": [
     "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/wave-2.json",
     "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/wave-4-checkpoint.json",
     "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/wave-5.json",
-    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/wave-6.json"
+    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/wave-6.json",
+    "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage/evidence/wave-7.json"
   ],
   "worktree_path": "/home/dev/pod-shop/.claude/worktrees/7-spreadconnect-pod-plugin-v2-full-api-coverage",
   "branch": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
@@ -36,27 +38,22 @@
   "pr_number": 8,
   "test_naming_convention": "Slice<NN><PascalCaseTopic>Test.php (PHPUnit 11.5.55)",
   "infrastructure_decisions": [
-    "Renamed Slice01CleanupV1Test from slice-01-cleanup-v1.php (PHPUnit 11 filename->class lookup)",
-    "tests/bootstrap.php + tests/stubs/wp-functions.php for WP function stubs",
-    "tests/stubs/wc-classes.php (slice-28): WC_Order/WC_Logger/WC_Product/WC_Order_Item_Product/wpdb canonical stubs",
-    "Slice-09 omits ProductTypeDetail DTO; slice-22 implementer added it (gap-fill)",
-    "Slice-11: sanitize(array) for tests/import + sanitizeOne(mixed,?string) for WP per-option dispatch + pre_update_option filter for cross-field gating",
-    "Slice-13: Hub\\Controller MENU_SLUG=spreadconnect, manage_woocommerce, default section=dashboard, class_exists fallback for stub views",
-    "Slice-23: ArticleDetail extended with optional hotspotId + viewIds (gap-fill)",
-    "Slice-24: SyncHistoryRepo extended with startRun/setTotal/markComplete/markFailed/incrementCreated/Updated/Skipped/Error",
-    "Slice-28: Bootstrap registers OrderHandler on woocommerce_order_status_processing + OrderSubmitJob on spreadconnect/create_order"
+    "Slice-13 routing tests use real Slice-26 Catalog class via autoload (eval-stub removed)",
+    "tests/stubs/wc-classes.php: WC_Order/WC_Logger/WC_Product/WC_Product_Variable (with get_children)/WC_Product_Variation/WC_Order_Item_Product/wpdb canonical stubs",
+    "Slice-11: sanitize(array) + sanitizeOne(mixed,?string) + pre_update_option filter",
+    "Slice-14 WebhookSecretManager: protected static generateRandomBytes() Patchwork-redefine seam",
+    "Slice-18 SubscriptionManager: protected static makeClient() seam (final class -> Mockery overload alias)"
   ],
   "test_suite_status": {
-    "total_tests": 409,
-    "total_assertions": 2643,
+    "total_tests": 524,
+    "total_assertions": 3175,
     "failures": 0,
     "errors": 0
   },
   "remaining_slices": [
-    "slice-14", "slice-15", "slice-16", "slice-17", "slice-18", "slice-19",
-    "slice-25", "slice-26", "slice-29", "slice-30", "slice-31", "slice-32",
-    "slice-33", "slice-34", "slice-35", "slice-36", "slice-37", "slice-38",
-    "slice-39", "slice-40", "slice-41", "slice-42", "slice-43", "slice-44",
-    "slice-45", "slice-46"
+    "slice-15", "slice-16", "slice-17", "slice-19", "slice-25",
+    "slice-30", "slice-31", "slice-32", "slice-33", "slice-35",
+    "slice-36", "slice-37", "slice-38", "slice-39", "slice-40",
+    "slice-41", "slice-42", "slice-43", "slice-44", "slice-45", "slice-46"
   ]
 }

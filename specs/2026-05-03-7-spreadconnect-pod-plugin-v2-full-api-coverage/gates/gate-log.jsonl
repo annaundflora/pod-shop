@@ -47,3 +47,8 @@
 {"ts":"2026-05-04T19:00:00+00:00","slice":"slice-26","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
 {"ts":"2026-05-04T19:00:00+00:00","slice":"slice-29","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
 {"ts":"2026-05-04T19:00:00+00:00","slice":"slice-34","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T20:00:00+00:00","slice":"slice-14","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T20:00:00+00:00","slice":"slice-18","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T20:00:00+00:00","slice":"slice-26","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T20:00:00+00:00","slice":"slice-29","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T20:00:00+00:00","slice":"slice-34","gate":"tests","result":"PASSED","retries":1,"resolution":"test isolation fix: Catalog stub removal + WC_Product_Variable get_children()"}
