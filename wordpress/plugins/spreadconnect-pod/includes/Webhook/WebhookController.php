@@ -1,14 +1,23 @@
 <?php
 /**
- * REST controller for `POST /wp-json/spreadconnect/v1/webhook` (slice-15).
+ * REST controller for `POST /wp-json/spreadconnect/v1/webhook`
+ * (slice-15 wiring + slice-16 handler).
  *
- * This slice ships the **auth layer + route wiring only** —
- * architecture.md Z. 432-450 (Flow E) describes the full receive
- * pipeline, but only the `permission_callback` HMAC gate and a
- * trivial 200-Stub handler land here. Slice 16 will rewrite
- * {@see self::handle()} to perform the deterministic event_id hashing,
- * `INSERT IGNORE INTO wp_spreadconnect_webhook_log`, AS-enqueue and
- * 202-ACK response.
+ * Slice 15 shipped the **auth layer + route wiring**: HMAC-gate in the
+ * `permission_callback` and a trivial 200-stub handler. Slice 16 replaces
+ * the stub handler with the full receive pipeline as documented in
+ * architecture.md Z. 432-450 (Flow E):
+ *
+ *   1. parse the JSON body (best-effort — failures collapse to the
+ *      `_unknown` marker path),
+ *   2. compute the deterministic `event_id` via
+ *      {@see EventIdHasher::compute()},
+ *   3. `INSERT IGNORE INTO wp_spreadconnect_webhook_log` via
+ *      {@see WebhookLogRepo::insertOrIgnore()},
+ *   4. on `'inserted'`: `as_enqueue_async_action(
+ *      'spreadconnect/process_webhook_event', [$log_id], 'spreadconnect')`
+ *      + return `202 [accepted]`,
+ *   5. on `'duplicate'`: NO async-schedule, return `200 duplicate`.
  *
  * Auth model (architecture.md Z. 483 + Z. 514):
  *   - Public route — no `manage_woocommerce` gate. Spreadconnect is an
@@ -23,9 +32,11 @@
  *     header **names** (no values) and a short reason marker. No raw
  *     body, no signature bytes, no secret ever reach the log.
  *
- * Slice-16 contract: {@see self::handle()} stays trivially overridable.
- * The body must remain a single `return new WP_REST_Response(null, 200)`
- * line so slice-16's edit replaces a one-liner cleanly.
+ * ACK-≤-8s constraint (architecture.md Z. 638): the handler performs no
+ * domain mutation — only HMAC verify (slice-15) + INSERT + AS-enqueue +
+ * return. Schema-validation, dispatch and persistence updates are
+ * deferred to {@see \SpreadconnectPod\Webhook\ProcessWebhookEventJob}
+ * (slice-17).
  *
  * @package SpreadconnectPod\Webhook
  */
@@ -112,6 +123,36 @@ final class WebhookController
 	private const TEXT_DOMAIN = 'spreadconnect-pod';
 
 	/**
+	 * Action Scheduler hook name dispatched on fresh-insert
+	 * (architecture.md Z. 449 + Z. 553). Slice 17 registers the listener
+	 * via `add_action(self::ASYNC_HOOK, [ProcessWebhookEventJob::class,
+	 * 'handle'], 10, 1)`.
+	 */
+	private const ASYNC_HOOK = 'spreadconnect/process_webhook_event';
+
+	/**
+	 * Action Scheduler group used for ALL AS actions emitted by this
+	 * plugin (architecture.md Z. 657). Centralises Hub-Admin →
+	 * Scheduled-Actions filtering under a single well-known label.
+	 */
+	private const ASYNC_GROUP = 'spreadconnect';
+
+	/**
+	 * Literal `text/plain` body returned on a fresh insert (AC-5).
+	 * Architecture.md Z. 85 / Z. 638 / Z. 678 fix the exact byte
+	 * sequence — including the surrounding square brackets — as the
+	 * Spreadconnect-side ACK-recognition pattern.
+	 */
+	private const ACK_BODY_ACCEPTED = '[accepted]';
+
+	/**
+	 * Literal `text/plain` body returned on a UNIQUE-event_id conflict
+	 * (AC-7). Architecture.md Z. 448 mandates `200` (NOT `202`) for this
+	 * path so SC suppresses any retry of the duplicate delivery.
+	 */
+	private const ACK_BODY_DUPLICATE = 'duplicate';
+
+	/**
 	 * Register the inbound webhook REST route.
 	 *
 	 * Bound to `rest_api_init` from {@see \SpreadconnectPod\Bootstrap\Plugin::init()}.
@@ -188,26 +229,184 @@ final class WebhookController
 	}
 
 	/**
-	 * Webhook handler — SLICE-15 STUB.
+	 * Webhook handler — slice-16 receive pipeline.
 	 *
-	 * Returns an empty 200 response by design. Slice 16 rewrites this
-	 * method to:
-	 *   1. compute the deterministic `event_id`,
-	 *   2. `INSERT IGNORE INTO wp_spreadconnect_webhook_log`,
-	 *   3. `as_enqueue_async_action('spreadconnect/process_webhook_event', [log_id])`,
-	 *   4. return HTTP 202 + literal body `[accepted]`.
+	 * Sequence (architecture.md Flow E, Z. 444-450):
+	 *   1. read the raw bytes once (`$request->get_body()`); best-effort
+	 *      `json_decode` to extract `eventType` + `data.entity.id`,
+	 *   2. compute the deterministic `event_id` via
+	 *      {@see EventIdHasher::compute()}; on missing keys / bad JSON
+	 *      fall through to the `_unknown` marker path (AC-9),
+	 *   3. assemble the row, call
+	 *      {@see WebhookLogRepo::insertOrIgnore()},
+	 *   4. branch on `$result['status']`:
+	 *        - `'inserted'` ⇒ `as_enqueue_async_action(...)` + `202 [accepted]`,
+	 *        - `'duplicate'` ⇒ NO schedule, `200 duplicate`.
 	 *
-	 * The slice-15 stub MUST stay a single `return` line so that the
-	 * slice-16 edit produces a clean diff.
+	 * The function makes ZERO domain mutations — by design. The
+	 * 8-second ACK budget (architecture.md Z. 638) does not allow any
+	 * order/article work in the request thread; everything heavy is the
+	 * job's responsibility (slice-17).
 	 *
-	 * @param WP_REST_Request $request Authenticated request (passed the
-	 *                                 `permission_callback`).
+	 * Body strings are literal `text/plain` (NOT JSON, no surrounding
+	 * quotes) per architecture.md Z. 85 / Z. 450 / Z. 678.
 	 *
-	 * @return WP_REST_Response Empty 200 response.
+	 * @param WP_REST_Request $request Authenticated request (already
+	 *                                 passed the HMAC `permission_callback`,
+	 *                                 so `hmac_status='valid'` is implied).
+	 *
+	 * @return WP_REST_Response 202 + `[accepted]` on fresh insert,
+	 *                          200 + `duplicate` on UNIQUE-conflict.
 	 */
-	public static function handle( WP_REST_Request $request ): WP_REST_Response // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+	public static function handle( WP_REST_Request $request ): WP_REST_Response
 	{
-		return new WP_REST_Response( null, 200 );
+		// Step 1: read the raw bytes ONCE. `$request->get_body()` is the
+		// only API that returns the byte-stable input; `get_json_params()`
+		// would decode-then-re-encode and silently mangle key order.
+		$rawBody = (string) $request->get_body();
+
+		// Step 2: best-effort JSON parse. A malformed body or missing
+		// pflicht-keys is NOT a 4xx in this method — AC-9 mandates that
+		// every HMAC-valid delivery yields a 202 ACK and an inserted row;
+		// schema-validation is the job's job (slice-17, sets
+		// `processing_status='error'` with `unknown_event_type`).
+		$decoded = json_decode( $rawBody, true );
+
+		$eventType = '';
+		$entityId  = '';
+		$payload   = is_array( $decoded ) ? $decoded : array();
+
+		if ( is_array( $decoded ) ) {
+			if ( isset( $decoded['eventType'] ) && is_string( $decoded['eventType'] ) ) {
+				$eventType = $decoded['eventType'];
+			}
+
+			if (
+				isset( $decoded['data']['entity']['id'] )
+				&& ( is_string( $decoded['data']['entity']['id'] ) || is_int( $decoded['data']['entity']['id'] ) )
+			) {
+				$entityId = (string) $decoded['data']['entity']['id'];
+			}
+		}
+
+		// AC-9: any missing piece collapses into the `_unknown` marker
+		// triple. The marker values are deterministic, so duplicate
+		// malformed deliveries still hit the UNIQUE-event_id idempotency
+		// barrier (slice-17 will mark them as
+		// `processing_error='unknown_event_type'`).
+		$markerEventType   = '_unknown';
+		$markerEntityId    = '_';
+		$resolvedEventType = '' !== $eventType ? $eventType : $markerEventType;
+		$resolvedEntityId  = '' !== $entityId ? $entityId : $markerEntityId;
+		// Entity-type derivation must follow the resolved event-type so
+		// that the `_unknown` marker path lands in `'unknown'` exactly
+		// once (AC-9: `related_entity_type='unknown'`).
+		$resolvedEntityType = self::resolveEntityType( $resolvedEventType );
+
+		try {
+			$eventId = EventIdHasher::compute( $resolvedEventType, $resolvedEntityId, $rawBody );
+		} catch ( \InvalidArgumentException $e ) {
+			// Defensive: if the marker constants ever drift to empty
+			// strings we still want to hash deterministically. Re-call
+			// with the canonical markers as a hard fallback.
+			$eventId = EventIdHasher::compute( $markerEventType, $markerEntityId, $rawBody );
+		}
+
+		// Step 3: assemble the row (architecture.md Z. 212-231).
+		// `payload` stores the RE-ENCODED JSON view, not the raw body —
+		// architecture.md Z. 221 explicitly notes this trade-off
+		// (HMAC-re-verify is impossible after storage; readability in the
+		// admin UI is preserved).
+		$payloadJson = wp_json_encode( $payload );
+		if ( ! is_string( $payloadJson ) ) {
+			// `wp_json_encode` only fails on non-encodable input (NaN,
+			// resources, ...); a decoded webhook body never contains
+			// those. The empty-array fallback keeps the schema's
+			// `NOT NULL` contract intact.
+			$payloadJson = '[]';
+		}
+
+		$row = array(
+			'event_type'          => $resolvedEventType,
+			'event_id'            => $eventId,
+			'related_entity_type' => $resolvedEntityType,
+			'related_entity_id'   => $resolvedEntityId,
+			'payload'             => $payloadJson,
+			'hmac_status'         => 'valid',
+			'processing_status'   => WebhookLogRepo::STATUS_PENDING,
+			'received_at'         => (string) current_time( 'mysql', true ),
+		);
+
+		try {
+			$result = WebhookLogRepo::insertOrIgnore( $row );
+		} catch ( \RuntimeException $e ) {
+			// Repo only throws on non-Duplicate insert failures (schema
+			// mismatch, connection loss, ...). The 8-second ACK budget
+			// forbids any retry loop here — surface a 500 so SC retries
+			// the delivery on its own schedule (architecture.md Z. 638).
+			return new WP_REST_Response(
+				'error',
+				500,
+				array( 'Content-Type' => 'text/plain; charset=utf-8' )
+			);
+		}
+
+		$logId  = isset( $result['log_id'] ) ? (int) $result['log_id'] : 0;
+		$status = isset( $result['status'] ) && is_string( $result['status'] ) ? $result['status'] : '';
+
+		// Step 4: branch on the binary `inserted | duplicate` result.
+		if ( WebhookLogRepo::STATUS_INSERTED === $status ) {
+			// AC-5 + AC-10: schedule the async dispatcher with the log_id
+			// as a single positional int. Group `'spreadconnect'` keeps
+			// every AS action listable under one filter in WP-Admin →
+			// Tools → Scheduled Actions (architecture.md Z. 657).
+			as_enqueue_async_action(
+				self::ASYNC_HOOK,
+				array( $logId ),
+				self::ASYNC_GROUP
+			);
+
+			return new WP_REST_Response(
+				self::ACK_BODY_ACCEPTED,
+				202,
+				array( 'Content-Type' => 'text/plain; charset=utf-8' )
+			);
+		}
+
+		// AC-7: duplicate path — NO schedule, 200 (NOT 202; SC must not
+		// retry — architecture.md Z. 448).
+		return new WP_REST_Response(
+			self::ACK_BODY_DUPLICATE,
+			200,
+			array( 'Content-Type' => 'text/plain; charset=utf-8' )
+		);
+	}
+
+	/**
+	 * Map an `eventType` (e.g. `Order.processed`, `Article.updated`,
+	 * `Shipment.sent`) to the schema's `related_entity_type` enum value.
+	 *
+	 * The mapping mirrors architecture.md Z. 446 + the Order/Article
+	 * Event-Handler split (slices 25 + 30): `Order.*` and `Shipment.*`
+	 * deliveries describe an order, `Article.*` deliveries describe an
+	 * article. Anything we cannot recognise drops to `'unknown'` — slice
+	 * 17 surfaces it as `processing_error='unknown_event_type'`.
+	 *
+	 * @param string $eventType Top-level webhook `eventType`.
+	 *
+	 * @return string One of {`order`, `article`, `unknown`}.
+	 */
+	private static function resolveEntityType( string $eventType ): string
+	{
+		if ( 0 === strpos( $eventType, 'Order.' ) || 0 === strpos( $eventType, 'Shipment.' ) ) {
+			return WebhookLogRepo::ENTITY_TYPE_ORDER;
+		}
+
+		if ( 0 === strpos( $eventType, 'Article.' ) ) {
+			return 'article';
+		}
+
+		return 'unknown';
 	}
 
 	/**
