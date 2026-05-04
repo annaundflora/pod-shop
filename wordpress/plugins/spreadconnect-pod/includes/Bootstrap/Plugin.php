@@ -28,6 +28,7 @@ use SpreadconnectPod\Hub\Ajax\TestConnection as HubAjaxTestConnection;
 use SpreadconnectPod\Hub\Controller as HubController;
 use SpreadconnectPod\Hub\Rest\SyncProgress as HubRestSyncProgress;
 use SpreadconnectPod\Hub\View\Settings as HubSettingsView;
+use SpreadconnectPod\Inline\OrderListColumns as InlineOrderListColumns;
 use SpreadconnectPod\Inline\OrderMetaBox as InlineOrderMetaBox;
 use SpreadconnectPod\Inline\ProductListColumns as InlineProductListColumns;
 use SpreadconnectPod\Inline\ProductMetaBox as InlineProductMetaBox;
@@ -564,6 +565,116 @@ final class Plugin
 		add_action( 'admin_enqueue_scripts', [ InlineOrderMetaBox::class, 'enqueueAssets' ] );
 
 		HubAjaxOrderActions::register();
+
+		// slice-33: Mount the WC-Order-List columns + filter drop-down +
+		// "Re-send to Spreadconnect" bulk-action on BOTH the legacy
+		// `edit.php?post_type=shop_order` and the HPOS
+		// `wp-admin/admin.php?page=wc-orders` screen surfaces (architecture.md
+		// Z. 641 + Z. 821 — dual-hook contract).
+		//
+		// Single-Adapter pattern: every callback is `Inline\OrderListColumns`'
+		// `*Static` bridge so one method body services BOTH hook variants.
+		// The bridges resolve a default `Failure\BulkResendCoordinator`
+		// per request; unit tests inject a Mockery double via the constructor.
+		//
+		// The `pre_get_posts` + `woocommerce_order_query_args` pair handles
+		// AC-5 (sort) and AC-7/AC-8 (filter) in one closure each, so the
+		// hook count stays at the AC-16 minimum.
+		add_filter(
+			'manage_edit-shop_order_columns',
+			[ InlineOrderListColumns::class, 'registerColumnsStatic' ]
+		);
+		add_filter(
+			'manage_woocommerce_page_wc-orders_columns',
+			[ InlineOrderListColumns::class, 'registerColumnsStatic' ]
+		);
+
+		add_action(
+			'manage_shop_order_posts_custom_column',
+			[ InlineOrderListColumns::class, 'renderColumnStatic' ],
+			10,
+			2
+		);
+		add_action(
+			'manage_woocommerce_page_wc-orders_custom_column',
+			[ InlineOrderListColumns::class, 'renderColumnStatic' ],
+			10,
+			2
+		);
+
+		add_filter(
+			'manage_edit-shop_order_sortable_columns',
+			[ InlineOrderListColumns::class, 'registerSortableColumnsStatic' ]
+		);
+		add_filter(
+			'manage_woocommerce_page_wc-orders_sortable_columns',
+			[ InlineOrderListColumns::class, 'registerSortableColumnsStatic' ]
+		);
+
+		// AC-5/AC-7 (legacy) + AC-5/AC-8 (HPOS) — two filters, one per
+		// query API. The HPOS filter mutates the `wc_get_orders` args
+		// before `OrdersTableQuery` is built; `woocommerce_order_query_args`
+		// is the canonical hook on WC ≥ 8.2 (architecture.md Z. 821).
+		add_action(
+			'pre_get_posts',
+			[ InlineOrderListColumns::class, 'applySortingAndFilterStatic' ]
+		);
+		add_filter(
+			'woocommerce_order_query_args',
+			[ InlineOrderListColumns::class, 'applyOrderQueryArgsStatic' ]
+		);
+		add_filter(
+			'woocommerce_order_list_table_prepare_items_query_args',
+			[ InlineOrderListColumns::class, 'applyOrderQueryArgsStatic' ]
+		);
+
+		add_action(
+			'restrict_manage_posts',
+			[ InlineOrderListColumns::class, 'renderFilterDropdownStatic' ]
+		);
+		add_action(
+			'woocommerce_order_list_table_restrict_manage_orders',
+			[ InlineOrderListColumns::class, 'renderFilterDropdownStatic' ]
+		);
+
+		add_filter(
+			'bulk_actions-edit-shop_order',
+			[ InlineOrderListColumns::class, 'registerBulkActionStatic' ]
+		);
+		add_filter(
+			'bulk_actions-woocommerce_page_wc-orders',
+			[ InlineOrderListColumns::class, 'registerBulkActionStatic' ]
+		);
+
+		add_filter(
+			'handle_bulk_actions-edit-shop_order',
+			[ InlineOrderListColumns::class, 'handleBulkActionStatic' ],
+			10,
+			3
+		);
+		add_filter(
+			'handle_bulk_actions-woocommerce_page_wc-orders',
+			[ InlineOrderListColumns::class, 'handleBulkActionStatic' ],
+			10,
+			3
+		);
+
+		add_action(
+			'admin_notices',
+			[ InlineOrderListColumns::class, 'renderOutcomePanelStatic' ]
+		);
+
+		add_action(
+			'admin_enqueue_scripts',
+			[ InlineOrderListColumns::class, 'enqueueAssetsStatic' ]
+		);
+
+		// AC-10: pre-flight AJAX handler — admin-only (no `nopriv_*`
+		// variant). Cap+Nonce-ordering inside the handler mirrors slice-32.
+		add_action(
+			'wp_ajax_' . InlineOrderListColumns::AJAX_ACTION_PREFLIGHT,
+			[ InlineOrderListColumns::class, 'handlePreflightAjaxStatic' ]
+		);
 	}
 
 	/**
