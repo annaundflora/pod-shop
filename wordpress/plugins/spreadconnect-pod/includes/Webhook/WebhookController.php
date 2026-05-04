@@ -45,6 +45,8 @@ declare(strict_types=1);
 
 namespace SpreadconnectPod\Webhook;
 
+use SpreadconnectPod\Logging\Sources;
+use SpreadconnectPod\Logging\WcLoggerAdapter;
 use SpreadconnectPod\Subscription\WebhookSecretManager;
 use WP_Error;
 use WP_REST_Request;
@@ -423,10 +425,12 @@ final class WebhookController
 	 *                 cookie payload.
 	 *   - `reason`  — fixed enum {`missing_header`,`invalid_hmac`}.
 	 *
-	 * The function intentionally uses `error_log` (not the WC logger
-	 * adapter) because slice-42 has not yet introduced the adapter; the
-	 * stub keeps the log surface visible in PHP's default error stream
-	 * and is swappable without API change.
+	 * Routed through slice-42 {@see WcLoggerAdapter} so the entry lands
+	 * in `wc-logs/spreadconnect-webhook-receiver-*` and the AC-10
+	 * raw-`error_log` ban stays intact. The adapter additionally redacts
+	 * any stray `X-SPRD-SIGNATURE` header value that might have leaked
+	 * into a free-form context string — defence in depth on top of the
+	 * `array_keys()` projection below.
 	 *
 	 * @param WP_REST_Request $request Incoming request (already deemed
 	 *                                 unauthenticated — never log its
@@ -438,10 +442,6 @@ final class WebhookController
 	 */
 	private static function logRejected( WP_REST_Request $request, string $reason ): void
 	{
-		if ( ! function_exists( 'error_log' ) ) {
-			return;
-		}
-
 		$ip = self::resolveClientIp( $request );
 
 		$headers = $request->get_headers();
@@ -450,13 +450,18 @@ final class WebhookController
 		// Plain-text-free message: only the redacted context fields are
 		// concatenated. The signature header VALUE is never emitted; only
 		// the header NAME survives the `array_keys()` projection.
-		error_log(
+		WcLoggerAdapter::warning(
+			Sources::WEBHOOK_RECEIVER,
 			sprintf(
-				'[%s] webhook_rejected reason=%s ip=%s headers=%s',
-				self::LOG_SOURCE,
+				'webhook_rejected reason=%s ip=%s headers=%s',
 				$reason,
 				'' !== $ip ? $ip : '-',
 				implode( ',', array_map( 'strval', $names ) )
+			),
+			array(
+				'reason'  => $reason,
+				'ip'      => $ip,
+				'headers' => $names,
 			)
 		);
 	}

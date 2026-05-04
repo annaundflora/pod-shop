@@ -27,6 +27,7 @@ use SpreadconnectPod\Hub\Ajax\SyncNow as HubAjaxSyncNow;
 use SpreadconnectPod\Hub\Ajax\TestConnection as HubAjaxTestConnection;
 use SpreadconnectPod\Hub\Controller as HubController;
 use SpreadconnectPod\Hub\Rest\SyncProgress as HubRestSyncProgress;
+use SpreadconnectPod\Hub\View\Logs as HubLogsView;
 use SpreadconnectPod\Hub\View\Settings as HubSettingsView;
 use SpreadconnectPod\Inline\OrderListColumns as InlineOrderListColumns;
 use SpreadconnectPod\Inline\OrderMetaBox as InlineOrderMetaBox;
@@ -715,6 +716,23 @@ final class Plugin
 		add_action(
 			'wp_ajax_' . InlineOrderListColumns::AJAX_ACTION_PREFLIGHT,
 			[ InlineOrderListColumns::class, 'handlePreflightAjaxStatic' ]
+		);
+
+		// slice-42: CSV-export endpoint for the Logs sub-page (Hub
+		// `?page=spreadconnect&section=logs`). The view itself is
+		// dispatched via the slice-13 routing table — `Hub\Controller`'s
+		// section-whitelist already maps `logs` → `Hub\View\Logs::render()`,
+		// so no additional `admin_menu` hook is required. This AJAX
+		// action exists solely to stream the filtered CSV back to the
+		// browser when the `[Download CSV]` button is clicked. The
+		// handler self-gates on `manage_woocommerce` + the shared
+		// `spreadconnect_admin` nonce (architecture.md Z. 84) BEFORE any
+		// header is emitted, so a forged or unauthenticated request
+		// reliably produces a 403. Only the authenticated `wp_ajax_*`
+		// variant is registered — no `nopriv_*` (admin-only).
+		add_action(
+			'wp_ajax_' . HubLogsView::CSV_AJAX_ACTION,
+			[ HubLogsView::class, 'handleCsvExport' ]
 		);
 	}
 

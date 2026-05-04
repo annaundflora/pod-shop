@@ -62,6 +62,8 @@ use SpreadconnectPod\Api\Dto\ProductTypeDetail;
 use SpreadconnectPod\Api\SpreadconnectClient;
 use SpreadconnectPod\Api\SpreadconnectClientError;
 use SpreadconnectPod\Api\SpreadconnectTransientError;
+use SpreadconnectPod\Logging\Sources;
+use SpreadconnectPod\Logging\WcLoggerAdapter;
 use Throwable;
 use WP_Error;
 
@@ -619,13 +621,20 @@ final class SyncArticleJob
 		} catch ( Throwable $e ) {
 			// Defensive: a history-append failure must NOT mask the
 			// underlying exception that the caller is already about to
-			// re-throw. FIXME(slice-42): surface via WcLoggerAdapter.
-			error_log(
+			// re-throw. Surface via the slice-42 WcLoggerAdapter so the
+			// entry lands in the canonical `wc-logs/spreadconnect-sync-job-*`
+			// stream and the AC-10 raw-`error_log` ban stays intact.
+			WcLoggerAdapter::warning(
+				Sources::SYNC_JOB,
 				sprintf(
-					'spreadconnect-sync-job: failed to append sync_history detail for run_id=%d article_id=%s: %s',
+					'failed to append sync_history detail for run_id=%d article_id=%s: %s',
 					$runId,
 					$articleId,
 					$e->getMessage()
+				),
+				array(
+					'run_id'     => $runId,
+					'article_id' => $articleId,
 				)
 			);
 		}

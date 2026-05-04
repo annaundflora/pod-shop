@@ -31,6 +31,9 @@ declare(strict_types=1);
 
 namespace SpreadconnectPod\Subscription;
 
+use SpreadconnectPod\Logging\Sources;
+use SpreadconnectPod\Logging\WcLoggerAdapter;
+
 /**
  * Stateless manager for the HMAC webhook secret.
  *
@@ -183,20 +186,24 @@ final class WebhookSecretManager
 	 */
 	private static function logRotationEvent( bool $isInitial, int $len ): void
 	{
-		if ( ! function_exists( 'error_log' ) ) {
-			return;
-		}
-
 		$marker = $isInitial ? 'secret_generated' : 'secret_rotated';
 		// Plain-text-free message: the secret value is NEVER concatenated
 		// into the log line; only the constant marker, length and is_initial
-		// flag are emitted.
-		error_log(
+		// flag are emitted. Routed through slice-42 WcLoggerAdapter so the
+		// entry lands in `wc-logs/spreadconnect-webhook-receiver-*` and
+		// the AC-10 raw-`error_log` ban stays intact.
+		WcLoggerAdapter::info(
+			Sources::WEBHOOK_RECEIVER,
 			sprintf(
-				'[spreadconnect-pod] %s len=%d is_initial=%s',
+				'%s len=%d is_initial=%s',
 				$marker,
 				$len,
 				$isInitial ? 'true' : 'false'
+			),
+			array(
+				'event'      => $marker,
+				'length'     => $len,
+				'is_initial' => $isInitial,
 			)
 		);
 	}

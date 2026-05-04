@@ -46,6 +46,8 @@ declare(strict_types=1);
 namespace SpreadconnectPod\Catalog;
 
 use RuntimeException;
+use SpreadconnectPod\Logging\Sources;
+use SpreadconnectPod\Logging\WcLoggerAdapter;
 
 /**
  * Repository for the catalog-sync history table.
@@ -281,12 +283,17 @@ final class SyncHistoryRepo
 		} catch ( \Throwable $e ) {
 			// Defensive: a missing row at this point is already an
 			// inconsistent state; do not mask the original failure.
-			error_log(
+			// Surface via slice-42 WcLoggerAdapter so the entry lands in
+			// the canonical sync-job log stream and the AC-10
+			// raw-`error_log` ban stays intact.
+			WcLoggerAdapter::warning(
+				Sources::SYNC_JOB,
 				sprintf(
-					'spreadconnect-sync-job: failed to append __error__ detail for run_id=%d: %s',
+					'failed to append __error__ detail for run_id=%d: %s',
 					$runId,
 					$e->getMessage()
-				)
+				),
+				array( 'run_id' => $runId )
 			);
 		}
 	}
