@@ -102,14 +102,15 @@ final class Slice14WebhookSecretManagerTest extends TestCase
     /** @var list<array<string,mixed>> */
     private array $errorLogs = [];
 
-    /** Temp-Datei in die ini_set('error_log', ...) umleitet. */
-    private string $errorLogFile = '';
-
-    /** @var string|false */
-    private mixed $prevErrorLog = '';
-
-    /** @var string|false */
-    private mixed $prevLogErrors = '';
+    /**
+     * Logger-Spy fuer `wc_get_logger()` — ersetzt das alte `error_log`-Capture
+     * (slice-42 hat den `WebhookSecretManager` von `error_log()` auf
+     * `WcLoggerAdapter::info()` umgestellt; AC-9 / AC-10 verlangen Routing
+     * ueber den zentralen Adapter, kein direkter `error_log()`-Aufruf mehr).
+     *
+     * @var list<array{level:string,message:string,context:array<string,mixed>}>
+     */
+    private array $loggerEntries = [];
 
     /**
      * Test-Wallclock — ungefaehr time() zum Zeitpunkt von setUp(). Wird als
@@ -254,15 +255,57 @@ final class Slice14WebhookSecretManagerTest extends TestCase
             }
         );
 
-        // ---- error_log capture via ini_set ('error_log' is a PHP internal,
-        //      Patchwork erlaubt keine Redefinition ohne 'redefinable-internals'-
-        //      Config). Wir leiten error_log() in eine Temp-Datei um und lesen
-        //      sie zurueck via {@see self::readErrorLogMessages()}.
-        $this->errorLogFile  = (string) tempnam( sys_get_temp_dir(), 'slice14_errorlog_' );
-        $this->prevErrorLog  = ini_get( 'error_log' );
-        $this->prevLogErrors = ini_get( 'log_errors' );
-        ini_set( 'error_log', $this->errorLogFile );
-        ini_set( 'log_errors', '1' );
+        // ---- wc_get_logger spy --------------------------------------------
+        // slice-42 migrierte den Manager von `error_log()` auf
+        // `WcLoggerAdapter::info()` (AC-10 verbietet `error_log()` in
+        // Plugin-Sources). Der Adapter delegiert an `wc_get_logger()->log()`;
+        // wir stellen einen Spy bereit, der alle Eintraege mit Level/Message/
+        // Context capturet und durch {@see self::readErrorLogMessages()}
+        // wieder als list<string> ausgespielt wird (Format-Kompatibilitaet
+        // zu den AC-9-Asserts).
+        $loggerEntries = &$this->loggerEntries;
+        Functions\when( 'wc_get_logger' )->alias(
+            static function () use ( &$loggerEntries ) {
+                return new class( $loggerEntries ) {
+                    /** @var list<array{level:string,message:string,context:array<string,mixed>}> */
+                    public array $entriesRef;
+
+                    public function __construct( array &$entries )
+                    {
+                        $this->entriesRef = &$entries;
+                    }
+
+                    public function log( string $level, string $message, array $context = [] ): void
+                    {
+                        $this->entriesRef[] = [
+                            'level'   => $level,
+                            'message' => $message,
+                            'context' => $context,
+                        ];
+                    }
+
+                    public function info( string $message, array $context = [] ): void
+                    {
+                        $this->log( 'info', $message, $context );
+                    }
+
+                    public function warning( string $message, array $context = [] ): void
+                    {
+                        $this->log( 'warning', $message, $context );
+                    }
+
+                    public function error( string $message, array $context = [] ): void
+                    {
+                        $this->log( 'error', $message, $context );
+                    }
+
+                    public function debug( string $message, array $context = [] ): void
+                    {
+                        $this->log( 'debug', $message, $context );
+                    }
+                };
+            }
+        );
 
         // ---- Hub-Settings: nonce + add_action defaults --------------------.
         Functions\when( 'wp_create_nonce' )->justReturn( 'NONCE_SECRET_42' );
@@ -289,17 +332,7 @@ final class Slice14WebhookSecretManagerTest extends TestCase
 
     protected function tearDown(): void
     {
-        // Restore error_log ini settings.
-        if ( $this->prevErrorLog !== '' && $this->prevErrorLog !== false ) {
-            ini_set( 'error_log', (string) $this->prevErrorLog );
-        }
-        if ( $this->prevLogErrors !== '' && $this->prevLogErrors !== false ) {
-            ini_set( 'log_errors', (string) $this->prevLogErrors );
-        }
-        if ( '' !== $this->errorLogFile && is_file( $this->errorLogFile ) ) {
-            @unlink( $this->errorLogFile );
-        }
-
+        $this->loggerEntries = [];
         FakeRandomBytesQueue::reset();
         $_POST = [];
         Monkey\tearDown();
@@ -307,24 +340,27 @@ final class Slice14WebhookSecretManagerTest extends TestCase
     }
 
     /**
-     * Read the temp error_log file into a list of message strings.
+     * Read the captured logger entries as a list of stringified messages.
+     *
+     * Slice-42 migrierte den Manager von `error_log()` auf
+     * `WcLoggerAdapter::info()` (Routing ueber `wc_get_logger()`-Spy).
+     * Wir flachen jeden Eintrag in einen einzelnen String aus
+     * (`<message> | <context-as-json>`), damit die bisherigen
+     * `assertStringContainsString()`-Asserts unveraendert greifen.
      *
      * @return list<string>
      */
     private function readErrorLogMessages(): array
     {
-        if ( '' === $this->errorLogFile || ! is_file( $this->errorLogFile ) ) {
-            return [];
+        $out = [];
+        foreach ( $this->loggerEntries as $entry ) {
+            $context = $entry['context'] ?? [];
+            $contextJson = '' === $context || [] === $context
+                ? ''
+                : (string) json_encode( $context );
+            $out[] = $entry['message'] . ( '' === $contextJson ? '' : ' | ' . $contextJson );
         }
-        $contents = (string) file_get_contents( $this->errorLogFile );
-        if ( '' === $contents ) {
-            return [];
-        }
-        // PHP error_log() prefixes each line with a timestamp like
-        // "[04-May-2026 12:34:56 UTC] " — split by newline and keep all
-        // non-empty lines.
-        $lines = preg_split( '/\r?\n/', trim( $contents ) ) ?: [];
-        return array_values( array_filter( $lines, static fn ( $l ): bool => '' !== $l ) );
+        return $out;
     }
 
     // =====================================================================
@@ -953,23 +989,33 @@ final class Slice14WebhookSecretManagerTest extends TestCase
     }
 
     // AC-9: Static-source assertion — der Source darf den base64-Wert nirgends
-    //       direkt mit error_log konkatinieren. Wir pruefen, dass das Event
+    //       direkt mit dem Logger konkatenieren. Wir pruefen, dass das Event
     //       und der Plaintext nie im selben Aufruf landen.
+    //
+    // Slice-42-Update: AC-10 verbietet `error_log()` in v2-Plugin-Sources;
+    // der Manager nutzt seitdem `WcLoggerAdapter::info()` als Routing-Layer
+    // ueber `wc_get_logger()` (architecture.md Z. 398, Z. 687, Z. 757).
     public function test_manager_source_never_concatenates_secret_with_log(): void
     {
         $source = (string) file_get_contents( self::managerFile() );
 
-        // error_log darf existieren (event-marker), aber NICHT mit `$secret` als Teil
-        // einer einzigen Zeile — die Production-Stelle nutzt nur strlen($secret) +
-        // event-marker, nie $secret selbst.
+        // Slice-42 (architecture.md AVOID #6, Z. 687): kein direkter
+        // `error_log()`-Call in v2-Plugin-Sources — alle Logging laeuft ueber
+        // `WcLoggerAdapter`.
+        $this->assertDoesNotMatchRegularExpression(
+            '/^[^*\/]*error_log\s*\(/m',
+            preg_replace( '/(\/\*[\s\S]*?\*\/|\/\/[^\n]*)/', '', $source ) ?? '',
+            'AC-9 / Slice-42 AC-10: Manager DARF `error_log()` NICHT direkt aufrufen — nur via WcLoggerAdapter.'
+        );
+        // Manager MUSS den WC-Logger-Adapter fuer den event-marker nutzen.
         $this->assertMatchesRegularExpression(
-            '/error_log\s*\(/',
+            '/WcLoggerAdapter::(info|warning|error|log)\s*\(/',
             $source,
-            'AC-9: Manager MUSS error_log fuer event-marker nutzen.'
+            'AC-9: Manager MUSS `WcLoggerAdapter::info|warning|error|log` fuer event-marker nutzen.'
         );
         // Der Plaintext-String wird nur via `strlen()` referenziert in logRotationEvent.
         $logRotationFn = '';
-        if ( preg_match( '/private static function logRotationEvent[\s\S]*?\}\s*$/m', $source, $m ) ) {
+        if ( preg_match( '/private static function logRotationEvent[\s\S]*?\n\t\}\s*$/m', $source, $m ) ) {
             $logRotationFn = $m[0];
         }
         $this->assertNotSame( '', $logRotationFn, 'AC-9: logRotationEvent-Funktion MUSS existieren.' );

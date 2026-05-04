@@ -259,14 +259,16 @@ namespace SpreadconnectPod\Tests {
 		/** @var list<array{0:string,1:string,2:array<string,mixed>}> */
 		private array $restRoutes = [];
 
-		/** Temp-Datei fuer error_log Capture. */
-		private string $errorLogFile = '';
-
-		/** @var string|false */
-		private mixed $prevErrorLog = '';
-
-		/** @var string|false */
-		private mixed $prevLogErrors = '';
+		/**
+		 * Logger-Spy fuer `wc_get_logger()` — ersetzt das alte `error_log`-
+		 * Capture (slice-42 hat den `WebhookController::logRejected` von
+		 * `error_log()` auf `WcLoggerAdapter::warning()` umgestellt; AC-10
+		 * verlangt Routing ueber den zentralen Adapter, kein direkter
+		 * `error_log()`-Aufruf mehr).
+		 *
+		 * @var list<array{level:string,message:string,context:array<string,mixed>}>
+		 */
+		private array $loggerEntries = [];
 
 		private static function repoRoot(): string
 		{
@@ -375,12 +377,56 @@ namespace SpreadconnectPod\Tests {
 				}
 			);
 
-			// ---- error_log capture via ini_set --------------------------
-			$this->errorLogFile  = (string) tempnam( sys_get_temp_dir(), 'slice15_errlog_' );
-			$this->prevErrorLog  = ini_get( 'error_log' );
-			$this->prevLogErrors = ini_get( 'log_errors' );
-			ini_set( 'error_log', $this->errorLogFile );
-			ini_set( 'log_errors', '1' );
+			// ---- wc_get_logger spy --------------------------------------
+			// slice-42 migrierte `WebhookController::logRejected` von
+			// `error_log()` auf `WcLoggerAdapter::warning()` (AC-10 verbietet
+			// `error_log()` in Plugin-Sources). Spy capturet Level/Message/
+			// Context und {@see self::readErrorLogMessages()} flacht den
+			// Eintrag auf einen String aus (Format-Kompatibilitaet zu den
+			// AC-7-Asserts).
+			$loggerEntries = &$this->loggerEntries;
+			Functions\when( 'wc_get_logger' )->alias(
+				static function () use ( &$loggerEntries ) {
+					return new class( $loggerEntries ) {
+						/** @var list<array{level:string,message:string,context:array<string,mixed>}> */
+						public array $entriesRef;
+
+						public function __construct( array &$entries )
+						{
+							$this->entriesRef = &$entries;
+						}
+
+						public function log( string $level, string $message, array $context = [] ): void
+						{
+							$this->entriesRef[] = [
+								'level'   => $level,
+								'message' => $message,
+								'context' => $context,
+							];
+						}
+
+						public function info( string $message, array $context = [] ): void
+						{
+							$this->log( 'info', $message, $context );
+						}
+
+						public function warning( string $message, array $context = [] ): void
+						{
+							$this->log( 'warning', $message, $context );
+						}
+
+						public function error( string $message, array $context = [] ): void
+						{
+							$this->log( 'error', $message, $context );
+						}
+
+						public function debug( string $message, array $context = [] ): void
+						{
+							$this->log( 'debug', $message, $context );
+						}
+					};
+				}
+			);
 
 			// ---- $_SERVER reset for resolveClientIp ---------------------
 			$_SERVER['REMOTE_ADDR'] = '198.51.100.42';
@@ -388,15 +434,7 @@ namespace SpreadconnectPod\Tests {
 
 		protected function tearDown(): void
 		{
-			if ( $this->prevErrorLog !== '' && $this->prevErrorLog !== false ) {
-				ini_set( 'error_log', (string) $this->prevErrorLog );
-			}
-			if ( $this->prevLogErrors !== '' && $this->prevLogErrors !== false ) {
-				ini_set( 'log_errors', (string) $this->prevLogErrors );
-			}
-			if ( '' !== $this->errorLogFile && is_file( $this->errorLogFile ) ) {
-				@unlink( $this->errorLogFile );
-			}
+			$this->loggerEntries = [];
 			unset( $_SERVER['REMOTE_ADDR'] );
 
 			Slice15HashSpy::reset();
@@ -406,19 +444,27 @@ namespace SpreadconnectPod\Tests {
 		}
 
 		/**
+		 * Read the captured logger entries as a list of stringified messages.
+		 *
+		 * Slice-42 migrierte den Controller von `error_log()` auf
+		 * `WcLoggerAdapter::warning()` (Routing ueber `wc_get_logger()`-Spy).
+		 * Wir flachen jeden Eintrag in einen einzelnen String aus
+		 * (`<message> | <context-as-json>`), damit die bisherigen
+		 * `assertStringContainsString()`-Asserts unveraendert greifen.
+		 *
 		 * @return list<string>
 		 */
 		private function readErrorLogMessages(): array
 		{
-			if ( '' === $this->errorLogFile || ! is_file( $this->errorLogFile ) ) {
-				return [];
+			$out = [];
+			foreach ( $this->loggerEntries as $entry ) {
+				$context = $entry['context'] ?? [];
+				$contextJson = '' === $context || [] === $context
+					? ''
+					: (string) json_encode( $context );
+				$out[] = $entry['message'] . ( '' === $contextJson ? '' : ' | ' . $contextJson );
 			}
-			$contents = (string) file_get_contents( $this->errorLogFile );
-			if ( '' === $contents ) {
-				return [];
-			}
-			$lines = preg_split( '/\r?\n/', trim( $contents ) ) ?: [];
-			return array_values( array_filter( $lines, static fn ( $l ): bool => '' !== $l ) );
+			return $out;
 		}
 
 		// ===================================================================

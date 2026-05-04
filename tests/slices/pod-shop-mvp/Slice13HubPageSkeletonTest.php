@@ -14,38 +14,35 @@ use SpreadconnectPod\Hub\View\Sidebar;
 // ---------------------------------------------------------------------
 // Stub-Klassen-Strategie (Slice-13 Spec Constraints):
 //
-// Die 6 Routing-Stub-View-Klassen (Catalog, Orders, Webhooks, FailedOps,
+// Die 6 Routing-View-Klassen (Catalog, Orders, Webhooks, FailedOps,
 // Logs, Subscriptions) sind NICHT Deliverables dieser Slice — sie werden
 // erst in Folge-Slices angelegt (26/—/41/38/42/19). Damit der Dispatcher
 // in seinen `class_exists()`-Check die Klasse als vorhanden sieht UND in
-// die `($fqcn)::render()`-Aufrufe verzweigen kann, definieren wir sie
-// hier als leere `final class` mit `public static function render()`.
+// die `($fqcn)::render()`-Aufrufe verzweigen kann, definieren wir Stubs
+// hier als leere `final class` mit `public static function render()` —
+// aber nur fuer jene, die noch nicht als echte Production-Klassen
+// existieren.
 //
-// Settings (Slice 11), Dashboard (Slice 13), Catalog (Slice 26) und
-// Subscriptions (Slice 19) werden von Production-Code geliefert und sind
-// via Autoloader verfuegbar — ihre Stub-Variante wuerde den Klassen-
-// Konflikt erzeugen, deshalb ueber `class_exists()`-Guards uebersprungen.
-// Slice-13 verifiziert das Catalog- und Subscriptions-Routing daher ueber
-// Output-Marker statt ueber einen $renderCount-Spy (siehe
+// Settings (Slice 11), Dashboard (Slice 13), Catalog (Slice 26),
+// Subscriptions (Slice 19), Webhooks (Slice 41) und Logs (Slice 42)
+// werden von Production-Code geliefert und sind via Autoloader
+// verfuegbar — ihre Stub-Variante wuerde den Klassen-Konflikt erzeugen,
+// deshalb ueber `class_exists()`-Guards uebersprungen. Slice-13
+// verifiziert das Routing dieser echten Views ueber Output-Marker statt
+// ueber einen $renderCount-Spy (siehe
 // `test_dispatch_routes_catalog_section_to_catalog_view` /
-// `test_dispatch_routes_subscriptions_section_to_subscriptions_view`).
+// `test_dispatch_routes_subscriptions_section_to_subscriptions_view` /
+// `test_dispatch_routes_webhooks_section_to_webhooks_view` /
+// `test_dispatch_routes_logs_section_to_logs_view`).
 // ---------------------------------------------------------------------
 
 if (! class_exists(\SpreadconnectPod\Hub\View\Orders::class)) {
     /** @phpstan-ignore-next-line */
     eval('namespace SpreadconnectPod\\Hub\\View; final class Orders { public static int $renderCount = 0; public static function render(): void { self::$renderCount++; } }');
 }
-if (! class_exists(\SpreadconnectPod\Hub\View\Webhooks::class)) {
-    /** @phpstan-ignore-next-line */
-    eval('namespace SpreadconnectPod\\Hub\\View; final class Webhooks { public static int $renderCount = 0; public static function render(): void { self::$renderCount++; } }');
-}
 if (! class_exists(\SpreadconnectPod\Hub\View\FailedOps::class)) {
     /** @phpstan-ignore-next-line */
     eval('namespace SpreadconnectPod\\Hub\\View; final class FailedOps { public static int $renderCount = 0; public static function render(): void { self::$renderCount++; } }');
-}
-if (! class_exists(\SpreadconnectPod\Hub\View\Logs::class)) {
-    /** @phpstan-ignore-next-line */
-    eval('namespace SpreadconnectPod\\Hub\\View; final class Logs { public static int $renderCount = 0; public static function render(): void { self::$renderCount++; } }');
 }
 
 /**
@@ -191,22 +188,21 @@ final class Slice13HubPageSkeletonTest extends TestCase
 
     /**
      * Reset Render-Counter aller stub View-Klassen, damit Tests
-     * unabhaengig sind. Catalog (Slice-26) und Subscriptions (Slice-19)
-     * sind echte Production-Klassen ohne $renderCount und werden hier
-     * nicht zurueckgesetzt — ihr Routing wird ueber Output-Marker
-     * verifiziert.
+     * unabhaengig sind. Catalog (Slice-26), Subscriptions (Slice-19),
+     * Webhooks (Slice-41) und Logs (Slice-42) sind echte Production-
+     * Klassen ohne $renderCount und werden hier nicht zurueckgesetzt —
+     * ihr Routing wird ueber Output-Marker verifiziert.
      */
     private static function resetStubRenderCounts(): void
     {
         \SpreadconnectPod\Hub\View\Orders::$renderCount    = 0;
-        \SpreadconnectPod\Hub\View\Webhooks::$renderCount  = 0;
         \SpreadconnectPod\Hub\View\FailedOps::$renderCount = 0;
-        \SpreadconnectPod\Hub\View\Logs::$renderCount      = 0;
     }
 
     /**
      * @return list<string> Render-Counts als Snapshot fuer Cross-View-Vergleich.
-     *                    Catalog (Slice-26) und Subscriptions (Slice-19) sind
+     *                    Catalog (Slice-26), Subscriptions (Slice-19),
+     *                    Webhooks (Slice-41) und Logs (Slice-42) sind
      *                    echt und werden ueber Output-Marker getestet, nicht
      *                    ueber $renderCount.
      */
@@ -214,9 +210,7 @@ final class Slice13HubPageSkeletonTest extends TestCase
     {
         return [
             'orders'   => \SpreadconnectPod\Hub\View\Orders::$renderCount,
-            'webhooks' => \SpreadconnectPod\Hub\View\Webhooks::$renderCount,
             'failed'   => \SpreadconnectPod\Hub\View\FailedOps::$renderCount,
-            'logs'     => \SpreadconnectPod\Hub\View\Logs::$renderCount,
         ];
     }
 
@@ -484,10 +478,10 @@ final class Slice13HubPageSkeletonTest extends TestCase
     public function test_dispatch_routes_each_known_section_to_correct_view_class(): void
     {
         // Stub-Views verfolgen ihre Render-Counts; fuer Dashboard, Settings
-        // (Slice 11/13), Catalog (Slice 26) und Subscriptions (Slice 19 —
-        // echte Klassen) wird das Routing ueber Output-Marker verifiziert
-        // (separate Tests).
-        $stubSlugs = ['orders', 'webhooks', 'failed', 'logs'];
+        // (Slice 11/13), Catalog (Slice 26), Subscriptions (Slice 19),
+        // Webhooks (Slice 41) und Logs (Slice 42) — alle echte Klassen —
+        // wird das Routing ueber Output-Marker verifiziert (separate Tests).
+        $stubSlugs = ['orders', 'failed'];
 
         foreach ($stubSlugs as $slug) {
             // Reset alle Mocks pro Iteration.
@@ -712,12 +706,157 @@ final class Slice13HubPageSkeletonTest extends TestCase
             '(Output-Marker `spreadconnect-subscriptions__table` aus Slice-19).'
         );
 
-        // Stub-Views (Orders/Webhooks/...) NICHT gerendert.
+        // Stub-Views (Orders/...) NICHT gerendert.
         foreach (self::stubRenderCounts() as $slug => $count) {
             $this->assertSame(
                 0,
                 $count,
                 sprintf('AC-3: Stub-View "%s" darf NICHT bei ?section=subscriptions rendern.', $slug)
+            );
+        }
+    }
+
+    /**
+     * AC-3: ?section=webhooks ruft Webhooks::render() (echte Slice-41 Klasse).
+     *
+     * Verifikation ueber Output-Marker `spreadconnect-webhook-log__`,
+     * der nur von Webhooks::render() emittiert wird. Ein $renderCount-Spy
+     * ist nicht moeglich, weil Webhooks seit Slice-41 eine echte Production-
+     * Klasse ist — Slice-13 darf sie weder ueberschreiben noch shadowen.
+     */
+    public function test_dispatch_routes_webhooks_section_to_webhooks_view(): void
+    {
+        self::stubI18nAndEscapeHelpers();
+        self::stubUrlHelpers();
+        self::stubSanitizeHelpers();
+        Monkey\Functions\when('current_user_can')->justReturn(true);
+
+        // Stubs fuer Webhooks::render-Abhaengigkeiten (Slice-41):
+        Monkey\Functions\when('absint')->alias(function ($value) {
+            return (int) abs((int) $value);
+        });
+        Monkey\Functions\when('sanitize_text_field')->alias(function ($value) {
+            return is_string($value) ? trim(strip_tags($value)) : '';
+        });
+        Monkey\Functions\when('get_option')->alias(function ($name, $default = false) {
+            return $default;
+        });
+        Monkey\Functions\when('plugins_url')->alias(function ($path = '', $plugin = '') {
+            return 'http://example.test/plugins/' . ltrim((string) $path, '/');
+        });
+        Monkey\Functions\when('wp_register_script')->justReturn(true);
+        Monkey\Functions\when('wp_enqueue_script')->justReturn(null);
+        Monkey\Functions\when('wp_json_encode')->alias(function ($value) {
+            return json_encode($value);
+        });
+
+        // Patchwork-Redefine fuer WebhookLogRepo::findFiltered/countFiltered —
+        // die Klasse ist `final`, ein Subclass-Trick scheidet aus.
+        \Patchwork\redefine(
+            [\SpreadconnectPod\Webhook\WebhookLogRepo::class, 'findFiltered'],
+            static function (): array {
+                return [];
+            }
+        );
+        \Patchwork\redefine(
+            [\SpreadconnectPod\Webhook\WebhookLogRepo::class, 'countFiltered'],
+            static function (): int {
+                return 0;
+            }
+        );
+
+        $_GET['section'] = 'webhooks';
+
+        $initialObLevel = ob_get_level();
+        ob_start();
+        try {
+            Controller::dispatch();
+        } finally {
+            $output = (string) ob_get_clean();
+            while (ob_get_level() > $initialObLevel) {
+                ob_end_clean();
+            }
+        }
+
+        $this->assertStringContainsString(
+            'spreadconnect-webhook-log__',
+            $output,
+            'AC-3: ?section=webhooks MUSS Webhooks::render() aufrufen ' .
+            '(Output-Marker `spreadconnect-webhook-log__` aus Slice-41).'
+        );
+
+        // Stub-Views (Orders/Failed) NICHT gerendert.
+        foreach (self::stubRenderCounts() as $slug => $count) {
+            $this->assertSame(
+                0,
+                $count,
+                sprintf('AC-3: Stub-View "%s" darf NICHT bei ?section=webhooks rendern.', $slug)
+            );
+        }
+    }
+
+    /**
+     * AC-3: ?section=logs ruft Logs::render() (echte Slice-42 Klasse).
+     *
+     * Verifikation ueber Output-Marker `spreadconnect-logs__`,
+     * der nur von Logs::render() emittiert wird. Ein $renderCount-Spy
+     * ist nicht moeglich, weil Logs seit Slice-42 eine echte Production-
+     * Klasse ist — Slice-13 darf sie weder ueberschreiben noch shadowen.
+     */
+    public function test_dispatch_routes_logs_section_to_logs_view(): void
+    {
+        self::stubI18nAndEscapeHelpers();
+        self::stubUrlHelpers();
+        self::stubSanitizeHelpers();
+        Monkey\Functions\when('current_user_can')->justReturn(true);
+
+        // Stubs fuer Logs::render-Abhaengigkeiten (Slice-42):
+        Monkey\Functions\when('wp_create_nonce')->justReturn('test-nonce');
+        Monkey\Functions\when('absint')->alias(function ($value) {
+            return (int) abs((int) $value);
+        });
+        Monkey\Functions\when('sanitize_text_field')->alias(function ($value) {
+            return is_string($value) ? trim(strip_tags($value)) : '';
+        });
+        Monkey\Functions\when('get_option')->alias(function ($name, $default = false) {
+            return $default;
+        });
+        Monkey\Functions\when('wp_upload_dir')->alias(function () {
+            return ['basedir' => sys_get_temp_dir()];
+        });
+        Monkey\Functions\when('current_time')->alias(function ($type = 'mysql') {
+            return time();
+        });
+        Monkey\Functions\when('selected')->alias(function ($selected, $current = true, $echo = true) {
+            return $selected === $current ? ' selected="selected"' : '';
+        });
+
+        $_GET['section'] = 'logs';
+
+        $initialObLevel = ob_get_level();
+        ob_start();
+        try {
+            Controller::dispatch();
+        } finally {
+            $output = (string) ob_get_clean();
+            while (ob_get_level() > $initialObLevel) {
+                ob_end_clean();
+            }
+        }
+
+        $this->assertStringContainsString(
+            'spreadconnect-logs__',
+            $output,
+            'AC-3: ?section=logs MUSS Logs::render() aufrufen ' .
+            '(Output-Marker `spreadconnect-logs__` aus Slice-42).'
+        );
+
+        // Stub-Views (Orders/Failed) NICHT gerendert.
+        foreach (self::stubRenderCounts() as $slug => $count) {
+            $this->assertSame(
+                0,
+                $count,
+                sprintf('AC-3: Stub-View "%s" darf NICHT bei ?section=logs rendern.', $slug)
             );
         }
     }
