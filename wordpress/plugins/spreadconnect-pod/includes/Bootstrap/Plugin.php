@@ -19,7 +19,9 @@ use SpreadconnectPod\Catalog\ArticleRemovedJob;
 use SpreadconnectPod\Catalog\AttributeProvisioner;
 use SpreadconnectPod\Catalog\SyncArticleJob;
 use SpreadconnectPod\Catalog\SyncCatalogJob;
+use SpreadconnectPod\Failure\AdminNoticeStore;
 use SpreadconnectPod\Failure\FailedOpsRepo;
+use SpreadconnectPod\Failure\FailureNotifier;
 use SpreadconnectPod\Failure\RetryPolicyListener;
 use SpreadconnectPod\Hub\Ajax\ExportImportSettings as HubAjaxExportImportSettings;
 use SpreadconnectPod\Hub\Ajax\OrderActions as HubAjaxOrderActions;
@@ -833,12 +835,47 @@ final class Plugin
 			static function ( $action_id ): void {
 				global $wpdb;
 
+				// slice-39: inject FailureNotifier + AdminNoticeStore so
+				// the listener can dispatch email + persist a persistent
+				// admin-notice after a successful DLQ insert. Construction
+				// is lazy (inside the closure) so unit-tests that exercise
+				// `init()` without a `$GLOBALS['wpdb']` mock or without WC
+				// loaded never trip these constructors.
 				$failedOpsRepo       = new FailedOpsRepo( $wpdb );
-				$retryPolicyListener = new RetryPolicyListener( $failedOpsRepo );
+				$failureNotifier     = new FailureNotifier();
+				$adminNoticeStore    = new AdminNoticeStore();
+				$retryPolicyListener = new RetryPolicyListener(
+					$failedOpsRepo,
+					null,
+					$failureNotifier,
+					$adminNoticeStore
+				);
 				$retryPolicyListener->on_action_failed( (int) $action_id );
 			},
 			10,
 			1
+		);
+
+		// slice-39: Mount the persistent admin-notices on every WP-Admin
+		// page-load. `AdminNoticeStore::renderAll()` does its OWN
+		// capability-check (`manage_woocommerce`) before emitting any
+		// HTML, and the store self-resolves the option on each call —
+		// no shared state across requests. The `self::$initialized`
+		// guard above keeps the `add_action` call at exactly one per
+		// request, so a re-entrant `init()` cannot double-register the
+		// hook (slice-39 AC-13). The hook is a closure-callback so two
+		// distinct `Plugin::init()` invocations (within the same
+		// request) would not register two identical callable-pairs
+		// either — but the static guard makes the duplication-check
+		// moot in practice.
+		add_action(
+			'admin_notices',
+			static function (): void {
+				$store = new AdminNoticeStore();
+				$store->renderAll();
+			},
+			10,
+			0
 		);
 	}
 

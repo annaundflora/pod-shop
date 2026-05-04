@@ -114,13 +114,36 @@ final class RetryPolicyListener
 	private ?\WC_Logger $logger;
 
 	/**
-	 * @param FailedOpsRepo   $repo   DLQ repository.
-	 * @param \WC_Logger|null $logger Optional logger override.
+	 * Optional notification dispatcher (slice-39). When `null` the
+	 * notify-lane is silently skipped — the AS retry pipeline keeps
+	 * working even if `Bootstrap\Plugin::init()` decided not to wire
+	 * one. Slice-37's existing tests use `new RetryPolicyListener($repo)`
+	 * (no notifier/store) and stay green.
 	 */
-	public function __construct( FailedOpsRepo $repo, ?\WC_Logger $logger = null )
-	{
-		$this->repo   = $repo;
-		$this->logger = $logger;
+	private ?FailureNotifier $notifier;
+
+	/**
+	 * Optional admin-notice store (slice-39). See {@see self::$notifier}
+	 * for the optional-by-design rationale.
+	 */
+	private ?AdminNoticeStore $noticeStore;
+
+	/**
+	 * @param FailedOpsRepo        $repo        DLQ repository.
+	 * @param \WC_Logger|null      $logger      Optional logger override.
+	 * @param FailureNotifier|null $notifier    Optional notification dispatcher (slice-39).
+	 * @param AdminNoticeStore|null $noticeStore Optional admin-notice store (slice-39).
+	 */
+	public function __construct(
+		FailedOpsRepo $repo,
+		?\WC_Logger $logger = null,
+		?FailureNotifier $notifier = null,
+		?AdminNoticeStore $noticeStore = null
+	) {
+		$this->repo        = $repo;
+		$this->logger      = $logger;
+		$this->notifier    = $notifier;
+		$this->noticeStore = $noticeStore;
 	}
 
 	/**
@@ -215,7 +238,7 @@ final class RetryPolicyListener
 		// 8) Write the DLQ row.
 		$errorCode = $this->resolveErrorCode( $exceptionMeta, $isPermanent );
 
-		$this->repo->record(
+		$insertId = $this->repo->record(
 			array(
 				'op_type'             => $opType,
 				'related_entity_type' => $entityType,
@@ -227,6 +250,18 @@ final class RetryPolicyListener
 				'state'               => FailedOpsRepo::STATE_UNRESOLVED,
 			)
 		);
+
+		// 9) Slice-39 notify-lane: dispatch email + persist admin-notice
+		//    after a successful DLQ insert. Defensive `?->`-Aufrufe — both
+		//    collaborators are optional and slice-39's own try/catch
+		//    swallows internal failures so this block cannot bubble.
+		if ( $insertId > 0 && ( null !== $this->notifier || null !== $this->noticeStore ) ) {
+			$row = $this->repo->findById( $insertId );
+			if ( null !== $row ) {
+				$this->notifier?->dispatch( $row );
+				$this->noticeStore?->add( $row );
+			}
+		}
 	}
 
 	/**

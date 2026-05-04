@@ -3,10 +3,10 @@
   "feature_name": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
   "status": "in_progress",
   "current_state": "implementing",
-  "current_slice_id": "wave-9",
-  "current_wave": 9,
-  "next_wave": 10,
-  "next_slices": ["slice-30", "slice-31", "slice-33", "slice-36", "slice-41", "slice-42", "slice-44", "slice-45"],
+  "current_slice_id": "slice-37",
+  "current_wave": 11,
+  "next_wave": 12,
+  "next_slices": ["slice-37"],
   "retry_count": 0,
   "failed_stage": null,
   "default_branch": "master",
@@ -20,9 +20,11 @@
   "completed_slices": [
     "slice-01", "slice-02", "slice-03", "slice-04", "slice-05", "slice-06",
     "slice-07", "slice-08", "slice-09", "slice-10", "slice-11", "slice-12",
-    "slice-13", "slice-14", "slice-15", "slice-18", "slice-19", "slice-20",
-    "slice-21", "slice-22", "slice-23", "slice-24", "slice-26", "slice-27",
-    "slice-28", "slice-29", "slice-32", "slice-34", "slice-35"
+    "slice-13", "slice-14", "slice-15", "slice-16", "slice-17", "slice-18",
+    "slice-19", "slice-20", "slice-21", "slice-22", "slice-23", "slice-24",
+    "slice-25", "slice-26", "slice-27", "slice-28", "slice-29", "slice-30",
+    "slice-31", "slice-32", "slice-33", "slice-34", "slice-35", "slice-36",
+    "slice-41", "slice-42", "slice-44", "slice-45"
   ],
   "evidence_files": [
     "specs/.../evidence/wave-2.json",
@@ -38,19 +40,20 @@
   "repo": "annaundflora/pod-shop",
   "pr_number": 8,
   "infrastructure_decisions": [
-    "Slice-13 isolation: real classes (Catalog, Subscriptions) win autoload; routing tests use output-marker via Patchwork-stubbed dependencies",
+    "Slice-13 isolation: real classes (Catalog, Subscriptions, Webhooks, Logs) win autoload; routing tests use output-marker via class-source uniqueness (not $renderCount-spy)",
     "Slice-15: patchwork.json placed at project-root AND plugin-root for cwd-walk-up resolution",
-    "Slice-32 created WebhookLogRepo early per its deliverable (binary insertOrIgnore contract for slice-16)"
+    "Slice-32 created WebhookLogRepo early per its deliverable (binary insertOrIgnore contract for slice-16)",
+    "Slice-41/42: Hub\\View\\Webhooks and Hub\\View\\Logs introduced as production classes; Slice-13 stub-loader updated accordingly",
+    "Slice-42 WcLoggerAdapter replaces error_log() in v2-plugin-sources (architecture.md AVOID #6)"
   ],
   "test_suite_status": {
-    "total_tests": 639,
-    "total_assertions": 3648,
+    "total_tests": 699,
+    "total_assertions": 3898,
     "failures": 0,
-    "errors": 0
+    "errors": 0,
+    "verified_at_commit": "3070249"
   },
   "remaining_slices": [
-    "slice-16", "slice-17", "slice-25", "slice-30", "slice-31", "slice-33",
-    "slice-36", "slice-37", "slice-38", "slice-39", "slice-40", "slice-41",
-    "slice-42", "slice-43", "slice-44", "slice-45", "slice-46"
+    "slice-37", "slice-38", "slice-39", "slice-40", "slice-43", "slice-46"
   ]
 }

@@ -68,3 +68,5 @@
 {"ts":"2026-05-04T22:45:00+00:00","slice":"slice-16","gate":"tests","result":"PASSED","retries":0}
 {"ts":"2026-05-04T22:45:00+00:00","slice":"slice-17","gate":"tests","result":"PASSED","retries":0}
 {"ts":"2026-05-04T22:45:00+00:00","slice":"slice-25","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T22:50:00+00:00","slice":"slice-37","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T23:15:00+00:00","slice":"slice-37","gate":"tests","result":"PASSED","retries":1,"resolution":"lazy-bind retry-policy listener via closure to defer wpdb resolution"}
