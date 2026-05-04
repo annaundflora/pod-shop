@@ -73,6 +73,9 @@ namespace {
 
 			private string $route = '';
 
+			/** @var array<string,mixed> */
+			private array $params = [];
+
 			/**
 			 * Internal "trip-wire" toggles; `Slice15WebhookRouteTest`
 			 * sets these to assert that the controller does NOT touch
@@ -134,10 +137,26 @@ namespace {
 
 			/**
 			 * Trip-wire — same rationale as `get_json_params()`.
+			 *
+			 * NOTE: `get_params()` ALSO serves as the WP-REST query/param
+			 * accessor used by Slice 26's SyncProgress controller. We
+			 * therefore do not throw — we return the params map AND set
+			 * the trip-wire flag, so Slice-15 tests can assert "no auth
+			 * code touched it" while Slice-26 tests still get their
+			 * read.
 			 */
 			public function get_params(): array {
 				$this->paramsAccessed = true;
-				return [];
+				return $this->params;
+			}
+
+			public function get_param( string $key ) {
+				$this->paramsAccessed = true;
+				return $this->params[ $key ] ?? null;
+			}
+
+			public function set_param( string $key, $value ): void {
+				$this->params[ $key ] = $value;
 			}
 		}
 	}
@@ -1086,32 +1105,23 @@ namespace SpreadconnectPod\Tests {
 		{
 			// Run BOTH the valid AND the invalid case in the same test, so we
 			// witness the hash_equals invocation under both regimes.
+			//
+			// The setUp() Patchwork-Redefine for hash_equals/hash_hmac is a
+			// pass-through spy: each invocation appends to
+			// `Slice15HashSpy::$hashEqualsCalls` / `$hashHmacCalls` and then
+			// relays to the real PHP impl. We use `Slice15HashSpy::reset()`
+			// between cases to scope the assertions to one verify() call.
 
 			$rawBody = 'webhook-payload';
 			$secret  = 'shared-secret';
 
 			// Case A: valid signature.
+			// IMPORTANT: compute the fixture signature BEFORE the spy reset,
+			// so the test's own hash_hmac call doesn't pollute the verify()
+			// counters.
 			$validSig = base64_encode( hash_hmac( 'sha256', $rawBody, $secret, true ) );
 			Slice15HashSpy::reset();
-			\Patchwork\redefine(
-				'hash_equals',
-				static function ( string $known, string $user ): bool {
-					Slice15HashSpy::$hashEqualsCalls[] = [ $known, $user ];
-					return \Patchwork\relay( [ $known, $user ] );
-				}
-			);
-			\Patchwork\redefine(
-				'hash_hmac',
-				static function ( string $algo, string $data, string $key, bool $binary = false ): string {
-					Slice15HashSpy::$hashHmacCalls[] = [
-						'algo' => $algo,
-						'data' => $data,
-						'key'  => $key,
-						'raw'  => $binary,
-					];
-					return \Patchwork\relay( [ $algo, $data, $key, $binary ] );
-				}
-			);
+
 			$this->assertTrue(
 				WebhookSignatureVerifier::verify( $rawBody, $validSig, $secret ),
 				'AC-10 (Case A): valider HMAC MUSS true liefern.'
@@ -1119,7 +1129,7 @@ namespace SpreadconnectPod\Tests {
 			$this->assertCount(
 				1,
 				Slice15HashSpy::$hashEqualsCalls,
-				'AC-10 (Case A): hash_equals genau 1x.'
+				'AC-10 (Case A): hash_equals genau 1x pro verify().'
 			);
 			$callA = Slice15HashSpy::$hashEqualsCalls[0];
 			$this->assertSame(
@@ -1135,25 +1145,6 @@ namespace SpreadconnectPod\Tests {
 
 			// Case B: invalid signature (different bytes, but base64 OK).
 			Slice15HashSpy::reset();
-			\Patchwork\redefine(
-				'hash_equals',
-				static function ( string $known, string $user ): bool {
-					Slice15HashSpy::$hashEqualsCalls[] = [ $known, $user ];
-					return \Patchwork\relay( [ $known, $user ] );
-				}
-			);
-			\Patchwork\redefine(
-				'hash_hmac',
-				static function ( string $algo, string $data, string $key, bool $binary = false ): string {
-					Slice15HashSpy::$hashHmacCalls[] = [
-						'algo' => $algo,
-						'data' => $data,
-						'key'  => $key,
-						'raw'  => $binary,
-					];
-					return \Patchwork\relay( [ $algo, $data, $key, $binary ] );
-				}
-			);
 			$wrongSig = base64_encode( str_repeat( "\xAB", 32 ) );
 			$this->assertFalse(
 				WebhookSignatureVerifier::verify( $rawBody, $wrongSig, $secret ),
