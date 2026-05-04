@@ -2,14 +2,27 @@
 /**
  * Dashboard sub-page renderer (Hub Section "Dashboard", default route).
  *
- * Slice-13 deliverable. Renders the 5-card-slot stub layout matching
- * wireframes.md Screen 1 (Cards ⑤-⑨: Connection / Catalog / Orders /
- * Webhooks / Failed Operations).
+ * Slice-46 fills the 5 card-slots that Slice-13 left as stubs with real
+ * aggregate-counts read from the per-domain Repos / cached Transients
+ * (architecture.md "Operational Visibility", Z. 686). The Slice-13 markup
+ * scaffold (`<div class="spreadconnect-card spreadconnect-card--{slug}">…`)
+ * stays unchanged so the per-card CSS hooks survive the upgrade.
  *
- * Each slot is a markup-only placeholder — slice-46 fills the slots with
- * aggregate-query data; intermediate slices (slice-12 connection-cache,
- * slice-19 subscriptions) only register `do_action()` extension points
- * around the relevant slots without modifying this file.
+ * Cards rendered (in order, matching wireframes.md Screen 1 ⑤-⑨):
+ *   1. Connection      — `sc_health` transient (Slice 12 writer).
+ *   2. Catalog         — `SyncHistoryRepo::findLatest()` (Slice 24).
+ *   3. Orders          — 30-day `_spreadconnect_state` aggregate query (HPOS-aware).
+ *   4. Webhooks        — Subscriptions cache + `WebhookLogRepo::findLatest()`.
+ *   5. Failed Operations — `FailedOpsRepo::count('unresolved')` (Slice 37) + Severity-Banner.
+ *
+ * Each card body is wrapped in its own `try/catch (\Throwable $e)` so a
+ * single mis-behaving repo / transient never crashes the entire admin page.
+ * Failures are logged via {@see WcLoggerAdapter::error()} on the
+ * `spreadconnect-failure` source so the Logs sub-page (Slice 42) surfaces
+ * them.
+ *
+ * No live API calls happen here — all data is read from local persistence
+ * (transients + custom tables) per Slice-46 AC-8 (Constraints).
  *
  * @package SpreadconnectPod\Hub\View
  */
@@ -18,13 +31,19 @@ declare(strict_types=1);
 
 namespace SpreadconnectPod\Hub\View;
 
+use SpreadconnectPod\Catalog\SyncHistoryRepo;
+use SpreadconnectPod\Failure\AdminNoticeStore;
+use SpreadconnectPod\Failure\FailedOpsRepo;
+use SpreadconnectPod\Logging\Sources;
+use SpreadconnectPod\Logging\WcLoggerAdapter;
+use SpreadconnectPod\Subscription\SubscriptionManager;
+use SpreadconnectPod\Webhook\WebhookLogRepo;
+
 /**
  * Stateless renderer for the Dashboard sub-page.
  *
- * Final + only static methods (architecture.md "Adapter — Admin Page" /
- * Z. 529). The renderer performs **no** data queries — all aggregate
- * counts (catalog count, orders queue depth, webhook drift, failed-ops
- * backlog) arrive in slice-46.
+ * `final` + only static methods (architecture.md "Adapter — Admin Page" /
+ * Z. 529). The `render()` signature carries over from Slice 13 unchanged.
  */
 final class Dashboard
 {
@@ -34,45 +53,61 @@ final class Dashboard
 	private const TEXT_DOMAIN = 'spreadconnect-pod';
 
 	/**
-	 * Ordered list of card-slot definitions.
+	 * Order of card-slots, matching wireframes.md Screen 1 Cards ⑤-⑨.
 	 *
-	 * Order matches wireframes.md Screen 1 Cards ⑤-⑨ (Connection,
-	 * Catalog, Orders, Webhooks, Failed Operations) and slice-13 AC-8.
+	 * The `slug` is the BEM modifier on the surrounding `<div>` (the
+	 * Slice-13 markup contract — never change this), the `title` is the
+	 * `<h2>` label.
 	 *
-	 * `slug` is the BEM modifier on the surrounding `<div>`,
-	 * `title` is the `<h2>` label, and `populated_in_slice` is the
-	 * follow-up slice number that supplies real data — surfaced in the
-	 * placeholder paragraph so the QA reader knows when to expect each
-	 * slot to fill.
-	 *
-	 * @var list<array{slug:string, title:string, populated_in_slice:int}>
+	 * @var list<array{slug:string, title:string, render:string}>
 	 */
 	private const CARDS = array(
 		array(
-			'slug'               => 'connection',
-			'title'              => 'Connection',
-			'populated_in_slice' => 12,
+			'slug'   => 'connection',
+			'title'  => 'Connection',
+			'render' => 'renderConnectionCard',
 		),
 		array(
-			'slug'               => 'catalog',
-			'title'              => 'Catalog',
-			'populated_in_slice' => 26,
+			'slug'   => 'catalog',
+			'title'  => 'Catalog',
+			'render' => 'renderCatalogCard',
 		),
 		array(
-			'slug'               => 'orders',
-			'title'              => 'Orders',
-			'populated_in_slice' => 46,
+			'slug'   => 'orders',
+			'title'  => 'Orders',
+			'render' => 'renderOrdersCard',
 		),
 		array(
-			'slug'               => 'webhooks',
-			'title'              => 'Webhooks',
-			'populated_in_slice' => 41,
+			'slug'   => 'webhooks',
+			'title'  => 'Webhooks',
+			'render' => 'renderWebhooksCard',
 		),
 		array(
-			'slug'               => 'failed-ops',
-			'title'              => 'Failed Operations',
-			'populated_in_slice' => 38,
+			'slug'   => 'failed-ops',
+			'title'  => 'Failed Operations',
+			'render' => 'renderFailedOpsCard',
 		),
+	);
+
+	/**
+	 * 30 days expressed in seconds — used by the Orders card to bound the
+	 * `_spreadconnect_state` aggregate query (Slice 46 AC-10).
+	 */
+	private const ORDERS_WINDOW_SECONDS = 2592000;
+
+	/**
+	 * `_spreadconnect_state` enum values reported on the Orders card.
+	 *
+	 * Maps the four meta-values to their human-readable labels (i18n-wrapped
+	 * at render-time). Order matches Slice 46 AC-10 spec output.
+	 *
+	 * @var array<string, string>
+	 */
+	private const ORDER_STATE_LABELS = array(
+		'NEW'              => 'Pending',
+		'CONFIRMED'        => 'Confirmed',
+		'PROCESSED'        => 'Processed',
+		'failed_to_submit' => 'Failed',
 	);
 
 	/**
@@ -82,8 +117,9 @@ final class Dashboard
 	 * `?section=dashboard` (or no `?section=` at all — Dashboard is the
 	 * default route per slice-13 AC-2).
 	 *
-	 * Emits a `<h1>` header followed by exactly 5 card-slot containers
-	 * with placeholder copy. No data queries are executed (slice-13 AC-8).
+	 * Each card body is rendered inside its own `try/catch (\Throwable $e)`
+	 * so a failure in one card never propagates to the others (Slice-46
+	 * AC-14).
 	 *
 	 * @return void
 	 */
@@ -102,19 +138,323 @@ final class Dashboard
 				'<h2 class="spreadconnect-card__title">%1$s</h2>',
 				esc_html( __( $card['title'], self::TEXT_DOMAIN ) ) // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText
 			);
-			printf(
-				'<p class="spreadconnect-card__placeholder">%1$s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %d is the slice number that will populate this dashboard card. */
-						__( 'Wird in Slice %d befüllt', self::TEXT_DOMAIN ),
-						$card['populated_in_slice']
-					)
-				)
-			);
+
+			echo '<div class="spreadconnect-card-body">';
+			try {
+				$method = $card['render'];
+				/** @var callable $callable */
+				$callable = array( self::class, $method );
+				call_user_func( $callable );
+			} catch ( \Throwable $e ) {
+				self::renderUnavailable( $card['slug'], $e );
+			}
+			echo '</div>';
+
 			echo '</div>';
 		}
 
 		echo '</div>'; // .spreadconnect-dashboard__cards
+	}
+
+	/**
+	 * Card 1 — Connection.
+	 *
+	 * Reads the `sc_health` transient (Slice-12 writer) and renders the
+	 * resulting `status` string plus the `checked_at` timestamp. A missing
+	 * transient yields `unknown` and a "Re-test"-button link to the
+	 * Settings sub-page where the user can run Test-Connection again.
+	 */
+	private static function renderConnectionCard(): void
+	{
+		$health = function_exists( 'get_transient' ) ? get_transient( 'sc_health' ) : false;
+		$status = 'unknown';
+		$checkedAt = 0;
+
+		if ( is_array( $health ) ) {
+			if ( isset( $health['status'] ) && is_string( $health['status'] ) ) {
+				$status = $health['status'];
+			}
+			if ( isset( $health['checked_at'] ) && is_numeric( $health['checked_at'] ) ) {
+				$checkedAt = (int) $health['checked_at'];
+			}
+		}
+
+		$label = self::statusLabel( $status );
+
+		printf(
+			'<p class="spreadconnect-card__status spreadconnect-card__status--%1$s">%2$s</p>',
+			esc_attr( $status ),
+			esc_html( $label )
+		);
+
+		if ( $checkedAt > 0 ) {
+			$dateFormat = self::dateFormat();
+			printf(
+				'<p class="spreadconnect-card__meta">%1$s</p>',
+				esc_html( sprintf(
+					/* translators: %s is a date string. */
+					__( 'Last check: %s', self::TEXT_DOMAIN ),
+					date_i18n( $dateFormat, $checkedAt )
+				) )
+			);
+		}
+
+		if ( 'ok' !== $status ) {
+			$retestUrl = function_exists( 'admin_url' )
+				? admin_url( 'admin.php?page=spreadconnect&section=settings' )
+				: '';
+			printf(
+				'<p class="spreadconnect-card__action"><a class="button" href="%1$s">%2$s</a></p>',
+				esc_url( $retestUrl ),
+				esc_html__( 'Test Connection', self::TEXT_DOMAIN )
+			);
+		}
+	}
+
+	/**
+	 * Card 2 — Catalog.
+	 *
+	 * Reads the youngest `state='complete'` row from `SyncHistoryRepo` and
+	 * renders `created_count + updated_count` linked products plus the
+	 * localised `started_at` timestamp. Missing row → "no sync yet"
+	 * empty-state.
+	 */
+	private static function renderCatalogCard(): void
+	{
+		$repo = new SyncHistoryRepo();
+		$row  = $repo->findLatest();
+
+		if ( null === $row ) {
+			printf(
+				'<p class="spreadconnect-card__empty">%1$s</p>',
+				esc_html__( "No sync runs yet — click 'Sync now' to start.", self::TEXT_DOMAIN )
+			);
+			return;
+		}
+
+		$created = isset( $row['created_count'] ) ? (int) $row['created_count'] : 0;
+		$updated = isset( $row['updated_count'] ) ? (int) $row['updated_count'] : 0;
+		$linked  = $created + $updated;
+
+		printf(
+			'<p class="spreadconnect-card__count">%1$d</p>',
+			(int) $linked
+		);
+		printf(
+			'<p class="spreadconnect-card__meta">%1$s</p>',
+			esc_html__( 'Linked', self::TEXT_DOMAIN )
+		);
+
+		$startedAt = isset( $row['started_at'] ) && is_string( $row['started_at'] )
+			? $row['started_at']
+			: '';
+		if ( '' !== $startedAt ) {
+			$ts = strtotime( $startedAt );
+			if ( false !== $ts && $ts > 0 ) {
+				printf(
+					'<p class="spreadconnect-card__meta">%1$s %2$s</p>',
+					esc_html__( 'Last sync:', self::TEXT_DOMAIN ),
+					esc_html( date_i18n( self::dateFormat(), $ts ) )
+				);
+			}
+		}
+	}
+
+	/**
+	 * Card 3 — Orders (last 30 days).
+	 *
+	 * Performs a single HPOS-aware aggregate via `wc_get_orders` to bucket
+	 * orders into 4 `_spreadconnect_state` counts (`NEW`, `CONFIRMED`,
+	 * `PROCESSED`, `failed_to_submit`). Slice-46 AC-10 mandates HPOS-aware
+	 * access (no direct `wp_postmeta` reads).
+	 */
+	private static function renderOrdersCard(): void
+	{
+		$counts = array_fill_keys( array_keys( self::ORDER_STATE_LABELS ), 0 );
+
+		if ( function_exists( 'wc_get_orders' ) ) {
+			$cutoffTs    = time() - self::ORDERS_WINDOW_SECONDS;
+			$dateAfter   = gmdate( 'Y-m-d H:i:s', $cutoffTs );
+
+			foreach ( array_keys( self::ORDER_STATE_LABELS ) as $stateValue ) {
+				$ids = wc_get_orders(
+					array(
+						'limit'      => -1,
+						'return'     => 'ids',
+						'date_after' => $dateAfter,
+						'meta_query' => array(
+							array(
+								'key'     => '_spreadconnect_state',
+								'value'   => $stateValue,
+								'compare' => '=',
+							),
+						),
+					)
+				);
+
+				if ( is_array( $ids ) ) {
+					$counts[ $stateValue ] = count( $ids );
+				}
+			}
+		}
+
+		echo '<ul class="spreadconnect-card__counts">';
+		foreach ( self::ORDER_STATE_LABELS as $stateValue => $labelKey ) {
+			$count = isset( $counts[ $stateValue ] ) ? (int) $counts[ $stateValue ] : 0;
+			$label = __( $labelKey, self::TEXT_DOMAIN ); // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText
+			printf(
+				'<li><span class="spreadconnect-card__label">%1$s:</span> <span class="spreadconnect-card__count">%2$d</span></li>',
+				esc_html( $label ),
+				(int) $count
+			);
+		}
+		echo '</ul>';
+	}
+
+	/**
+	 * Card 4 — Webhooks.
+	 *
+	 * Reads (a) `SubscriptionManager::getCachedStatus()` for the
+	 * `"X / 7 active"` line, and (b) `WebhookLogRepo::findLatest()` for
+	 * the `received_at + event_type` of the last received event.
+	 */
+	private static function renderWebhooksCard(): void
+	{
+		$status = SubscriptionManager::getCachedStatus();
+		$active = isset( $status['active'] ) ? (int) $status['active'] : 0;
+		$total  = isset( $status['total'] ) ? (int) $status['total'] : 7;
+
+		printf(
+			'<p class="spreadconnect-card__count">%1$s</p>',
+			esc_html(
+				sprintf(
+					/* translators: 1: active subscriptions, 2: total expected subscriptions. */
+					__( '%1$d / %2$d active', self::TEXT_DOMAIN ),
+					$active,
+					$total
+				)
+			)
+		);
+
+		$latest = WebhookLogRepo::findLatest();
+		if ( null === $latest ) {
+			printf(
+				'<p class="spreadconnect-card__empty">%1$s</p>',
+				esc_html__( 'No events match the current filters.', self::TEXT_DOMAIN )
+			);
+			return;
+		}
+
+		$eventType  = isset( $latest['event_type'] ) && is_string( $latest['event_type'] )
+			? $latest['event_type']
+			: '';
+		$receivedAt = isset( $latest['received_at'] ) && is_string( $latest['received_at'] )
+			? $latest['received_at']
+			: '';
+
+		$ts = '' !== $receivedAt ? strtotime( $receivedAt ) : false;
+		if ( false === $ts || $ts <= 0 ) {
+			$ts = 0;
+		}
+
+		printf(
+			'<p class="spreadconnect-card__meta">%1$s %2$s%3$s</p>',
+			esc_html__( 'Received', self::TEXT_DOMAIN ),
+			esc_html( $eventType ),
+			$ts > 0
+				? ' — ' . esc_html( date_i18n( self::dateFormat(), $ts ) )
+				: ''
+		);
+	}
+
+	/**
+	 * Card 5 — Failed Operations.
+	 *
+	 * Reads `FailedOpsRepo::count('unresolved')` (Slice 37 — uses the
+	 * `idx_state_op_type` index head per architecture.md Z. 208) and shows
+	 * the count + a deep-link to the Failed-Ops sub-page. When at least one
+	 * `error`-severity admin notice exists in addition, a red severity
+	 * banner is rendered as a visual amplifier (Slice 39 AC-10).
+	 */
+	private static function renderFailedOpsCard(): void
+	{
+		global $wpdb;
+		$repo  = new FailedOpsRepo( $wpdb );
+		$count = $repo->count( FailedOpsRepo::STATE_UNRESOLVED );
+
+		printf(
+			'<p class="spreadconnect-card__count">%1$d</p>',
+			(int) $count
+		);
+		printf(
+			'<p class="spreadconnect-card__meta">%1$s</p>',
+			esc_html__( 'Failed Operations', self::TEXT_DOMAIN )
+		);
+
+		$failedUrl = function_exists( 'admin_url' )
+			? admin_url( 'admin.php?page=spreadconnect&section=failed' )
+			: '';
+		printf(
+			'<p class="spreadconnect-card__action"><a class="button" href="%1$s">%2$s</a></p>',
+			esc_url( $failedUrl ),
+			esc_html__( 'View in Failed-Ops', self::TEXT_DOMAIN )
+		);
+
+		if ( $count > 0 ) {
+			$store    = new AdminNoticeStore();
+			$errCount = $store->count( 'error' );
+			if ( $errCount > 0 ) {
+				printf(
+					'<p class="spreadconnect-card__banner spreadconnect-card__banner--error">%1$s</p>',
+					esc_html__( 'A permanent failure was recorded in the Failed-Ops queue.', self::TEXT_DOMAIN )
+				);
+			}
+		}
+	}
+
+	/**
+	 * Translate `sc_health.status` into the user-facing label.
+	 */
+	private static function statusLabel( string $status ): string
+	{
+		switch ( $status ) {
+			case 'ok':
+				return __( 'OK', self::TEXT_DOMAIN );
+			case 'auth_failed':
+				return __( 'Invalid Key — check value or environment', self::TEXT_DOMAIN );
+			default:
+				return __( 'unknown', self::TEXT_DOMAIN );
+		}
+	}
+
+	/**
+	 * Resolve the WP-configured date format (locale-aware via
+	 * `get_option('date_format')`) with a sensible fallback for the unit-test
+	 * bootstrap where `get_option` may be unstubbed.
+	 */
+	private static function dateFormat(): string
+	{
+		$value = function_exists( 'get_option' ) ? get_option( 'date_format', 'Y-m-d' ) : 'Y-m-d';
+		return is_string( $value ) && '' !== $value ? $value : 'Y-m-d';
+	}
+
+	/**
+	 * Render the per-card unavailable-fallback (Slice 46 AC-14).
+	 *
+	 * Logs the caught Throwable on the `spreadconnect-failure` source so
+	 * operators can investigate via the Logs sub-page (Slice 42).
+	 */
+	private static function renderUnavailable( string $slug, \Throwable $e ): void
+	{
+		printf(
+			'<p class="spreadconnect-card__error">%1$s</p>',
+			esc_html__( 'An unexpected error occurred.', self::TEXT_DOMAIN )
+		);
+
+		WcLoggerAdapter::error(
+			Sources::FAILURE,
+			sprintf( 'Dashboard card "%s" render failed: %s', $slug, $e->getMessage() ),
+			array( 'card' => $slug )
+		);
 	}
 }

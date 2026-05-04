@@ -491,4 +491,27 @@ final class WebhookLogRepo
 
 		return $out;
 	}
+
+	/**
+	 * Slice 46 AC-11: return the most-recent webhook-log row across all event
+	 * types, or `null` when the table is empty.
+	 *
+	 * Used by the Hub Dashboard "Webhooks" card to render
+	 * `received_at + event_type` of the last received event. The composite index
+	 * `idx_received_at` (Slice 04 schema) covers the `ORDER BY ... LIMIT 1`
+	 * scan so this is a near-zero-cost lookup.
+	 *
+	 * @return array<string, mixed>|null Row as assoc-array, or `null`.
+	 */
+	public static function findLatest(): ?array
+	{
+		global $wpdb;
+
+		$table = $wpdb->prefix . self::TABLE_SUFFIX;
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row = $wpdb->get_row( "SELECT * FROM {$table} ORDER BY received_at DESC LIMIT 1", ARRAY_A );
+
+		return is_array( $row ) ? $row : null;
+	}
 }

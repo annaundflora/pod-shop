@@ -4,10 +4,1349 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: spreadconnect-pod 2.0.0\n"
+"Project-Id-Version: Spreadconnect POD 2.0.0\n"
 "Report-Msgid-Bugs-To: \n"
 "Language: de_DE\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Domain: spreadconnect-pod\n"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "%1$sOpen SC dashboard %2$s"
+msgstr "%1$sSC-Dashboard öffnen %2$s"
+
+#: includes/Hub/View/Webhooks.php
+msgid "(unknown)"
+msgstr "(unbekannt)"
+
+#: includes/Failure/FailureNotifier.php
+msgid "A permanent failure was recorded in the Failed-Ops queue."
+msgstr "Ein permanenter Fehler wurde in der Liste fehlgeschlagener Operationen erfasst."
+
+#: includes/Hub/View/Dashboard.php
+msgid "API Connection"
+msgstr "API-Verbindung"
+
+#: includes/Hub/View/Settings.php
+msgid "API Key"
+msgstr "API-Schlüssel"
+
+#: includes/Hub/Ajax/TestConnection.php
+msgid "API Key required"
+msgstr "API-Schlüssel erforderlich"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Action"
+msgstr "Aktion"
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Action failed. Please try again."
+msgstr "Aktion fehlgeschlagen. Bitte erneut versuchen."
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Actions"
+msgstr "Aktionen"
+
+#: includes/Hub/View/Settings.php
+msgid "After N minutes (see below)"
+msgstr "Nach N Minuten (siehe unten)"
+
+#: includes/Hub/View/FailedOps.php
+msgid "All"
+msgstr "Alle"
+
+#: includes/Hub/View/Webhooks.php
+msgid "All events"
+msgstr "Alle Events"
+
+#: includes/Hub/View/Webhooks.php
+msgid "All time"
+msgstr "Gesamter Zeitraum"
+
+#: includes/Hub/View/Dashboard.php
+msgid "An unexpected error occurred."
+msgstr "Ein unerwarteter Fehler ist aufgetreten."
+
+#: includes/Hub/View/Webhooks.php
+msgid "Apply"
+msgstr "Anwenden"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Article removed in Spreadconnect — WC product set to draft"
+msgstr "Artikel in Spreadconnect entfernt — WC-Produkt auf Entwurf gesetzt"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Article-ID:"
+msgstr "Artikel-ID:"
+
+#: includes/Hub/View/Settings.php
+msgid "Auto-Cancel Mirror"
+msgstr "Auto-Stornierung spiegeln"
+
+#: includes/Hub/View/Settings.php
+msgid "Auto-Confirm"
+msgstr "Auto-Bestätigung"
+
+#: includes/Hub/View/Settings.php
+msgid "Auto-Confirm Minutes"
+msgstr "Minuten bis Auto-Bestätigung"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Available"
+msgstr "Verfügbar"
+
+#: includes/Inline/OrderListColumns.php
+msgid "Bulk Actions"
+msgstr "Massenaktionen"
+
+#: includes/Inline/OrderListColumns.php
+msgid "CANCELLED"
+msgstr "STORNIERT"
+
+#: includes/Inline/OrderListColumns.php
+msgid "CONFIRMED"
+msgstr "BESTÄTIGT"
+
+#: includes/Inline/OrderListColumns.php
+msgid "Calculating eligible orders…"
+msgstr "Berechtigte Bestellungen werden ermittelt…"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Cancel"
+msgstr "Abbrechen"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Cancel WooCommerce order"
+msgstr "WooCommerce-Bestellung stornieren"
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Cancel auto-confirm"
+msgstr "Auto-Bestätigung abbrechen"
+
+#: includes/Hub/View/Catalog.php
+msgid "Cancel sync (coming soon)"
+msgstr "Synchronisation abbrechen (in Kürze)"
+
+#: includes/Hub/View/Settings.php
+msgid "Cancel the Spreadconnect order automatically when the WooCommerce order is cancelled (only while SC state = NEW)."
+msgstr "Spreadconnect-Bestellung automatisch stornieren, wenn die WooCommerce-Bestellung storniert wird (nur solange SC-Status = NEW)."
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Cancel the scheduled auto-confirm?"
+msgstr "Geplante Auto-Bestätigung abbrechen?"
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Cancel this order in Spreadconnect?"
+msgstr "Diese Bestellung in Spreadconnect stornieren?"
+
+#: includes/Hub/View/Dashboard.php
+msgid "Cannot reach Spreadconnect"
+msgstr "Spreadconnect ist nicht erreichbar"
+
+#: includes/Hub/View/Dashboard.php
+msgid "Cannot reach Spreadconnect."
+msgstr "Spreadconnect ist nicht erreichbar."
+
+#: includes/Hub/View/Settings.php
+msgid "Catalog Sync"
+msgstr "Katalog-Synchronisation"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Choose one of the three resolution paths below before dismissing."
+msgstr "Bitte einen der drei Lösungswege unten auswählen, bevor verworfen wird."
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Confirm"
+msgstr "Bestätigen"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Confirm Resolution"
+msgstr "Lösung bestätigen"
+
+#: includes/Hub/Ajax/TestConnection.php
+msgid "Connection failed — please try again"
+msgstr "Verbindung fehlgeschlagen — bitte erneut versuchen"
+
+#: includes/Hub/View/Settings.php
+msgid "Contains operational settings; transfer over a secure channel."
+msgstr "Enthält betriebsrelevante Einstellungen; bitte über einen sicheren Kanal übertragen."
+
+#: includes/Hub/View/Settings.php
+msgid "Copy"
+msgstr "Kopieren"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Cost & Margin"
+msgstr "Kosten & Marge"
+
+#: includes/Hub/View/Catalog.php
+msgid "Created"
+msgstr "Erstellt"
+
+#: includes/Failure/FailureNotifier.php
+msgid "Created at (UTC)"
+msgstr "Erstellt am (UTC)"
+
+#: includes/Hub/View/Settings.php
+msgid "Current Secret"
+msgstr "Aktuelles Secret"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Date"
+msgstr "Datum"
+
+#: includes/Hub/View/Settings.php
+msgid "Default Shipping Type"
+msgstr "Standard-Versandart"
+
+#: includes/Hub/View/SettingsDevTools.php
+msgid "Dev tools are only available when staging mode is enabled."
+msgstr "Entwickler-Werkzeuge sind nur im Staging-Modus verfügbar."
+
+#: includes/Hub/View/SettingsDevTools.php
+msgid "Developer Tools"
+msgstr "Entwickler-Werkzeuge"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Dismiss"
+msgstr "Verwerfen"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Dismiss selected"
+msgstr "Ausgewählte verwerfen"
+
+#: includes/Hub/View/Catalog.php
+msgid "Done"
+msgstr "Fertig"
+
+#: includes/Hub/View/Logs.php
+msgid "Download CSV"
+msgstr "CSV herunterladen"
+
+#: includes/Webhook/WebhookLogRepo.php
+msgid "Duplicate"
+msgstr "Duplikat"
+
+#: includes/Hub/View/Catalog.php
+msgid "Duration"
+msgstr "Dauer"
+
+#: includes/Failure/FailureNotifier.php
+msgid "Entity"
+msgstr "Entität"
+
+#: includes/Hub/View/Logs.php
+msgid "Error"
+msgstr "Fehler"
+
+#: includes/Failure/FailureNotifier.php
+msgid "Error code"
+msgstr "Fehlercode"
+
+#: includes/Failure/FailureNotifier.php
+msgid "Error message"
+msgstr "Fehlermeldung"
+
+#: includes/Hub/View/Catalog.php
+msgid "Error:"
+msgstr "Fehler:"
+
+#: includes/Hub/View/Catalog.php
+msgid "Errors"
+msgstr "Fehler"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Event"
+msgstr "Event"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Event-Type"
+msgstr "Event-Typ"
+
+#: includes/Hub/View/Settings.php
+msgid "Every 12 hours"
+msgstr "Alle 12 Stunden"
+
+#: includes/Hub/View/Settings.php
+msgid "Every 24 hours"
+msgstr "Alle 24 Stunden"
+
+#: includes/Hub/View/Settings.php
+msgid "Every 4 hours"
+msgstr "Alle 4 Stunden"
+
+#: includes/Hub/View/Settings.php
+msgid "Every 6 hours (recommended)"
+msgstr "Alle 6 Stunden (empfohlen)"
+
+#: includes/Hub/View/Settings.php
+msgid "Every hour"
+msgstr "Stündlich"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Expand row"
+msgstr "Zeile aufklappen"
+
+#: includes/Hub/View/SettingsDevTools.php
+msgid "Export Settings JSON"
+msgstr "Einstellungen als JSON exportieren"
+
+#: includes/Hub/Ajax/SettingsExportImport.php
+msgid "Export envelope is missing the options block."
+msgstr "Der Export-Container enthält keinen Options-Block."
+
+#: includes/Hub/View/FailedOps.php
+msgid "External SC-OrderID"
+msgstr "Externe SC-Bestell-ID"
+
+#: includes/Hub/Ajax/FailedOpsActions.php
+msgid "External SC-OrderID is required for this resolution."
+msgstr "Externe SC-Bestell-ID ist für diesen Lösungsweg erforderlich."
+
+#: includes/Inline/OrderListColumns.php
+msgid "FAILED"
+msgstr "FEHLGESCHLAGEN"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Failed At"
+msgstr "Fehlgeschlagen am"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Failed Operations"
+msgstr "Fehlgeschlagene Operationen"
+
+#: includes/Hub/Ajax/FailedOpsActions.php
+msgid "Failed operation not found."
+msgstr "Fehlgeschlagene Operation nicht gefunden."
+
+#: includes/Hub/Ajax/FailedOpsActions.php
+msgid "Failed to record external SC-OrderID."
+msgstr "Externe SC-Bestell-ID konnte nicht gespeichert werden."
+
+#: includes/Hub/Ajax/SettingsExportImport.php
+msgid "Failed to serialise settings."
+msgstr "Einstellungen konnten nicht serialisiert werden."
+
+#: includes/Hub/Ajax/FailedOpsActions.php
+msgid "Failed to update WooCommerce order."
+msgstr "WooCommerce-Bestellung konnte nicht aktualisiert werden."
+
+#: includes/Hub/View/Settings.php
+msgid "Failed-Ops Retention (days)"
+msgstr "Aufbewahrung fehlgeschlagener Operationen (Tage)"
+
+#: includes/Hub/View/Settings.php
+msgid "Failure Notifications"
+msgstr "Fehler-Benachrichtigungen"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Filter"
+msgstr "Filter"
+
+#: includes/Hub/View/Settings.php
+msgid "Force Re-Pull Images on Next Run"
+msgstr "Bilder beim nächsten Lauf erneut laden"
+
+#: includes/Hub/View/Webhooks.php
+msgid "HMAC"
+msgstr "HMAC"
+
+#: includes/Hub/View/Webhooks.php
+msgid "HMAC invalid"
+msgstr "HMAC ungültig"
+
+#: includes/Hub/View/Webhooks.php
+msgid "HMAC valid"
+msgstr "HMAC gültig"
+
+#: includes/Hub/View/Settings.php
+msgid "Immediately after submit"
+msgstr "Unmittelbar nach Einreichung"
+
+#: includes/Hub/View/SettingsDevTools.php
+msgid "Import Settings JSON"
+msgstr "Einstellungen aus JSON importieren"
+
+#: includes/Hub/View/Settings.php
+msgid "Initial Webhook Secret Reveal"
+msgstr "Einmalige Anzeige des Webhook-Secrets"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Invalid"
+msgstr "Ungültig"
+
+#: includes/Hub/Ajax/SettingsExportImport.php
+msgid "Invalid JSON"
+msgstr "Ungültiges JSON"
+
+#: includes/Hub/Ajax/TestConnection.php
+msgid "Invalid Key — check value or environment"
+msgstr "Ungültiger Schlüssel — Wert oder Umgebung prüfen"
+
+#: includes/Hub/Ajax/FailedOpsActions.php
+msgid "Invalid failed_op_id."
+msgstr "Ungültige failed_op_id."
+
+#: includes/Hub/Ajax/FailedOpsActions.php
+msgid "Invalid nonce."
+msgstr "Ungültiger Nonce."
+
+#: includes/Webhook/WebhookController.php
+msgid "Invalid or missing webhook signature."
+msgstr "Ungültige oder fehlende Webhook-Signatur."
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Invalid order id."
+msgstr "Ungültige Bestell-ID."
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Invalid product id."
+msgstr "Ungültige Produkt-ID."
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Invalid product or article id."
+msgstr "Ungültige Produkt- oder Artikel-ID."
+
+#: includes/Hub/View/Webhooks.php
+msgid "Last 24 hours"
+msgstr "Letzte 24 Stunden"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Last 30 days"
+msgstr "Letzte 30 Tage"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Last 7 days"
+msgstr "Letzte 7 Tage"
+
+#: includes/Hub/View/Settings.php
+msgid "Last Regenerated"
+msgstr "Zuletzt regeneriert"
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Last action:"
+msgstr "Letzte Aktion:"
+
+#: includes/Hub/View/Dashboard.php
+msgid "Last check: %s"
+msgstr "Letzte Prüfung: %s"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Last refresh: %s"
+msgstr "Letzte Aktualisierung: %s"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Last refresh: —"
+msgstr "Letzte Aktualisierung: —"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Last sync:"
+msgstr "Letzter Sync:"
+
+#: includes/Hub/View/Logs.php
+msgid "Level"
+msgstr "Stufe"
+
+#: includes/Inline/ProductListColumns.php
+msgid "Linked"
+msgstr "Verknüpft"
+
+#: includes/Hub/View/Catalog.php
+msgid "Live Log (last 20 entries)"
+msgstr "Live-Protokoll (letzte 20 Einträge)"
+
+#: includes/Hub/View/Settings.php
+msgid "Live-Cache TTL (seconds)"
+msgstr "Live-Cache-TTL (Sekunden)"
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Loading shipping types..."
+msgstr "Versandarten werden geladen…"
+
+#: includes/Hub/View/Sidebar.php
+msgid "Logs"
+msgstr "Protokolle"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Low (%d)"
+msgstr "Niedrig (%d)"
+
+#: includes/Hub/View/Settings.php
+msgid "Low-Stock Threshold"
+msgstr "Schwellwert für niedrigen Lagerbestand"
+
+#: includes/Inline/ProductListColumns.php
+msgid "Margin"
+msgstr "Marge"
+
+#: includes/Inline/ProductListColumns.php
+msgid "Margin <20%"
+msgstr "Marge <20 %"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Margin:"
+msgstr "Marge:"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Mark Resolved"
+msgstr "Als gelöst markieren"
+
+#: includes/Hub/View/Logs.php
+msgid "Message"
+msgstr "Nachricht"
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Missing shipping type."
+msgstr "Versandart fehlt."
+
+#: includes/Inline/OrderListColumns.php
+msgid "NEEDS-ACTION"
+msgstr "AKTION-ERFORDERLICH"
+
+#: includes/Inline/OrderListColumns.php
+msgid "NEW"
+msgstr "NEU"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Next"
+msgstr "Weiter"
+
+#: includes/Inline/OrderListColumns.php
+msgid "No eligible orders in the selection (FAILED state required)."
+msgstr "Keine berechtigten Bestellungen in der Auswahl (Status FEHLGESCHLAGEN erforderlich)."
+
+#: includes/Hub/View/Webhooks.php
+msgid "No events match the current filters."
+msgstr "Keine Events entsprechen den aktuellen Filtern."
+
+#: includes/Failure/BulkResendCoordinator.php
+msgid "No failed operation ids provided."
+msgstr "Keine IDs fehlgeschlagener Operationen übergeben."
+
+#: includes/Hub/View/Logs.php
+msgid "No log entries match current filters."
+msgstr "Keine Protokoll-Einträge entsprechen den aktuellen Filtern."
+
+#: includes/Inline/OrderListColumns.php
+msgid "No order ids supplied."
+msgstr "Keine Bestell-IDs angegeben."
+
+#: includes/Hub/Rest/SyncProgress.php
+msgid "No sync run found for run_id %d."
+msgstr "Kein Synchronisationslauf für run_id %d gefunden."
+
+#: includes/Hub/View/Catalog.php
+msgid "No sync runs yet — click 'Sync now' to start."
+msgstr "Noch keine Synchronisations-Läufe — auf „Jetzt synchronisieren“ klicken, um zu starten."
+
+#: includes/Inline/ProductMetaBox.php
+msgid "No variations."
+msgstr "Keine Varianten."
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Not linked to a Spreadconnect article."
+msgstr "Nicht mit einem Spreadconnect-Artikel verknüpft."
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Not yet submitted"
+msgstr "Noch nicht eingereicht"
+
+#: includes/Hub/View/Settings.php
+msgid "Notify on Order Failure"
+msgstr "Benachrichtigung bei fehlgeschlagener Bestellung"
+
+#: includes/Hub/View/Settings.php
+msgid "Notify on Sync Failure"
+msgstr "Benachrichtigung bei fehlgeschlagener Synchronisation"
+
+#: includes/Hub/View/Settings.php
+msgid "Notify on Webhook Failure"
+msgstr "Benachrichtigung bei fehlgeschlagenem Webhook"
+
+#: includes/Hub/View/Dashboard.php
+msgid "OK"
+msgstr "OK"
+
+#: includes/Hub/View/Settings.php
+msgid "Off (recommended)"
+msgstr "Aus (empfohlen)"
+
+#: includes/Hub/View/Settings.php
+msgid "On the next catalog sync, re-pull all images even when the local copy is up-to-date."
+msgstr "Beim nächsten Katalog-Sync alle Bilder erneut laden, auch wenn die lokale Kopie aktuell ist."
+
+#: includes/Failure/FailureNotifier.php
+msgid "Op-Type"
+msgstr "Op-Typ"
+
+#: includes/Hub/View/Subscriptions.php
+msgid "Open Subscriptions Manager →"
+msgstr "Abonnement-Manager öffnen →"
+
+#: includes/Failure/FailureNotifier.php
+msgid "Open the Failed-Ops sub-page to inspect or resolve:"
+msgstr "Bitte die Unterseite „Fehlgeschlagene Operationen“ öffnen, um zu prüfen oder zu lösen:"
+
+#: includes/Failure/BulkResendCoordinator.php
+msgid "Operation resent successfully"
+msgstr "Operation erfolgreich erneut gesendet"
+
+#: includes/Hub/View/Settings.php
+msgid "Order Behavior"
+msgstr "Bestell-Verhalten"
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Order has not been submitted to Spreadconnect yet."
+msgstr "Bestellung wurde noch nicht an Spreadconnect übermittelt."
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Order not available."
+msgstr "Bestellung nicht verfügbar."
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Order not found."
+msgstr "Bestellung nicht gefunden."
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Out"
+msgstr "Aus"
+
+#: includes/Inline/OrderListColumns.php
+msgid "PROCESSED"
+msgstr "VERARBEITET"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Page %1$d of %2$d"
+msgstr "Seite %1$d von %2$d"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Payload"
+msgstr "Nutzlast"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Payload not stored (HMAC invalid — only header/IP logged)."
+msgstr "Nutzlast nicht gespeichert (HMAC ungültig — nur Header/IP protokolliert)."
+
+#: includes/Hub/View/FailedOps.php
+msgid "Pending"
+msgstr "Ausstehend"
+
+#: includes/Hub/View/Settings.php
+msgid "Periodic Stock-Sync Interval"
+msgstr "Intervall für periodischen Lagerbestand-Sync"
+
+#: includes/Hub/Ajax/FailedOpsActions.php
+msgid "Permission denied."
+msgstr "Berechtigung verweigert."
+
+#: includes/Inline/OrderListColumns.php
+msgid "Pre-flight check failed. Please try again."
+msgstr "Vorabprüfung fehlgeschlagen. Bitte erneut versuchen."
+
+#: includes/Hub/View/Webhooks.php
+msgid "Previous"
+msgstr "Zurück"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Processing"
+msgstr "In Verarbeitung"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Processing log"
+msgstr "Verarbeitungsprotokoll"
+
+#: includes/Hub/View/Settings.php
+msgid "Pull Images on Sync"
+msgstr "Bilder beim Sync laden"
+
+#: includes/Hub/View/Settings.php
+msgid "Pull product images during catalog sync."
+msgstr "Produktbilder während des Katalog-Syncs laden."
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Re-Sync (re-create)"
+msgstr "Erneut synchronisieren (neu anlegen)"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Re-Sync now"
+msgstr "Jetzt erneut synchronisieren"
+
+#: includes/Inline/OrderListColumns.php
+msgid "Re-send needs at least one FAILED order in the selection."
+msgstr "Erneutes Senden benötigt mindestens eine fehlgeschlagene Bestellung in der Auswahl."
+
+#: includes/Inline/OrderListColumns.php
+msgid "Re-send to Spreadconnect"
+msgstr "Erneut an Spreadconnect senden"
+
+#: includes/Hub/View/Dashboard.php
+msgid "Received"
+msgstr "Empfangen"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Received at:"
+msgstr "Empfangen am:"
+
+#: includes/Hub/View/Settings.php
+msgid "Recipients (comma-separated)"
+msgstr "Empfänger (kommagetrennt)"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Refresh"
+msgstr "Aktualisieren"
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Refresh State"
+msgstr "Status aktualisieren"
+
+#: includes/Hub/View/Subscriptions.php
+msgid "Refresh from SC"
+msgstr "Von SC aktualisieren"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Refresh stock from Spreadconnect"
+msgstr "Lagerbestand von Spreadconnect aktualisieren"
+
+#: includes/Hub/View/Settings.php
+msgid "Regenerate Secret"
+msgstr "Secret neu generieren"
+
+#: includes/Hub/View/Settings.php
+msgid "Regenerating the secret will immediately re-subscribe all webhook handlers. Continue?"
+msgstr "Beim Neu-Generieren des Secrets werden sofort alle Webhook-Handler erneut registriert. Fortfahren?"
+
+#: includes/Hub/View/Subscriptions.php
+msgid "Registered-URL"
+msgstr "Registrierte URL"
+
+#: includes/Hub/View/Subscriptions.php
+msgid "Repair"
+msgstr "Reparieren"
+
+#: includes/Hub/View/Subscriptions.php
+msgid "Repair All"
+msgstr "Alle reparieren"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Resend"
+msgstr "Erneut senden"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Resend selected"
+msgstr "Ausgewählte erneut senden"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Reset filters"
+msgstr "Filter zurücksetzen"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Resolution choice"
+msgstr "Auswahl des Lösungswegs"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Resolve failed order"
+msgstr "Fehlgeschlagene Bestellung lösen"
+
+#: includes/Hub/Ajax/FailedOpsActions.php
+msgid "Resolved via Failed-Ops modal — admin chose Cancel WC order"
+msgstr "Gelöst über das Failed-Ops-Modal — Admin wählte „WC-Bestellung stornieren“"
+
+#: includes/Hub/View/Logs.php
+msgid "Retention: %d days (configurable in"
+msgstr "Aufbewahrung: %d Tage (konfigurierbar in"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Retries"
+msgstr "Wiederholungen"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Retry"
+msgstr "Wiederholen"
+
+#: includes/Hub/View/Settings.php
+msgid "Route requests to the Spreadconnect staging environment."
+msgstr "Anfragen an die Spreadconnect-Staging-Umgebung leiten."
+
+#: includes/Inline/ProductMetaBox.php
+msgid "SC Cost:"
+msgstr "SC-Kosten:"
+
+#: includes/Inline/ProductListColumns.php
+msgid "SC-Cost"
+msgstr "SC-Kosten"
+
+#: includes/Inline/ProductListColumns.php
+msgid "SC-Linked"
+msgstr "SC-Verknüpft"
+
+#: includes/Inline/OrderListColumns.php
+msgid "SC-OrderID"
+msgstr "SC-Bestell-ID"
+
+#: includes/Inline/OrderListColumns.php
+msgid "SC-State"
+msgstr "SC-Status"
+
+#: includes/Inline/OrderListColumns.php
+msgid "SC-State: All"
+msgstr "SC-Status: Alle"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "SKU"
+msgstr "SKU"
+
+#: includes/Hub/View/Settings.php
+msgid "Save Changes"
+msgstr "Änderungen speichern"
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Save Shipping Type"
+msgstr "Versandart speichern"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Search articles"
+msgstr "Artikel suchen"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Search by title or ID..."
+msgstr "Nach Titel oder ID suchen…"
+
+#: includes/Hub/Ajax/TestConnection.php
+msgid "Security check failed. Please reload the page and try again."
+msgstr "Sicherheitsprüfung fehlgeschlagen. Bitte Seite neu laden und erneut versuchen."
+
+#: includes/Hub/View/Webhooks.php
+msgid "Select all"
+msgstr "Alle auswählen"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Select bulk action"
+msgstr "Massenaktion auswählen"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Select row"
+msgstr "Zeile auswählen"
+
+#: includes/Hub/View/Settings.php
+msgid "Send an email when a catalog or stock sync run permanently fails."
+msgstr "E-Mail senden, wenn ein Katalog- oder Lagerbestand-Sync dauerhaft fehlschlägt."
+
+#: includes/Hub/View/Settings.php
+msgid "Send an email when an inbound webhook permanently fails."
+msgstr "E-Mail senden, wenn ein eingehender Webhook dauerhaft fehlschlägt."
+
+#: includes/Hub/View/Settings.php
+msgid "Send an email when an order submission permanently fails."
+msgstr "E-Mail senden, wenn eine Bestell-Übermittlung dauerhaft fehlschlägt."
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Set shipping type first"
+msgstr "Bitte zuerst eine Versandart wählen"
+
+#: includes/Hub/View/Sidebar.php
+msgid "Settings"
+msgstr "Einstellungen"
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Shipments"
+msgstr "Sendungen"
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Shipping Type"
+msgstr "Versandart"
+
+#: includes/Hub/View/SettingsDevTools.php
+msgid "Simulate Order Cancelled"
+msgstr "Bestellung-Storno simulieren"
+
+#: includes/Hub/View/SettingsDevTools.php
+msgid "Simulate Order Processed"
+msgstr "Bestellung-Verarbeitet simulieren"
+
+#: includes/Hub/View/SettingsDevTools.php
+msgid "Simulate Shipment Sent"
+msgstr "Sendung-Versendet simulieren"
+
+#: includes/Hub/Ajax/DevTools.php
+msgid "Simulate triggered. Webhook should arrive within seconds — check Webhook Log."
+msgstr "Simulation ausgelöst. Der Webhook sollte innerhalb weniger Sekunden ankommen — bitte das Webhook-Protokoll prüfen."
+
+#: includes/Hub/View/Catalog.php
+msgid "Skipped"
+msgstr "Übersprungen"
+
+#: includes/Failure/BulkResendCoordinator.php
+msgid "Some operations failed (%d errors). See log."
+msgstr "Einige Operationen sind fehlgeschlagen (%d Fehler). Siehe Protokoll."
+
+#: includes/Hub/View/Logs.php
+msgid "Source"
+msgstr "Quelle"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Source IP:"
+msgstr "Quell-IP:"
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Spreadconnect"
+msgstr "Spreadconnect"
+
+#: includes/Hub/View/Dashboard.php
+msgid "Spreadconnect Dashboard"
+msgstr "Spreadconnect-Dashboard"
+
+#: includes/Hub/View/Sidebar.php
+msgid "Spreadconnect Sections"
+msgstr "Spreadconnect-Bereiche"
+
+#: includes/Hub/View/Settings.php
+msgid "Spreadconnect Settings"
+msgstr "Spreadconnect-Einstellungen"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Spreadconnect order ID (e.g. sc_42)"
+msgstr "Spreadconnect-Bestell-ID (z. B. sc_42)"
+
+#: includes/Inline/ProductListColumns.php
+msgid "Spreadconnect: All"
+msgstr "Spreadconnect: Alle"
+
+#: includes/Hub/View/Catalog.php
+msgid "Started"
+msgstr "Gestartet"
+
+#: includes/Hub/View/Catalog.php
+msgid "State"
+msgstr "Status"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "State:"
+msgstr "Status:"
+
+#: includes/Hub/View/Subscriptions.php
+msgid "Status"
+msgstr "Status"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Status:"
+msgstr "Status:"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Stock"
+msgstr "Lagerbestand"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Stock (cached 5 min)"
+msgstr "Lagerbestand (5 Min. zwischengespeichert)"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Submitted externally — record SC-OrderID"
+msgstr "Extern eingereicht — SC-Bestell-ID erfassen"
+
+#: includes/Hub/View/Subscriptions.php
+msgid "Subscription-ID"
+msgstr "Abonnement-ID"
+
+#: includes/Hub/View/Subscriptions.php
+msgid "Subscriptions Manager"
+msgstr "Abonnement-Manager"
+
+#: includes/Subscription/SubscriptionManager.php
+msgid "Subscriptions registered (%d of 7)"
+msgstr "Abonnements registriert (%d von 7)"
+
+#: includes/Subscription/SubscriptionManager.php
+msgid "Subscriptions repaired (%1$d added, %2$d removed)"
+msgstr "Abonnements repariert (%1$d hinzugefügt, %2$d entfernt)"
+
+#: includes/Subscription/SubscriptionManager.php
+msgid "Subscriptions: %1$d of 7 registered (%2$d failed)"
+msgstr "Abonnements: %1$d von 7 registriert (%2$d fehlgeschlagen)"
+
+#: includes/Hub/View/Catalog.php
+msgid "Success"
+msgstr "Erfolg"
+
+#: includes/Hub/View/Catalog.php
+msgid "Sync History"
+msgstr "Sync-Verlauf"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Sync Status"
+msgstr "Sync-Status"
+
+#: includes/Hub/View/Catalog.php
+msgid "Sync now"
+msgstr "Jetzt synchronisieren"
+
+#: includes/Hub/View/Catalog.php
+msgid "Sync running"
+msgstr "Synchronisation läuft"
+
+#: includes/Hub/View/Settings.php
+msgid "Sync settings: see Settings → Catalog Sync."
+msgstr "Sync-Einstellungen: siehe Einstellungen → Katalog-Synchronisation."
+
+#: includes/Hub/View/Settings.php
+msgid "Test Connection"
+msgstr "Verbindung testen"
+
+#: includes/Hub/View/SettingsDevTools.php
+msgid "Test Order ID"
+msgstr "Test-Bestell-ID"
+
+#: includes/Hub/View/Settings.php
+msgid "Test This Key"
+msgstr "Diesen Schlüssel testen"
+
+#: includes/Hub/Ajax/DevTools.php
+msgid "Test order ID is required."
+msgstr "Test-Bestell-ID ist erforderlich."
+
+#: includes/Hub/View/Logs.php
+msgid "Time"
+msgstr "Zeit"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Today"
+msgstr "Heute"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Toggle row details"
+msgstr "Zeilen-Details umschalten"
+
+#: includes/Hub/View/Catalog.php
+msgid "Trigger"
+msgstr "Auslöser"
+
+#: includes/Hub/Ajax/DevTools.php
+msgid "Unknown event type."
+msgstr "Unbekannter Event-Typ."
+
+#: includes/Hub/Ajax/FailedOpsActions.php
+msgid "Unknown operation type."
+msgstr "Unbekannter Operations-Typ."
+
+#: includes/Hub/Ajax/FailedOpsActions.php
+msgid "Unknown resolution choice."
+msgstr "Unbekannte Auswahl des Lösungswegs."
+
+#: includes/Inline/ProductMetaBox.php
+msgid "Unlink"
+msgstr "Verknüpfung aufheben"
+
+#: includes/Inline/ProductListColumns.php
+msgid "Unlinked"
+msgstr "Nicht verknüpft"
+
+#: includes/Hub/Ajax/SettingsExportImport.php
+msgid "Unsupported export schema version."
+msgstr "Nicht unterstützte Export-Schema-Version."
+
+#: includes/Hub/View/Catalog.php
+msgid "Updated"
+msgstr "Aktualisiert"
+
+#: includes/Hub/View/Settings.php
+msgid "Use Staging API"
+msgstr "Staging-API verwenden"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Valid"
+msgstr "Gültig"
+
+#: includes/Hub/Ajax/TestConnection.php
+msgid "Valid — click Save to apply"
+msgstr "Gültig — auf „Speichern“ klicken, um zu übernehmen"
+
+#: includes/Failure/AdminNoticeStore.php
+msgid "View Detail"
+msgstr "Details anzeigen"
+
+#: includes/Failure/AdminNoticeStore.php
+msgid "View in Failed-Ops"
+msgstr "In Fehlgeschlagene Operationen anzeigen"
+
+#: includes/Inline/ProductMetaBox.php
+msgid "WC Price:"
+msgstr "WC-Preis:"
+
+#: includes/Inline/OrderMetaBox.php
+msgid "Webhook Activity (last 5)"
+msgstr "Webhook-Aktivität (letzte 5)"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Webhook Event Log"
+msgstr "Webhook-Event-Protokoll"
+
+#: includes/Hub/View/Settings.php
+msgid "Webhook Security"
+msgstr "Webhook-Sicherheit"
+
+#: includes/Hub/View/Webhooks.php
+msgid "Webhook log pagination"
+msgstr "Webhook-Protokoll-Seitennavigation"
+
+#: includes/Hub/View/Settings.php
+msgid "Webhook-Log Retention (days)"
+msgstr "Aufbewahrung des Webhook-Protokolls (Tage)"
+
+#: includes/Inline/OrderListColumns.php
+msgid "Will re-send: %1$d · Will skip: %2$d"
+msgstr "Wird erneut gesendet: %1$d · Wird übersprungen: %2$d"
+
+#: includes/Hub/View/Dashboard.php
+msgid "Wird in Slice %d befüllt"
+msgstr "Wird in Slice %d befüllt"
+
+#: includes/Hub/Ajax/FailedOpsActions.php
+msgid "WooCommerce order cancelled."
+msgstr "WooCommerce-Bestellung storniert."
+
+#: includes/Hub/Ajax/FailedOpsActions.php
+msgid "WooCommerce order not found."
+msgstr "WooCommerce-Bestellung nicht gefunden."
+
+#: includes/Hub/Controller.php
+msgid "You do not have permission to access this page."
+msgstr "Sie haben keine Berechtigung, auf diese Seite zuzugreifen."
+
+#: includes/Hub/Ajax/TestConnection.php
+msgid "You do not have permission to perform this action."
+msgstr "Sie haben keine Berechtigung, diese Aktion auszuführen."
+
+#: includes/Hub/View/Settings.php
+msgid "Your Webhook Secret (shown once)"
+msgstr "Ihr Webhook-Secret (einmalig angezeigt)"
+
+#: includes/Hub/View/Subscriptions.php
+msgid "active"
+msgstr "aktiv"
+
+#: includes/Failure/BulkResendCoordinator.php
+msgid "create_order entries require explicit resolution"
+msgstr "create_order-Einträge erfordern eine explizite Auflösung"
+
+#: includes/Hub/View/Catalog.php
+msgid "created"
+msgstr "erstellt"
+
+#: includes/Hub/View/Catalog.php
+msgid "errors"
+msgstr "Fehler"
+
+#: includes/Inline/ProductListColumns.php
+msgid "linked"
+msgstr "verknüpft"
+
+#: includes/Hub/View/Subscriptions.php
+msgid "missing"
+msgstr "fehlend"
+
+#: includes/Hub/View/Subscriptions.php
+msgid "never"
+msgstr "nie"
+
+#: includes/Inline/OrderMetaBox.php
+msgid "no shipments recorded"
+msgstr "keine Sendungen erfasst"
+
+#: includes/Hub/View/Subscriptions.php
+msgid "orphan"
+msgstr "verwaist"
+
+#: includes/Inline/OrderListColumns.php
+msgid "pending"
+msgstr "ausstehend"
+
+#: includes/Hub/View/Catalog.php
+msgid "skipped"
+msgstr "übersprungen"
+
+#: includes/Hub/View/Dashboard.php
+msgid "unknown"
+msgstr "unbekannt"
+
+#: includes/Inline/ProductListColumns.php
+msgid "unlinked"
+msgstr "nicht verknüpft"
+
+#: includes/Hub/View/Catalog.php
+msgid "updated"
+msgstr "aktualisiert"
+
+#: includes/Inline/OrderMetaBox.php
+msgid "— Choose a shipping type —"
+msgstr "— Versandart auswählen —"
+
+#: includes/Hub/View/Dashboard.php
+msgid "%1$d / %2$d active"
+msgstr "%1$d / %2$d aktiv"
+
+#: includes/Failure/BulkResendCoordinator.php
+msgid "%1$d of %2$d re-queued, %3$d skipped"
+msgid_plural "%1$d of %2$d re-queued, %3$d skipped"
+msgstr[0] "%1$d von %2$d erneut eingereiht, %3$d übersprungen"
+msgstr[1] "%1$d von %2$d erneut eingereiht, %3$d übersprungen"
+
+#: includes/Inline/OrderListColumns.php
+msgid "%1$d of %2$d re-queued · %3$d skipped (not in FAILED state)"
+msgid_plural "%1$d of %2$d re-queued · %3$d skipped (not in FAILED state)"
+msgstr[0] "%1$d von %2$d erneut eingereiht · %3$d übersprungen (nicht im Status FEHLGESCHLAGEN)"
+msgstr[1] "%1$d von %2$d erneut eingereiht · %3$d übersprungen (nicht im Status FEHLGESCHLAGEN)"
+
+#: includes/Failure/BulkResendCoordinator.php
+msgid "%d create_order entry requires explicit resolution — open it individually."
+msgid_plural "%d create_order entries require explicit resolution — open them individually."
+msgstr[0] "%d create_order-Eintrag erfordert eine explizite Auflösung — bitte einzeln öffnen."
+msgstr[1] "%d create_order-Einträge erfordern eine explizite Auflösung — bitte einzeln öffnen."
+
+#: includes/Subscription/SubscriptionManager.php
+msgid "Subscription registration failed"
+msgstr "Abonnement-Registrierung fehlgeschlagen"
+
+#: includes/Subscription/SubscriptionManager.php
+msgid "Subscriptions out of sync — auto-repaired (added: %1$d, removed: %2$d)"
+msgstr "Abonnements nicht synchron — automatisch repariert (hinzugefügt: %1$d, entfernt: %2$d)"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Webhooks"
+msgstr "Webhooks"
+
+#: includes/Hub/View/Sidebar.php
+msgid "Subscriptions"
+msgstr "Abonnements"
+
+#: includes/Hub/View/Sidebar.php
+msgid "Catalog"
+msgstr "Katalog"
+
+#: includes/Hub/View/Sidebar.php
+msgid "Dashboard"
+msgstr "Dashboard"
+
+#: includes/Hub/View/Sidebar.php
+msgid "Orders"
+msgstr "Bestellungen"
+
+#: includes/Hub/View/Settings.php
+msgid "Bearer token issued in the Spreadconnect partner dashboard. Stored as plaintext in `wp_options`; rotate via the partner dashboard if leaked."
+msgstr "Bearer-Token, der im Spreadconnect-Partner-Dashboard ausgestellt wird. Wird im Klartext in `wp_options` gespeichert; bei Kompromittierung im Partner-Dashboard rotieren."
+
+#: includes/Hub/View/Settings.php
+msgid "Choose how WooCommerce orders are pre-filled before submission to Spreadconnect. Auto-Confirm requires a default shipping type to be set."
+msgstr "Bitte wählen, wie WooCommerce-Bestellungen vor der Übermittlung an Spreadconnect vorbefüllt werden. Auto-Bestätigung erfordert eine konfigurierte Standard-Versandart."
+
+#: includes/Hub/View/Settings.php
+msgid "Comma-separated list of recipients. Invalid tokens are dropped on save."
+msgstr "Kommagetrennte Empfänger-Liste. Ungültige Einträge werden beim Speichern verworfen."
+
+#: includes/Hub/View/Settings.php
+msgid "Configure email recipients and retention windows for permanently failed operations."
+msgstr "E-Mail-Empfänger und Aufbewahrungszeiträume für dauerhaft fehlgeschlagene Operationen konfigurieren."
+
+#: includes/Hub/View/Settings.php
+msgid "Configure the credentials used for outbound calls to Spreadconnect. The API key is stored masked; click [Show] to reveal it."
+msgstr "Zugangsdaten für ausgehende Aufrufe an Spreadconnect konfigurieren. Der API-Schlüssel wird maskiert gespeichert; auf [Anzeigen] klicken, um ihn einzublenden."
+
+#: includes/Hub/View/FailedOps.php
+msgid "Confirm the chosen resolution?"
+msgstr "Den gewählten Lösungsweg bestätigen?"
+
+#: includes/Hub/View/Settings.php
+msgid "Control how often stock is pulled from Spreadconnect and how images are synchronised on catalog sync runs."
+msgstr "Festlegen, wie oft der Lagerbestand von Spreadconnect geladen wird und wie Bilder bei Katalog-Sync-Läufen synchronisiert werden."
+
+#: includes/Hub/View/Settings.php
+msgid "Copy this value now and store it securely. Once you click [Done], it cannot be displayed again — you will have to regenerate it instead."
+msgstr "Diesen Wert jetzt kopieren und sicher ablegen. Nach Klick auf [Fertig] kann er nicht erneut angezeigt werden — er muss stattdessen neu generiert werden."
+
+#: includes/Hub/View/Settings.php
+msgid "Days to retain rows in `wp_spreadconnect_failed_ops` before purging. Allowed range: 7–365 days."
+msgstr "Aufbewahrungstage für Zeilen in `wp_spreadconnect_failed_ops` vor dem Löschen. Erlaubter Bereich: 7–365 Tage."
+
+#: includes/Hub/View/Settings.php
+msgid "Days to retain rows in `wp_spreadconnect_webhook_log` before purging. Allowed range: 7–365 days."
+msgstr "Aufbewahrungstage für Zeilen in `wp_spreadconnect_webhook_log` vor dem Löschen. Erlaubter Bereich: 7–365 Tage."
+
+#: includes/Hub/View/FailedOps.php
+msgid "Dismiss selected entries?"
+msgstr "Ausgewählte Einträge verwerfen?"
+
+#: includes/Hub/View/FailedOps.php
+msgid "Dismiss this failed operation?"
+msgstr "Diese fehlgeschlagene Operation verwerfen?"
+
+#: includes/Hub/Ajax/FailedOpsActions.php
+msgid "External SC-OrderID recorded."
+msgstr "Externe SC-Bestell-ID erfasst."
+
+#: includes/Hub/View/Settings.php
+msgid "Forced to \"Off\" while Default Shipping Type is empty."
+msgstr "Auf „Aus“ gesetzt, solange die Standard-Versandart leer ist."
+
+#: includes/Hub/View/FailedOps.php
+msgid "No failed operations — all systems running smoothly."
+msgstr "Keine fehlgeschlagenen Operationen — alle Systeme laufen reibungslos."
+
+#: includes/Hub/View/Webhooks.php
+msgid "No webhook events received yet — confirm that subscriptions are active in [Subscriptions]."
+msgstr "Noch keine Webhook-Events empfangen — bitte prüfen, ob Abonnements unter [Abonnements] aktiv sind."
+
+#: includes/Hub/View/Settings.php
+msgid "Only relevant when Auto-Confirm is set to \"After N minutes\"."
+msgstr "Nur relevant, wenn Auto-Bestätigung auf „Nach N Minuten“ gesetzt ist."
+
+#: includes/Hub/View/FailedOps.php
+msgid "Please select at least one row."
+msgstr "Bitte mindestens eine Zeile auswählen."
+
+#: includes/Hub/View/Settings.php
+msgid "Regenerate only when you suspect the current secret has been compromised. The new value is shown exactly once."
+msgstr "Nur neu generieren, wenn ein Verdacht auf Kompromittierung des aktuellen Secrets besteht. Der neue Wert wird genau einmal angezeigt."
+
+#: includes/Hub/View/Subscriptions.php
+msgid "Repair will POST missing & DELETE orphans — only orphans pointing to our domain are deleted; foreign URLs are preserved."
+msgstr "„Reparieren“ legt fehlende Abonnements per POST an und löscht verwaiste per DELETE — nur Verwaiste, die auf unsere Domain zeigen, werden gelöscht; fremde URLs bleiben erhalten."
+
+#: includes/Hub/Ajax/FailedOpsActions.php
+msgid "Resolution flow is only available for create_order entries."
+msgstr "Der Lösungsweg ist nur für create_order-Einträge verfügbar."
+
+#: includes/Hub/View/Settings.php
+msgid "Spreadconnect shippingType.id (e.g. STANDARD, PREMIUM, EXPRESS). Leave empty to require per-order selection; required to enable Auto-Confirm."
+msgstr "Spreadconnect shippingType.id (z. B. STANDARD, PREMIUM, EXPRESS). Leer lassen, um eine Auswahl pro Bestellung zu erzwingen; für Auto-Bestätigung erforderlich."
+
+#: includes/Hub/View/Settings.php
+msgid "Stock units below this number are flagged in the WooCommerce admin."
+msgstr "Lagerbestände unter diesem Wert werden im WooCommerce-Admin markiert."
+
+#: includes/Hub/Ajax/FailedOpsActions.php
+msgid "Submitted manually outside plugin (SC-OrderID: %s)"
+msgstr "Manuell außerhalb des Plugins eingereicht (SC-Bestell-ID: %s)"
+
+#: includes/Hub/View/Settings.php
+msgid "The HMAC secret signs every inbound Spreadconnect webhook. Regenerating the secret invalidates the old value and automatically re-subscribes all event handlers."
+msgstr "Das HMAC-Secret signiert jeden eingehenden Spreadconnect-Webhook. Beim Neu-Generieren wird der alte Wert ungültig und alle Event-Handler werden automatisch erneut registriert."
+
+#: includes/Hub/View/SettingsDevTools.php
+msgid "The Spreadconnect-side order ID to target with the Simulate call. Not persisted — form-state only."
+msgstr "Die Spreadconnect-seitige Bestell-ID für den Simulate-Aufruf. Wird nicht persistiert — nur Formular-Zustand."
+
+#: includes/Hub/View/Settings.php
+msgid "Time-to-live for the per-SKU live-stock transient cache. Allowed range: 60–900 seconds."
+msgstr "Time-to-Live des per-SKU-Live-Lagerbestand-Transient-Caches. Erlaubter Bereich: 60–900 Sekunden."
+
+#: includes/Hub/View/SettingsDevTools.php
+msgid "Trigger Spreadconnect staging-only Simulate endpoints to verify the webhook pipeline. Only available while the staging toggle is enabled."
+msgstr "Spreadconnect-Staging-only-Simulate-Endpunkte auslösen, um die Webhook-Pipeline zu prüfen. Nur verfügbar, wenn der Staging-Schalter aktiv ist."
+
+#: includes/Hub/View/Settings.php
+msgid "Verify the API key currently entered above without saving it. The key is sent only over HTTPS to Spreadconnect."
+msgstr "Den oben eingegebenen API-Schlüssel überprüfen, ohne ihn zu speichern. Der Schlüssel wird ausschließlich per HTTPS an Spreadconnect übertragen."
+
+#: includes/Hub/View/Subscriptions.php
+msgid "● active   ○ missing   △ orphan (registered, but URL ≠ ours)"
+msgstr "● aktiv   ○ fehlend   △ verwaist (registriert, aber URL ≠ unsere)"

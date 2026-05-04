@@ -691,6 +691,47 @@ final class SubscriptionManager
 	}
 
 	/**
+	 * Slice 46 AC-11: read the cached `{active, total}` subscription counts
+	 * for the Hub Dashboard "Webhooks" card.
+	 *
+	 * Reads the `sc_subscriptions_status` transient (writer: external —
+	 * Slice 18 / Slice 19 repair flow). When the transient is missing or
+	 * malformed the method returns the safe defaults
+	 * `['active' => 0, 'total' => 7]` so the card always renders an integer
+	 * pair — never triggers a live `getSubscriptions()` call.
+	 *
+	 * @return array{active:int,total:int}
+	 */
+	public static function getCachedStatus(): array
+	{
+		$default = array(
+			'active' => 0,
+			'total'  => count( self::EXPECTED_EVENTS ),
+		);
+
+		if ( ! function_exists( 'get_transient' ) ) {
+			return $default;
+		}
+
+		$value = get_transient( 'sc_subscriptions_status' );
+		if ( ! is_array( $value ) ) {
+			return $default;
+		}
+
+		$active = isset( $value['active'] ) && is_numeric( $value['active'] )
+			? (int) $value['active']
+			: 0;
+		$total = isset( $value['total'] ) && is_numeric( $value['total'] ) && (int) $value['total'] > 0
+			? (int) $value['total']
+			: count( self::EXPECTED_EVENTS );
+
+		return array(
+			'active' => $active,
+			'total'  => $total,
+		);
+	}
+
+	/**
 	 * Test seam for the `SpreadconnectClient` collaborator.
 	 *
 	 * Production returns a fresh client; test subclasses substitute a

@@ -408,6 +408,34 @@ final class SyncHistoryRepo
 	}
 
 	/**
+	 * Slice 46 AC-9: return the youngest `state='complete'` sync-history row,
+	 * or `null` when no successful run exists yet.
+	 *
+	 * Used by the Hub Dashboard "Catalog" card to render
+	 * `created_count + updated_count` plus `started_at`. Differs from
+	 * {@see self::getActiveRun()} (in-progress / pending) and
+	 * {@see self::getRecent()} (mixed states) — only `complete` rows count
+	 * as a successful sync we can advertise on the dashboard.
+	 *
+	 * @return array<string, mixed>|null Row as assoc-array, or `null`.
+	 */
+	public function findLatest(): ?array
+	{
+		global $wpdb;
+
+		$table = $wpdb->prefix . self::TABLE_SUFFIX;
+
+		$sql = $wpdb->prepare(
+			"SELECT * FROM {$table} WHERE state = %s ORDER BY started_at DESC, id DESC LIMIT 1",
+			self::STATE_COMPLETE
+		);
+
+		$row = $wpdb->get_row( $sql, ARRAY_A );
+
+		return is_array( $row ) ? $row : null;
+	}
+
+	/**
 	 * Read the persisted total article count for a run (slice-26 AC-7).
 	 *
 	 * Wrapper around `get_transient('sc_sync_total_{run_id}')` (set by
