@@ -1350,3 +1350,23 @@ msgstr "Den oben eingegebenen API-Schlüssel überprüfen, ohne ihn zu speichern
 #: includes/Hub/View/Subscriptions.php
 msgid "● active   ○ missing   △ orphan (registered, but URL ≠ ours)"
 msgstr "● aktiv   ○ fehlend   △ verwaist (registriert, aber URL ≠ unsere)"
+
+#: includes/Hub/View/Dashboard.php
+msgid "Connection"
+msgstr "Verbindung"
+
+#: includes/Hub/View/Dashboard.php
+msgid "Confirmed"
+msgstr "Bestätigt"
+
+#: includes/Hub/View/Dashboard.php
+msgid "Processed"
+msgstr "Verarbeitet"
+
+#: includes/Hub/View/Dashboard.php
+msgid "Failed"
+msgstr "Fehlgeschlagen"
+
+#: includes/Hub/View/Dashboard.php
+msgid "No event received yet."
+msgstr "Noch kein Event empfangen"

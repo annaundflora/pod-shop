@@ -136,7 +136,7 @@ final class Dashboard
 			);
 			printf(
 				'<h2 class="spreadconnect-card__title">%1$s</h2>',
-				esc_html( __( $card['title'], self::TEXT_DOMAIN ) ) // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText
+				esc_html( self::cardTitle( $card['slug'] ) )
 			);
 
 			echo '<div class="spreadconnect-card-body">';
@@ -263,45 +263,55 @@ final class Dashboard
 	/**
 	 * Card 3 — Orders (last 30 days).
 	 *
-	 * Performs a single HPOS-aware aggregate via `wc_get_orders` to bucket
-	 * orders into 4 `_spreadconnect_state` counts (`NEW`, `CONFIRMED`,
-	 * `PROCESSED`, `failed_to_submit`). Slice-46 AC-10 mandates HPOS-aware
+	 * Performs ONE HPOS-aware aggregate query against `{prefix}wc_orders_meta`
+	 * with `GROUP BY meta_value` to bucket orders into 4
+	 * `_spreadconnect_state` counts (`NEW`, `CONFIRMED`, `PROCESSED`,
+	 * `failed_to_submit`). The join against `{prefix}wc_orders` bounds the
+	 * result to orders created within the last 30 days. Slice-46 AC-10
+	 * mandates a single aggregate query (no per-state N+1) and HPOS-aware
 	 * access (no direct `wp_postmeta` reads).
 	 */
 	private static function renderOrdersCard(): void
 	{
 		$counts = array_fill_keys( array_keys( self::ORDER_STATE_LABELS ), 0 );
 
-		if ( function_exists( 'wc_get_orders' ) ) {
-			$cutoffTs    = time() - self::ORDERS_WINDOW_SECONDS;
-			$dateAfter   = gmdate( 'Y-m-d H:i:s', $cutoffTs );
+		global $wpdb;
+		if ( $wpdb instanceof \wpdb ) {
+			$cutoffTs   = ( function_exists( 'time' ) ? time() : 0 ) - self::ORDERS_WINDOW_SECONDS;
+			$dateAfter  = gmdate( 'Y-m-d H:i:s', $cutoffTs );
+			$metaTable  = $wpdb->prefix . 'wc_orders_meta';
+			$ordersTbl  = $wpdb->prefix . 'wc_orders';
+			$stateKey   = '_spreadconnect_state';
 
-			foreach ( array_keys( self::ORDER_STATE_LABELS ) as $stateValue ) {
-				$ids = wc_get_orders(
-					array(
-						'limit'      => -1,
-						'return'     => 'ids',
-						'date_after' => $dateAfter,
-						'meta_query' => array(
-							array(
-								'key'     => '_spreadconnect_state',
-								'value'   => $stateValue,
-								'compare' => '=',
-							),
-						),
-					)
-				);
+			// Single aggregate query: GROUP BY meta_value bounded to the
+			// 30-day window via JOIN on `wc_orders.date_created_gmt`.
+			$sql = $wpdb->prepare(
+				"SELECT m.meta_value AS state, COUNT(*) AS cnt
+				 FROM `{$metaTable}` AS m
+				 INNER JOIN `{$ordersTbl}` AS o ON o.id = m.order_id
+				 WHERE m.meta_key = %s
+				   AND o.date_created_gmt >= %s
+				 GROUP BY m.meta_value",
+				$stateKey,
+				$dateAfter
+			);
 
-				if ( is_array( $ids ) ) {
-					$counts[ $stateValue ] = count( $ids );
+			$rows = $wpdb->get_results( $sql, ARRAY_A );
+			if ( is_array( $rows ) ) {
+				foreach ( $rows as $row ) {
+					$state = isset( $row['state'] ) ? (string) $row['state'] : '';
+					$cnt   = isset( $row['cnt'] ) ? (int) $row['cnt'] : 0;
+					if ( array_key_exists( $state, $counts ) ) {
+						$counts[ $state ] = $cnt;
+					}
 				}
 			}
 		}
 
 		echo '<ul class="spreadconnect-card__counts">';
-		foreach ( self::ORDER_STATE_LABELS as $stateValue => $labelKey ) {
+		foreach ( array_keys( self::ORDER_STATE_LABELS ) as $stateValue ) {
 			$count = isset( $counts[ $stateValue ] ) ? (int) $counts[ $stateValue ] : 0;
-			$label = __( $labelKey, self::TEXT_DOMAIN ); // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText
+			$label = self::orderStateLabel( $stateValue );
 			printf(
 				'<li><span class="spreadconnect-card__label">%1$s:</span> <span class="spreadconnect-card__count">%2$d</span></li>',
 				esc_html( $label ),
@@ -340,7 +350,7 @@ final class Dashboard
 		if ( null === $latest ) {
 			printf(
 				'<p class="spreadconnect-card__empty">%1$s</p>',
-				esc_html__( 'No events match the current filters.', self::TEXT_DOMAIN )
+				esc_html__( 'No event received yet.', self::TEXT_DOMAIN )
 			);
 			return;
 		}
@@ -424,6 +434,54 @@ final class Dashboard
 				return __( 'Invalid Key — check value or environment', self::TEXT_DOMAIN );
 			default:
 				return __( 'unknown', self::TEXT_DOMAIN );
+		}
+	}
+
+	/**
+	 * Translate the dashboard card slug into its localised `<h2>` title.
+	 *
+	 * Each branch is a static-string `__()` call so the strings are
+	 * extractable by `wp i18n make-pot` (Slice 46 AC-13). Adding a new card
+	 * to {@see self::CARDS} requires a matching `case` here.
+	 */
+	private static function cardTitle( string $slug ): string
+	{
+		switch ( $slug ) {
+			case 'connection':
+				return __( 'Connection', self::TEXT_DOMAIN );
+			case 'catalog':
+				return __( 'Catalog', self::TEXT_DOMAIN );
+			case 'orders':
+				return __( 'Orders', self::TEXT_DOMAIN );
+			case 'webhooks':
+				return __( 'Webhooks', self::TEXT_DOMAIN );
+			case 'failed-ops':
+				return __( 'Failed Operations', self::TEXT_DOMAIN );
+			default:
+				return $slug;
+		}
+	}
+
+	/**
+	 * Translate the `_spreadconnect_state` enum value into its localised
+	 * Orders-card label.
+	 *
+	 * Each branch is a static-string `__()` call so the strings are
+	 * extractable by `wp i18n make-pot` (Slice 46 AC-13).
+	 */
+	private static function orderStateLabel( string $state ): string
+	{
+		switch ( $state ) {
+			case 'NEW':
+				return __( 'Pending', self::TEXT_DOMAIN );
+			case 'CONFIRMED':
+				return __( 'Confirmed', self::TEXT_DOMAIN );
+			case 'PROCESSED':
+				return __( 'Processed', self::TEXT_DOMAIN );
+			case 'failed_to_submit':
+				return __( 'Failed', self::TEXT_DOMAIN );
+			default:
+				return $state;
 		}
 	}
 
