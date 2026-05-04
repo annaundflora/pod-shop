@@ -18,6 +18,7 @@ use SpreadconnectPod\Api\SpreadconnectClient;
 use SpreadconnectPod\Catalog\AttributeProvisioner;
 use SpreadconnectPod\Catalog\SyncArticleJob;
 use SpreadconnectPod\Catalog\SyncCatalogJob;
+use SpreadconnectPod\Hub\Ajax\RegenerateSecret as HubAjaxRegenerateSecret;
 use SpreadconnectPod\Hub\Ajax\TestConnection as HubAjaxTestConnection;
 use SpreadconnectPod\Hub\Controller as HubController;
 use SpreadconnectPod\Hub\View\Settings as HubSettingsView;
@@ -188,6 +189,17 @@ final class Plugin
 		// the POST-body key — slice-11's `SettingsValidator` remains the
 		// only persistence path. No `wp_ajax_nopriv_*` variant — admin-only.
 		HubAjaxTestConnection::register();
+
+		// slice-14: Register the two webhook-secret AJAX handlers
+		// (`spreadconnect_regenerate_secret` + `spreadconnect_acknowledge_initial_reveal`).
+		// Both share the `spreadconnect_secret_action` nonce and the
+		// `manage_woocommerce` capability gate; only the authenticated
+		// `wp_ajax_*` variant is registered so anonymous callers can never
+		// rotate the secret or flip the reveal-lock. No `nopriv_*` variant.
+		// `add_action` de-duplicates identical callable/priority pairs,
+		// and the `self::$initialized` guard above keeps the registration
+		// count at exactly 1 per request.
+		HubAjaxRegenerateSecret::register();
 
 		// slice-28: Wire the WC processing-hook listener and the
 		// `spreadconnect/create_order` Action-Scheduler job handler.

@@ -21,6 +21,7 @@ namespace SpreadconnectPod\Hub\View;
 
 use SpreadconnectPod\Bootstrap\OptionsDefaults;
 use SpreadconnectPod\Settings\SettingsValidator;
+use SpreadconnectPod\Subscription\WebhookSecretManager;
 
 /**
  * Stateless renderer + Settings-API registrar for the Settings sub-page.
@@ -194,6 +195,21 @@ final class Settings
 		add_action(
 			'spreadconnect_settings_section_test_connection',
 			array( self::class, 'renderTestConnectionSection' )
+		);
+
+		// --- Slice-14 section ③ Webhook-Security markup hook -------------.
+		// The slice-11 Settings::render() emits a
+		// `do_action('spreadconnect_settings_section_webhook_security')`
+		// extension slot. Slice 14 fills the slot here so the regenerate-
+		// button + masked secret + last-regenerated timestamp + (conditional)
+		// initial-reveal panel all live next to the rest of the Settings
+		// view code. Bestehende Form-Felder + Sanitizer-Wiring bleiben
+		// unveraendert. `add_action` de-duplicates identical callable/
+		// priority pairs, so re-running `registerSettings()` keeps the
+		// listener count at 1.
+		add_action(
+			'spreadconnect_settings_section_webhook_security',
+			array( self::class, 'renderWebhookSecuritySection' )
 		);
 
 		// --- Sections ----------------------------------------------------.
@@ -654,6 +670,209 @@ JS;
 		} else {
 			echo '<script>' . $inlineJs . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		}
+	}
+
+	// =====================================================================
+	// Slice-14: Section ③ "Webhook Security" markup
+	// =====================================================================
+
+	/**
+	 * Render the Webhook-Security control block (slice-14).
+	 *
+	 * Hooked from {@see self::registerSettings()} onto the
+	 * `spreadconnect_settings_section_webhook_security` extension action
+	 * that {@see self::render()} fires after the slice-12 Test-Connection
+	 * slot. The block emits four pieces (slice-14 AC-7):
+	 *   - a static `••••…` mask — the plaintext is NEVER written into the
+	 *     server-rendered markup (slice-14 AC-7-(b));
+	 *   - the human-readable last-regenerated timestamp from the companion
+	 *     option `spreadconnect_webhook_secret_generated_at` (lazy default `0`);
+	 *   - a `<button type="button">` carrying the AJAX nonce as a
+	 *     `data-nonce` attribute. Click-handler JS lives in a follow-up
+	 *     polish slice (or a global Settings JS module); slice-14 ships only
+	 *     the markup hooks (`data-`-attributes + CSS classes) per the
+	 *     deliverable's "JS in spaeterer Slice" note;
+	 *   - the inline localized hint copy from wireframes.md Z. 624.
+	 *
+	 * Below the four pieces, the conditional `initial_secret_reveal_panel`
+	 * is emitted when (a) the user has never acknowledged a reveal yet
+	 * (`spreadconnect_webhook_secret_revealed_at == 0`) AND (b) the
+	 * short-lived transient `spreadconnect_initial_secret_reveal` carries
+	 * a freshly-generated plaintext from the most recent post-save hook.
+	 * That panel is the ONLY place the plaintext appears in the rendered
+	 * HTML, and it auto-hides forever once `[Done]` writes the
+	 * `revealed_at` timestamp via the slice-14 acknowledge AJAX action.
+	 *
+	 * @return void
+	 */
+	public static function renderWebhookSecuritySection(): void
+	{
+		// Shared nonce for both sub-actions (regenerate + acknowledge) —
+		// single source of truth, matches `RegenerateSecret::NONCE_ACTION`.
+		$nonce = wp_create_nonce( 'spreadconnect_secret_action' );
+
+		// Lazy defaults — slice-05 OptionsDefaults intentionally does NOT
+		// seed the two companion options to keep its scope clean
+		// (slice-14 spec "Option-Defaults"). `0` is a stable sentinel
+		// meaning "never set".
+		$generatedAt = (int) get_option( WebhookSecretManager::OPTION_GENERATED_AT, 0 );
+		$revealedAt  = (int) get_option( WebhookSecretManager::OPTION_REVEALED_AT, 0 );
+
+		echo '<h2 class="title">' . esc_html__( 'Webhook Security', self::TEXT_DOMAIN ) . '</h2>';
+		echo '<p>' . esc_html__(
+			'The HMAC secret signs every inbound Spreadconnect webhook. Regenerating the secret invalidates the old value and automatically re-subscribes all event handlers.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+
+		echo '<table class="form-table" role="presentation"><tbody>';
+
+		// Row 1: masked secret display. The 20 bullets are a STATIC mask;
+		// the plaintext is never embedded in this markup (slice-14 AC-7-(b),
+		// AC-9). Output uses `esc_html` for defense-in-depth even though
+		// the literal contains no HTML-special chars.
+		echo '<tr>';
+		echo '<th scope="row">' . esc_html__( 'Current Secret', self::TEXT_DOMAIN ) . '</th>';
+		echo '<td>';
+		echo '<code class="spreadconnect-secret-mask">' . esc_html( str_repeat( "\xE2\x80\xA2", 20 ) ) . '</code>';
+		echo '</td>';
+		echo '</tr>';
+
+		// Row 2: last-regenerated timestamp. `0` (= never generated)
+		// renders the neutral "never" string instead of the Unix epoch.
+		echo '<tr>';
+		echo '<th scope="row">' . esc_html__( 'Last Regenerated', self::TEXT_DOMAIN ) . '</th>';
+		echo '<td>';
+		if ( $generatedAt > 0 ) {
+			$formatted = self::formatTimestamp( $generatedAt );
+			echo '<span class="spreadconnect-secret-generated-at">' . esc_html( $formatted ) . '</span>';
+		} else {
+			echo '<span class="spreadconnect-secret-generated-at spreadconnect-secret-generated-at--never">'
+				. esc_html__( 'never', self::TEXT_DOMAIN )
+				. '</span>';
+		}
+		echo '</td>';
+		echo '</tr>';
+
+		echo '</tbody></table>';
+
+		// Row 3: regenerate button + inline hint. The `data-confirm`
+		// attribute is the markup-side hook for the wireframe's
+		// `regenerate_dialog_open` confirmation modal (JS is out-of-scope
+		// for this slice — see deliverable note "JS in spaeterer Slice").
+		echo '<p>';
+		printf(
+			'<button type="button" class="button" id="%1$s" data-nonce="%2$s" data-confirm="%3$s">%4$s</button> ',
+			esc_attr( 'spreadconnect-regenerate-secret' ),
+			esc_attr( $nonce ),
+			esc_attr__( 'Regenerating the secret will immediately re-subscribe all webhook handlers. Continue?', self::TEXT_DOMAIN ),
+			esc_html__( 'Regenerate Secret', self::TEXT_DOMAIN )
+		);
+		printf(
+			'<span id="%1$s" class="spreadconnect-regenerate-status" role="status" aria-live="polite"></span>',
+			esc_attr( 'spreadconnect-regenerate-status' )
+		);
+		echo '</p>';
+
+		// Inline hint copy (wireframes.md Z. 624 annotation ⑤).
+		echo '<p class="description">' . esc_html__(
+			'Regenerate only when you suspect the current secret has been compromised. The new value is shown exactly once.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+
+		// Conditional initial-reveal panel. Two-condition gate:
+		//   1. revealed_at == 0     — user has never acknowledged a panel.
+		//   2. transient is non-empty — a fresh plaintext is queued for one display.
+		// Both must hold; either alone is insufficient. The transient is
+		// deleted by the acknowledge AJAX handler, so a page-reload after
+		// `[Done]` finds an empty transient and the panel never re-renders.
+		if ( 0 === $revealedAt ) {
+			$queuedSecret = get_transient( 'spreadconnect_initial_secret_reveal' );
+			if ( is_string( $queuedSecret ) && '' !== $queuedSecret ) {
+				self::renderInitialRevealPanel( $queuedSecret, $nonce );
+			}
+		}
+	}
+
+	/**
+	 * Render the one-time-reveal panel for the initial secret.
+	 *
+	 * Wireframes.md Screen 7 Z. 642-672 (`save_success_panel` -> nested
+	 * `initial_secret_reveal_panel`). Layout: a monospace block carrying
+	 * the plaintext, a `[⎘ Copy]` button (markup hook only — JS in a
+	 * follow-up slice), and a `[Done]` button that triggers the
+	 * acknowledge AJAX action. After acknowledge, the panel is permanently
+	 * UI-locked because the one-way `revealed_at` flag is non-zero
+	 * thereafter (slice-14 Constraints).
+	 *
+	 * The plaintext is escaped via `esc_html` even though base64 contains
+	 * no HTML-special chars — defense in depth, identical to the API-key
+	 * field in `cbApiKey`.
+	 *
+	 * @param string $plaintext The freshly-generated base64 secret.
+	 * @param string $nonce     The shared `spreadconnect_secret_action` nonce.
+	 * @return void
+	 */
+	private static function renderInitialRevealPanel( string $plaintext, string $nonce ): void
+	{
+		echo '<div class="spreadconnect-reveal-panel spreadconnect-reveal-panel--initial" role="region" aria-label="'
+			. esc_attr__( 'Initial Webhook Secret Reveal', self::TEXT_DOMAIN )
+			. '">';
+
+		echo '<h3>' . esc_html__( 'Your Webhook Secret (shown once)', self::TEXT_DOMAIN ) . '</h3>';
+		echo '<p>' . esc_html__(
+			'Copy this value now and store it securely. Once you click [Done], it cannot be displayed again — you will have to regenerate it instead.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+
+		// Monospace block carrying the plaintext. `esc_html` for
+		// defense-in-depth; `data-secret` mirrors the value for the
+		// follow-up Copy-to-Clipboard JS (markup hook only).
+		printf(
+			'<pre class="spreadconnect-reveal-panel__secret"><code data-secret="%1$s">%2$s</code></pre>',
+			esc_attr( $plaintext ),
+			esc_html( $plaintext )
+		);
+
+		echo '<p>';
+		printf(
+			'<button type="button" class="button" data-action="copy" data-target="spreadconnect-reveal-panel__secret">%1$s</button> ',
+			esc_html__( 'Copy', self::TEXT_DOMAIN )
+		);
+		printf(
+			'<button type="button" class="button button-primary" id="%1$s" data-nonce="%2$s">%3$s</button>',
+			esc_attr( 'spreadconnect-acknowledge-reveal' ),
+			esc_attr( $nonce ),
+			esc_html__( 'Done', self::TEXT_DOMAIN )
+		);
+		echo '</p>';
+
+		echo '</div>';
+	}
+
+	/**
+	 * Format a unix timestamp using WP's site-locale conventions.
+	 *
+	 * Wraps `wp_date()` when available (WP 5.3+) and falls back to a
+	 * deterministic ISO-8601 string for old-WP / unit-test bootstraps that
+	 * lack the helper. The fallback uses `gmdate()` to avoid a server-
+	 * timezone dependency in tests.
+	 *
+	 * @param int $timestamp Unix timestamp (`> 0`).
+	 * @return string Localised date/time string.
+	 */
+	private static function formatTimestamp( int $timestamp ): string
+	{
+		if ( function_exists( 'wp_date' ) ) {
+			$format = function_exists( 'get_option' )
+				? (string) get_option( 'date_format', 'Y-m-d' ) . ' ' . (string) get_option( 'time_format', 'H:i' )
+				: 'Y-m-d H:i';
+			$out    = wp_date( $format, $timestamp );
+			if ( is_string( $out ) ) {
+				return $out;
+			}
+		}
+
+		return gmdate( 'Y-m-d H:i', $timestamp );
 	}
 
 	// =====================================================================
