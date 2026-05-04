@@ -177,7 +177,7 @@ final class TestConnection
 			wp_send_json_success(
 				array(
 					'ok'      => true,
-					'message' => __( 'Valid -- click Save to apply', self::TEXT_DOMAIN ),
+					'message' => __( 'Valid — click Save to apply', self::TEXT_DOMAIN ),
 				)
 			);
 			return;
@@ -189,7 +189,7 @@ final class TestConnection
 			wp_send_json_error(
 				array(
 					'ok'      => false,
-					'message' => __( 'Invalid Key -- check value or environment', self::TEXT_DOMAIN ),
+					'message' => __( 'Invalid Key — check value or environment', self::TEXT_DOMAIN ),
 				)
 			);
 			return;
@@ -200,7 +200,7 @@ final class TestConnection
 			wp_send_json_error(
 				array(
 					'ok'      => false,
-					'message' => __( 'Connection failed -- please try again', self::TEXT_DOMAIN ),
+					'message' => __( 'Connection failed — please try again', self::TEXT_DOMAIN ),
 				)
 			);
 			return;
