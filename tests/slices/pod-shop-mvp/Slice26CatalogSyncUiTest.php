@@ -299,21 +299,21 @@ namespace SpreadconnectPod\Tests {
 		 *
 		 * @var list<array{0:string,1:string,2:array<string,mixed>}>
 		 */
-		private array $restRoutes = [];
+		public array $restRoutes = [];
 
 		/**
 		 * Captured `as_enqueue_async_action` invocations as `[hook, args, group]`.
 		 *
 		 * @var list<array{0:string,1:array<string,mixed>,2:string}>
 		 */
-		private array $enqueuedActions = [];
+		public array $enqueuedActions = [];
 
 		/**
 		 * Backing store for `get_transient` lookups.
 		 *
 		 * @var array<string, mixed>
 		 */
-		private array $transientStore = [];
+		public array $transientStore = [];
 
 		private static function repoRoot(): string
 		{
@@ -369,15 +369,17 @@ namespace SpreadconnectPod\Tests {
 			);
 
 			// ---- Transient store ----------------------------------------------
-			$store = & $this->transientStore;
+			$self = $this;
 			Functions\when( 'get_transient' )->alias(
-				static fn( $key ) => array_key_exists( (string) $key, $store )
-					? $store[ (string) $key ]
-					: false
+				static function ( $key ) use ( $self ) {
+					return array_key_exists( (string) $key, $self->transientStore )
+						? $self->transientStore[ (string) $key ]
+						: false;
+				}
 			);
 			Functions\when( 'set_transient' )->alias(
-				static function ( $key, $value, $ttl = 0 ) use ( &$store ): bool {
-					$store[ (string) $key ] = $value;
+				static function ( $key, $value, $ttl = 0 ) use ( $self ): bool {
+					$self->transientStore[ (string) $key ] = $value;
 					return true;
 				}
 			);
@@ -395,19 +397,17 @@ namespace SpreadconnectPod\Tests {
 			);
 
 			// ---- as_enqueue_async_action capture -------------------------------
-			$enqueues = & $this->enqueuedActions;
 			Functions\when( 'as_enqueue_async_action' )->alias(
-				static function ( string $hook, array $args = [], string $group = '' ) use ( &$enqueues ): int {
-					$enqueues[] = [ $hook, $args, $group ];
-					return count( $enqueues );
+				static function ( string $hook, array $args = [], string $group = '' ) use ( $self ): int {
+					$self->enqueuedActions[] = [ $hook, $args, $group ];
+					return count( $self->enqueuedActions );
 				}
 			);
 
 			// ---- register_rest_route capture -----------------------------------
-			$routes = & $this->restRoutes;
 			Functions\when( 'register_rest_route' )->alias(
-				static function ( string $namespace, string $route, array $args = [] ) use ( &$routes ): bool {
-					$routes[] = [ $namespace, $route, $args ];
+				static function ( string $namespace, string $route, array $args = [] ) use ( $self ): bool {
+					$self->restRoutes[] = [ $namespace, $route, $args ];
 					return true;
 				}
 			);
