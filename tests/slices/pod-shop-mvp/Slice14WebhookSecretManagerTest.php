@@ -102,6 +102,15 @@ final class Slice14WebhookSecretManagerTest extends TestCase
     /** @var list<array<string,mixed>> */
     private array $errorLogs = [];
 
+    /** Temp-Datei in die ini_set('error_log', ...) umleitet. */
+    private string $errorLogFile = '';
+
+    /** @var string|false */
+    private mixed $prevErrorLog = '';
+
+    /** @var string|false */
+    private mixed $prevLogErrors = '';
+
     /**
      * Test-Wallclock — ungefaehr time() zum Zeitpunkt von setUp(). Wird als
      * untere Schranke fuer Timestamp-Toleranz-Asserts genutzt; die Manager-
@@ -245,18 +254,15 @@ final class Slice14WebhookSecretManagerTest extends TestCase
             }
         );
 
-        // ---- error_log — capture-spy (AC-9) ------------------------------.
-        // We cannot redefine the global `error_log` reliably across all PHP
-        // runtimes, so we instead inject a sink via Brain\Monkey when the
-        // manager dispatches its log line. The manager calls `error_log` at
-        // a global symbol — Brain\Monkey can shadow it through Patchwork.
-        $logSink = &$this->errorLogs;
-        Functions\when( 'error_log' )->alias(
-            static function ( $message, ...$rest ) use ( &$logSink ): bool {
-                $logSink[] = [ 'message' => (string) $message, 'rest' => $rest ];
-                return true;
-            }
-        );
+        // ---- error_log capture via ini_set ('error_log' is a PHP internal,
+        //      Patchwork erlaubt keine Redefinition ohne 'redefinable-internals'-
+        //      Config). Wir leiten error_log() in eine Temp-Datei um und lesen
+        //      sie zurueck via {@see self::readErrorLogMessages()}.
+        $this->errorLogFile  = (string) tempnam( sys_get_temp_dir(), 'slice14_errorlog_' );
+        $this->prevErrorLog  = ini_get( 'error_log' );
+        $this->prevLogErrors = ini_get( 'log_errors' );
+        ini_set( 'error_log', $this->errorLogFile );
+        ini_set( 'log_errors', '1' );
 
         // ---- Hub-Settings: nonce + add_action defaults --------------------.
         Functions\when( 'wp_create_nonce' )->justReturn( 'NONCE_SECRET_42' );
@@ -283,10 +289,42 @@ final class Slice14WebhookSecretManagerTest extends TestCase
 
     protected function tearDown(): void
     {
+        // Restore error_log ini settings.
+        if ( $this->prevErrorLog !== '' && $this->prevErrorLog !== false ) {
+            ini_set( 'error_log', (string) $this->prevErrorLog );
+        }
+        if ( $this->prevLogErrors !== '' && $this->prevLogErrors !== false ) {
+            ini_set( 'log_errors', (string) $this->prevLogErrors );
+        }
+        if ( '' !== $this->errorLogFile && is_file( $this->errorLogFile ) ) {
+            @unlink( $this->errorLogFile );
+        }
+
         FakeRandomBytesQueue::reset();
         $_POST = [];
         Monkey\tearDown();
         parent::tearDown();
+    }
+
+    /**
+     * Read the temp error_log file into a list of message strings.
+     *
+     * @return list<string>
+     */
+    private function readErrorLogMessages(): array
+    {
+        if ( '' === $this->errorLogFile || ! is_file( $this->errorLogFile ) ) {
+            return [];
+        }
+        $contents = (string) file_get_contents( $this->errorLogFile );
+        if ( '' === $contents ) {
+            return [];
+        }
+        // PHP error_log() prefixes each line with a timestamp like
+        // "[04-May-2026 12:34:56 UTC] " — split by newline and keep all
+        // non-empty lines.
+        $lines = preg_split( '/\r?\n/', trim( $contents ) ) ?: [];
+        return array_values( array_filter( $lines, static fn ( $l ): bool => '' !== $l ) );
     }
 
     // =====================================================================
@@ -752,11 +790,20 @@ final class Slice14WebhookSecretManagerTest extends TestCase
             'AC-7 (a): Section ③ MUSS einen <button id="spreadconnect-regenerate-secret"> rendern.'
         );
 
-        // (b) Maskierung (statisch, mehrere Bullets) — wir akzeptieren U+2022 oder ASCII fallback.
-        $this->assertMatchesRegularExpression(
-            '/(?:\xE2\x80\xA2){10,}/u', // U+2022 mehrfach
+        // (b) Maskierung (statisch, mehrere Bullets U+2022). Wir suchen die
+        //     CSS-Klasse "spreadconnect-secret-mask" UND verifizieren, dass
+        //     mindestens 10 U+2022-Bullets im Markup vorhanden sind (rohe
+        //     UTF-8-Sequenz E2 80 A2 wiederholt sich >= 10 Mal).
+        $this->assertStringContainsString(
+            'spreadconnect-secret-mask',
             $html,
-            'AC-7 (b): Markup MUSS eine statische Bullet-Maskierung enthalten.'
+            'AC-7 (b): Markup MUSS einen Bullet-Mask-Container mit Klasse "spreadconnect-secret-mask" haben.'
+        );
+        $bulletByteRun = str_repeat( "\xE2\x80\xA2", 10 );
+        $this->assertStringContainsString(
+            $bulletByteRun,
+            $html,
+            'AC-7 (b): Markup MUSS mindestens 10 zusammenhaengende U+2022-Bullets enthalten.'
         );
 
         // (c) Last-Regenerated-Timestamp aus Option als formatiertes Datum.
@@ -875,27 +922,25 @@ final class Slice14WebhookSecretManagerTest extends TestCase
         $payload   = WebhookSecretManager::generate();
         $plaintext = $payload['secret'];
 
+        $messages = $this->readErrorLogMessages();
         $this->assertNotEmpty(
-            $this->errorLogs,
+            $messages,
             'AC-9: Manager MUSS einen Logger-Aufruf machen (event marker).'
         );
 
-        foreach ( $this->errorLogs as $entry ) {
-            $msg = (string) $entry['message'];
+        foreach ( $messages as $msg ) {
             $this->assertStringNotContainsString(
                 $plaintext,
                 $msg,
                 'AC-9: Plaintext-Secret DARF NICHT im Logger-Message auftauchen. ' .
                 'Erlaubt sind nur event-marker (secret_generated/secret_rotated), len, is_initial.'
             );
-            // Erlaubte Inhalte (mindestens marker + len in mindestens einem Eintrag).
         }
 
         // Mindestens ein Eintrag enthaelt den event-marker.
         $hasMarker = false;
         $hasLen    = false;
-        foreach ( $this->errorLogs as $entry ) {
-            $msg = (string) $entry['message'];
+        foreach ( $messages as $msg ) {
             if ( str_contains( $msg, 'secret_generated' ) || str_contains( $msg, 'secret_rotated' ) ) {
                 $hasMarker = true;
             }
