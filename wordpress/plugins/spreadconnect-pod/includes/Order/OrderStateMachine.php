@@ -293,6 +293,51 @@ final class OrderStateMachine
 	}
 
 	/**
+	 * Direct, unconditional write of `_spreadconnect_state` (slice-30).
+	 *
+	 * The Webhook-Path uses Last-Write-Wins semantics (architecture.md
+	 * Z. 619 + Discovery "Risks & Mitigation" — Order.processed /
+	 * Order.cancelled webhooks are authoritative State-Override points
+	 * and MUST overwrite any prior value, including a `submitting` left
+	 * behind by a still-running OrderSubmitJob). Calling
+	 * {@see self::compareAndSet()} for this case would falsely reject the
+	 * write whenever the persisted value is not exactly the caller's
+	 * assumption.
+	 *
+	 * The write goes through the canonical HPOS surface
+	 * (`WC_Order::update_meta_data()` + `WC_Order::save()`) so it is
+	 * HPOS-aware without a hand-rolled SQL round-trip. A successful write
+	 * causes the standard Order-Note via {@see self::addTransitionNote()}
+	 * exactly as the CAS-success path does — the actual `expected` value
+	 * is read back from the order *before* the write so the note records
+	 * the real transition.
+	 *
+	 * Validation is identical to {@see self::compareAndSet()}: `$target`
+	 * must be one of the six persistent states; the empty-sentinel is
+	 * rejected (there is no "remove the row" transition).
+	 *
+	 * @param WC_Order $order  The order to mutate.
+	 * @param string   $target One of the six persistent states.
+	 *
+	 * @throws InvalidArgumentException When `$target` is not one of the
+	 *                                  accepted state values.
+	 */
+	public function writeUnchecked( WC_Order $order, string $target ): void
+	{
+		$this->assertValidTarget( $target );
+
+		// Read the current value BEFORE the write so the Order-Note records
+		// the real transition (analogous to CAS-success path). Empty string
+		// = no meta row yet → displayed as `pending` (matches CAS path).
+		$current = (string) $order->get_meta( self::META_KEY );
+
+		$order->update_meta_data( self::META_KEY, $target );
+		$order->save();
+
+		$this->addTransitionNote( $order, $current, $target );
+	}
+
+	/**
 	 * Validate that `$expected` is either one of the persistent states or
 	 * the empty-sentinel.
 	 *

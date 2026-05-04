@@ -31,6 +31,7 @@ use SpreadconnectPod\Hub\View\Settings as HubSettingsView;
 use SpreadconnectPod\Inline\OrderMetaBox as InlineOrderMetaBox;
 use SpreadconnectPod\Inline\ProductListColumns as InlineProductListColumns;
 use SpreadconnectPod\Inline\ProductMetaBox as InlineProductMetaBox;
+use SpreadconnectPod\Order\FetchTrackingJob;
 use SpreadconnectPod\Order\OrderCancelJob;
 use SpreadconnectPod\Order\OrderConfirmJob;
 use SpreadconnectPod\Order\OrderHandler;
@@ -393,6 +394,26 @@ final class Plugin
 				);
 				$job->handle( $args );
 			},
+			10,
+			1
+		);
+
+		// slice-30: Register the `spreadconnect/fetch_tracking` Action-
+		// Scheduler hook handler. Producer-side `as_enqueue_async_action()`
+		// lives in `Webhook\OrderEventHandler` (slice-30 sibling) — fired
+		// on `Shipment.sent` webhooks. The static bridge instantiates a
+		// fresh `FetchTrackingJob` with the production-default
+		// `SpreadconnectClient` and invokes `handle()`, which calls
+		// `getShipments()`, persists tracking-meta and flips WC-Status to
+		// `completed` (architecture.md Z. 552). Hook is registered with
+		// priority 10 and exactly one accepted argument (the args-array),
+		// per AS conventions and slice-25 / slice-28 / slice-29 mirror.
+		// Idempotency of this `init()` body keeps `add_action()` calls at
+		// exactly one per request — `has_action()` returns identical for
+		// repeated `init()` invocations (slice-30 AC-11).
+		add_action(
+			'spreadconnect/fetch_tracking',
+			[ FetchTrackingJob::class, 'handleStatic' ],
 			10,
 			1
 		);
