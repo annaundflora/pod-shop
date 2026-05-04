@@ -973,78 +973,15 @@ namespace SpreadconnectPod\Tests {
 		}
 
 		// ===================================================================
-		// AC-8: handle() bei valider HMAC liefert Stub-200-Response;
-		//        kein DB-Insert, kein AS-Schedule.
+		// AC-8: Slice-15 lieferte einen Stub-handle() ohne Side-Effects.
+		//        Slice-16 ueberschreibt handle() vollstaendig mit Insert+
+		//        Schedule+ACK-Pipeline (Slice16EventIdHasherTest deckt die
+		//        neue Verhalten ab). Die alten Slice-15-Stub-Tests
+		//        (`test_handle_returns_stub_200_response_without_side_effects`,
+		//        `test_handle_source_is_trivial_single_return`) wurden hier
+		//        entfernt, da sie die Slice-16-Implementierung blockieren
+		//        wuerden — die handle()-Acceptance liegt nun in Slice 16.
 		// ===================================================================
-
-		public function test_handle_returns_stub_200_response_without_side_effects(): void
-		{
-			// Spy auf Action-Scheduler-Enqueue: muss EXAKT 0 mal aufgerufen werden.
-			$enqueued = [];
-			Functions\when( 'as_enqueue_async_action' )->alias(
-				static function ( string $hook, array $args = [], string $group = '' ) use ( &$enqueued ): int {
-					$enqueued[] = [ $hook, $args, $group ];
-					return 0;
-				}
-			);
-
-			$request = new WP_REST_Request( 'POST', '/webhook' );
-			$request->set_body( '{"event":"order.shipped"}' );
-
-			$response = WebhookController::handle( $request );
-
-			$this->assertInstanceOf(
-				WP_REST_Response::class,
-				$response,
-				'AC-8: handle() MUSS WP_REST_Response liefern.'
-			);
-			$this->assertSame(
-				200,
-				$response->get_status(),
-				'AC-8: handle() MUSS HTTP 200 liefern (Stub) — Slice-16 wechselt auf 202.'
-			);
-			$this->assertNull(
-				$response->get_data(),
-				'AC-8: handle() MUSS Body=null liefern — kein literal "[accepted]" in Slice-15.'
-			);
-
-			$this->assertSame(
-				[],
-				$enqueued,
-				'AC-8: handle() DARF KEINE AS-Action enqueuen — Slice-16 (process_webhook_event) ist out-of-scope.'
-			);
-		}
-
-		// AC-8 (statisch): handle() ist trivial (Single-Return), so dass Slice-16
-		//                  einen sauberen Diff produzieren kann.
-		public function test_handle_source_is_trivial_single_return(): void
-		{
-			$source = (string) file_get_contents( self::controllerFile() );
-
-			$matched = preg_match(
-				'/public static function handle\s*\([^)]*\)\s*:\s*WP_REST_Response[^\{]*\{([\s\S]*?)\n\t\}/',
-				$source,
-				$m
-			);
-			$this->assertSame( 1, $matched, 'AC-8: handle()-Methode MUSS existieren.' );
-
-			$body = trim( $m[1] );
-
-			// MUST be a single `return new WP_REST_Response(null, 200);` line.
-			$this->assertMatchesRegularExpression(
-				'/return\s+new\s+WP_REST_Response\s*\(\s*null\s*,\s*200\s*\)\s*;/',
-				$body,
-				'AC-8: handle() MUSS GENAU `return new WP_REST_Response(null, 200);` enthalten.'
-			);
-
-			// No DB calls, no AS-enqueue, no event-id hashing.
-			$this->assertDoesNotMatchRegularExpression(
-				'/\$wpdb|as_enqueue_async_action|EventIdHasher|WebhookLogRepo/',
-				$body,
-				'AC-8: handle() DARF KEINEN DB-Insert, AS-Enqueue oder EventIdHasher enthalten — '
-				. 'das sind Slice-16-Deliverables.'
-			);
-		}
 
 		// ===================================================================
 		// AC-9: Bootstrap registriert rest_api_init-Hook genau einmal.
