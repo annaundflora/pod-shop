@@ -15,6 +15,7 @@ namespace SpreadconnectPod\Bootstrap;
 
 use Automattic\WooCommerce\Utilities\FeaturesUtil;
 use SpreadconnectPod\Api\SpreadconnectClient;
+use SpreadconnectPod\Catalog\ArticleRemovedJob;
 use SpreadconnectPod\Catalog\AttributeProvisioner;
 use SpreadconnectPod\Catalog\SyncArticleJob;
 use SpreadconnectPod\Catalog\SyncCatalogJob;
@@ -184,6 +185,23 @@ final class Plugin
 		add_action(
 			'spreadconnect/sync_catalog',
 			[ SyncCatalogJob::class, 'handleStatic' ],
+			10,
+			1
+		);
+
+		// slice-25: Register the article-removed Action-Scheduler hook
+		// handler. Producer-side `as_enqueue_async_action()` lives in
+		// `Webhook\ArticleEventHandler` (slice-25 sibling) — fired on
+		// `Article.removed` webhooks. The static bridge instantiates a
+		// fresh `ArticleRemovedJob` and invokes `handle()`, which reverse-
+		// looks-up the WC product via `_spreadconnect_article_id` postmeta
+		// and flips `post_status` to `draft` (NEVER `wp_delete_post` —
+		// architecture.md Z. 281 + Z. 736). Hook is registered with
+		// priority 10 and exactly one accepted argument (the args-array),
+		// per AS conventions and slice-23 / slice-24 mirror.
+		add_action(
+			'spreadconnect/handle_article_removed',
+			[ ArticleRemovedJob::class, 'handleStatic' ],
 			10,
 			1
 		);
