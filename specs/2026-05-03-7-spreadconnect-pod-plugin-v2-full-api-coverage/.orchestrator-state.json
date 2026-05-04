@@ -1,0 +1,25 @@
+{
+  "spec_path": "/home/dev/pod-shop/.claude/worktrees/7-spreadconnect-pod-plugin-v2-full-api-coverage/specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage",
+  "feature_name": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
+  "status": "in_progress",
+  "current_state": "implementing",
+  "current_slice_id": "slice-01",
+  "current_wave": 0,
+  "retry_count": 0,
+  "failed_stage": null,
+  "default_branch": "master",
+  "stack": {
+    "stack_name": "PHP",
+    "lint_autofix_cmd": null,
+    "lint_check_cmd": null,
+    "typecheck_cmd": null,
+    "test_cmd": "docker run --rm -v /home/dev/pod-shop/.claude/worktrees/7-spreadconnect-pod-plugin-v2-full-api-coverage:/app -w /app php:8.2-cli vendor/bin/phpunit"
+  },
+  "completed_slices": [],
+  "evidence_files": [],
+  "worktree_path": "/home/dev/pod-shop/.claude/worktrees/7-spreadconnect-pod-plugin-v2-full-api-coverage",
+  "branch": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
+  "github_available": true,
+  "repo": "annaundflora/pod-shop",
+  "pr_number": 8
+}
