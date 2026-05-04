@@ -673,22 +673,25 @@ namespace SpreadconnectPod\Tests {
         {
             $this->stubAjaxGates( cap: false, nonce: true );
 
-            try {
-                RepairSubscriptions::handle();
-                $this->fail( 'AC-5: Handler MUSS via wp_send_json_error terminieren.' );
-            } catch ( Slice19JsonSentinel $e ) {
-                $this->assertFalse( $e->success, 'AC-5: success MUSS false sein.' );
-                $this->assertSame(
-                    403,
-                    $e->status,
-                    'AC-5: HTTP-Status MUSS 403 sein.'
-                );
-                $this->assertSame(
-                    'forbidden',
-                    $e->payload['code'] ?? null,
-                    'AC-5: Error-Payload MUSS code=forbidden tragen.'
-                );
-            }
+            RepairSubscriptions::handle();
+
+            $this->assertCount(
+                1,
+                $this->jsonResponses,
+                'AC-5: Genau eine wp_send_json_* Antwort MUSS gesendet werden.'
+            );
+            $resp = $this->jsonResponses[0];
+            $this->assertFalse( $resp['success'], 'AC-5: success MUSS false sein.' );
+            $this->assertSame(
+                403,
+                $resp['status'],
+                'AC-5: HTTP-Status MUSS 403 sein.'
+            );
+            $this->assertSame(
+                'forbidden',
+                $resp['payload']['code'] ?? null,
+                'AC-5: Error-Payload MUSS code=forbidden tragen.'
+            );
 
             $this->assertSame(
                 [],
@@ -714,33 +717,37 @@ namespace SpreadconnectPod\Tests {
                 'errors'  => [],
             ];
 
-            try {
-                RepairSubscriptions::handle();
-                $this->fail( 'AC-6: Handler MUSS via wp_send_json_success terminieren.' );
-            } catch ( Slice19JsonSentinel $e ) {
-                $this->assertTrue(
-                    $e->success,
-                    'AC-6: wp_send_json_success MUSS gefeuert werden.'
-                );
+            RepairSubscriptions::handle();
 
-                // Response-Shape (architecture.md Z. 147).
-                $this->assertSame(
-                    2,
-                    $e->payload['added'] ?? null,
-                    'AC-6: Response.added MUSS Summary[added]=2 spiegeln.'
-                );
-                $this->assertSame(
-                    1,
-                    $e->payload['removed'] ?? null,
-                    'AC-6: Response.removed MUSS removeOrphans()-Rueckgabe (=1) spiegeln, ' .
-                    'NICHT Summary[removed]=0.'
-                );
-                $this->assertSame(
-                    [],
-                    $e->payload['errors'] ?? null,
-                    'AC-6: Response.errors MUSS leeres Array sein bei voller Success.'
-                );
-            }
+            $this->assertCount(
+                1,
+                $this->jsonResponses,
+                'AC-6: Genau eine wp_send_json_* Antwort MUSS gesendet werden.'
+            );
+            $resp = $this->jsonResponses[0];
+
+            $this->assertTrue(
+                $resp['success'],
+                'AC-6: wp_send_json_success MUSS gefeuert werden.'
+            );
+
+            // Response-Shape (architecture.md Z. 147).
+            $this->assertSame(
+                2,
+                $resp['payload']['added'] ?? null,
+                'AC-6: Response.added MUSS Summary[added]=2 spiegeln.'
+            );
+            $this->assertSame(
+                1,
+                $resp['payload']['removed'] ?? null,
+                'AC-6: Response.removed MUSS removeOrphans()-Rueckgabe (=1) spiegeln, ' .
+                'NICHT Summary[removed]=0.'
+            );
+            $this->assertSame(
+                [],
+                $resp['payload']['errors'] ?? null,
+                'AC-6: Response.errors MUSS leeres Array sein bei voller Success.'
+            );
 
             // Reihenfolge-Pflicht: removeOrphans MUSS VOR register laufen.
             $methodOrder = array_column( Slice19ManagerSpy::$calls, 'method' );
@@ -787,34 +794,38 @@ namespace SpreadconnectPod\Tests {
                 'errors'  => $errors,
             ];
 
-            try {
-                RepairSubscriptions::handle();
-                $this->fail( 'AC-7: Handler MUSS via wp_send_json_success terminieren.' );
-            } catch ( Slice19JsonSentinel $e ) {
-                // HTTP-Status bleibt 200/null (kein 5xx) — wireframe-State
-                // `repair_partial_error`.
-                $this->assertTrue(
-                    $e->success,
-                    'AC-7: success MUSS true bleiben — HTTP 200 bei Partial-Error.'
-                );
-                $this->assertNotSame(
-                    503,
-                    $e->status,
-                    'AC-7: KEIN 5xx-Status — Frontend entscheidet anhand errors.length.'
-                );
+            RepairSubscriptions::handle();
 
-                // Response.errors MUSS das errors-Array aus dem Summary tragen.
-                $this->assertSame(
-                    $errors,
-                    $e->payload['errors'] ?? null,
-                    'AC-7: Response.errors MUSS exakt summary[errors] enthalten.'
-                );
-                $this->assertSame(
-                    6,
-                    $e->payload['added'] ?? null,
-                    'AC-7: Response.added MUSS Summary[added]=6 widerspiegeln.'
-                );
-            }
+            $this->assertCount(
+                1,
+                $this->jsonResponses,
+                'AC-7: Genau eine wp_send_json_* Antwort MUSS gesendet werden.'
+            );
+            $resp = $this->jsonResponses[0];
+
+            // HTTP-Status bleibt 200/null (kein 5xx) — wireframe-State
+            // `repair_partial_error`.
+            $this->assertTrue(
+                $resp['success'],
+                'AC-7: success MUSS true bleiben — HTTP 200 bei Partial-Error.'
+            );
+            $this->assertNotSame(
+                503,
+                $resp['status'],
+                'AC-7: KEIN 5xx-Status — Frontend entscheidet anhand errors.length.'
+            );
+
+            // Response.errors MUSS das errors-Array aus dem Summary tragen.
+            $this->assertSame(
+                $errors,
+                $resp['payload']['errors'] ?? null,
+                'AC-7: Response.errors MUSS exakt summary[errors] enthalten.'
+            );
+            $this->assertSame(
+                6,
+                $resp['payload']['added'] ?? null,
+                'AC-7: Response.added MUSS Summary[added]=6 widerspiegeln.'
+            );
         }
 
         // ===================================================================
@@ -834,30 +845,34 @@ namespace SpreadconnectPod\Tests {
                 '/subscriptions'
             );
 
-            try {
-                RepairSubscriptions::handle();
-                $this->fail( 'AC-8: Handler MUSS via wp_send_json_error terminieren.' );
-            } catch ( Slice19JsonSentinel $e ) {
-                $this->assertFalse(
-                    $e->success,
-                    'AC-8: success MUSS false sein.'
-                );
-                $this->assertSame(
-                    503,
-                    $e->status,
-                    'AC-8: HTTP-Status MUSS 503 sein bei Transient-Error.'
-                );
-                $this->assertSame(
-                    'transient_error',
-                    $e->payload['code'] ?? null,
-                    'AC-8: Payload.code MUSS transient_error sein.'
-                );
-                $this->assertArrayHasKey(
-                    'message',
-                    $e->payload,
-                    'AC-8: Payload MUSS message-Key tragen (kein Stacktrace-Leak).'
-                );
-            }
+            RepairSubscriptions::handle();
+
+            $this->assertCount(
+                1,
+                $this->jsonResponses,
+                'AC-8: Genau eine wp_send_json_* Antwort MUSS gesendet werden.'
+            );
+            $resp = $this->jsonResponses[0];
+
+            $this->assertFalse(
+                $resp['success'],
+                'AC-8: success MUSS false sein.'
+            );
+            $this->assertSame(
+                503,
+                $resp['status'],
+                'AC-8: HTTP-Status MUSS 503 sein bei Transient-Error.'
+            );
+            $this->assertSame(
+                'transient_error',
+                $resp['payload']['code'] ?? null,
+                'AC-8: Payload.code MUSS transient_error sein.'
+            );
+            $this->assertArrayHasKey(
+                'message',
+                $resp['payload'],
+                'AC-8: Payload MUSS message-Key tragen (kein Stacktrace-Leak).'
+            );
 
             // KEIN Inner-Retry: register() MUSS GENAU EINMAL aufgerufen worden sein.
             $registerCalls = array_filter(
@@ -1106,11 +1121,7 @@ namespace SpreadconnectPod\Tests {
                 'errors'  => [],
             ];
 
-            try {
-                RepairSubscriptions::handle();
-            } catch ( Slice19JsonSentinel $e ) {
-                // Erwartet — wir interessieren uns nur fuer die Log-Eintraege.
-            }
+            RepairSubscriptions::handle();
 
             $this->assertNotEmpty(
                 $this->loggerEntries,
