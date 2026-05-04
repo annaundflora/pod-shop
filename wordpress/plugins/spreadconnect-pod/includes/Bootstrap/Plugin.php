@@ -32,6 +32,7 @@ use SpreadconnectPod\Order\OrderHandler;
 use SpreadconnectPod\Order\OrderStateMachine;
 use SpreadconnectPod\Order\OrderSubmitJob;
 use SpreadconnectPod\Subscription\SubscriptionManager;
+use SpreadconnectPod\Webhook\WebhookController;
 
 /**
  * Central bootstrap for the Spreadconnect POD plugin.
@@ -236,6 +237,18 @@ final class Plugin
 		// `rest_api_init` so the registration happens after WP has booted
 		// the REST stack but before any route is dispatched.
 		add_action( 'rest_api_init', [ HubRestSyncProgress::class, 'register' ] );
+
+		// slice-15: Register the inbound `POST /wp-json/spreadconnect/v1/webhook`
+		// route. The route is **public** (no capability gate) — Spreadconnect
+		// is an anonymous caller and the HMAC-SHA256 verification inside
+		// `WebhookController::authorize()` is the auth (architecture.md
+		// Z. 483 + Z. 514). The `self::$initialized` guard above keeps this
+		// `add_action` call at exactly one per request, so re-entrant
+		// `init()` invocations never double-register the hook (slice-15
+		// AC-9). `register_rest_route` itself is idempotent inside WP, but
+		// avoiding duplicate hook entries keeps `has_action()` introspection
+		// truthful.
+		add_action( 'rest_api_init', [ WebhookController::class, 'register' ] );
 
 		// slice-18: Wire the subscription-lifecycle listeners. Three hooks:
 		//   - `spreadconnect/webhook_secret_rotated` (slice-14 producer) →
