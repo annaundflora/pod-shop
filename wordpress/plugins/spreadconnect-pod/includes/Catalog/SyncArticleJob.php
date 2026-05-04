@@ -121,6 +121,7 @@ final class SyncArticleJob
 	 */
 	private const STATUS_CREATED = 'created';
 	private const STATUS_UPDATED = 'updated';
+	private const STATUS_SKIPPED = 'skipped';
 	private const STATUS_PARTIAL = 'partial';
 	private const STATUS_ERROR   = 'error';
 
@@ -571,12 +572,23 @@ final class SyncArticleJob
 	}
 
 	/**
-	 * Persist a `details[]` entry to the active sync-history row.
+	 * Persist a `details[]` entry to the active sync-history row, then
+	 * increment the matching counter column (slice-24 AC-8).
 	 *
-	 * Skips the write when `$runId` is null (AC-10) or when the repo
-	 * itself raises (the job must not double-fail on a failed history
-	 * write — log and continue; in slice-42 this becomes a structured
-	 * WC_Logger entry).
+	 * Skips both the append and the increment when `$runId` is null
+	 * (slice-23 AC-10 — webhook-triggered per-article syncs without a
+	 * catalog-run). When the repo itself raises, the underlying exception
+	 * the caller is already about to re-throw must NOT be masked — log
+	 * and continue.
+	 *
+	 * Status → counter mapping (slice-24 Constraints "Status-Mapping"):
+	 *   - `created` ⇒ `incrementCreated`
+	 *   - `updated` ⇒ `incrementUpdated`
+	 *   - `skipped` ⇒ `incrementSkipped`
+	 *   - `error`   ⇒ `incrementError`
+	 *   - `partial` ⇒ `incrementError` (architecture "Failure Mode Map":
+	 *     partial is a failure variant; counted into errors so the
+	 *     counter sum equals the enqueue total).
 	 */
 	private function writeHistoryDetail(
 		?int $runId,
@@ -598,6 +610,12 @@ final class SyncArticleJob
 
 		try {
 			$this->historyRepo->appendDetail( $runId, $detail );
+
+			// slice-24 AC-8: counter-increment is the mount-point for the
+			// run-tracker. The increment MUST happen AFTER appendDetail()
+			// so an append-failure (RuntimeException) short-circuits the
+			// counter and the run cannot prematurely flip to `complete`.
+			$this->incrementCounterForStatus( $runId, $status );
 		} catch ( Throwable $e ) {
 			// Defensive: a history-append failure must NOT mask the
 			// underlying exception that the caller is already about to
@@ -610,6 +628,33 @@ final class SyncArticleJob
 					$e->getMessage()
 				)
 			);
+		}
+	}
+
+	/**
+	 * Map a detail-status to the matching {@see SyncHistoryRepo} counter
+	 * method and invoke it.
+	 *
+	 * Unknown statuses are ignored — defensive guard against future
+	 * status-enum extensions that have not yet been wired into the
+	 * counter columns.
+	 */
+	private function incrementCounterForStatus( int $runId, string $status ): void
+	{
+		switch ( $status ) {
+			case self::STATUS_CREATED:
+				$this->historyRepo->incrementCreated( $runId );
+				return;
+			case self::STATUS_UPDATED:
+				$this->historyRepo->incrementUpdated( $runId );
+				return;
+			case self::STATUS_SKIPPED:
+				$this->historyRepo->incrementSkipped( $runId );
+				return;
+			case self::STATUS_ERROR:
+			case self::STATUS_PARTIAL:
+				$this->historyRepo->incrementError( $runId );
+				return;
 		}
 	}
 }

@@ -16,6 +16,7 @@ namespace SpreadconnectPod\Bootstrap;
 use Automattic\WooCommerce\Utilities\FeaturesUtil;
 use SpreadconnectPod\Catalog\AttributeProvisioner;
 use SpreadconnectPod\Catalog\SyncArticleJob;
+use SpreadconnectPod\Catalog\SyncCatalogJob;
 use SpreadconnectPod\Hub\Ajax\TestConnection as HubAjaxTestConnection;
 use SpreadconnectPod\Hub\Controller as HubController;
 use SpreadconnectPod\Hub\View\Settings as HubSettingsView;
@@ -136,6 +137,24 @@ final class Plugin
 		add_action(
 			'spreadconnect/sync_article',
 			[ SyncArticleJob::class, 'handleStatic' ],
+			10,
+			1
+		);
+
+		// slice-24: Register the catalog-sync producer hook handler.
+		// Action-Scheduler dispatches `spreadconnect/sync_catalog` with
+		// the args-array `['trigger'=>'manual'|'webhook'|'scheduled'|'initial']`
+		// as the first parameter. The static bridge resolves the
+		// production-default collaborator chain (SpreadconnectClient,
+		// SyncHistoryRepo) and invokes `handle()`. Producer-side
+		// `as_enqueue_async_action()` calls live in slice-25 (article
+		// webhooks → trigger='webhook') and slice-26 (Catalog UI
+		// "Sync Now" button → trigger='manual'); slice-24 is the
+		// consumer that paginates `GET /articles` and schedules one
+		// `spreadconnect/sync_article` action per discovered article.
+		add_action(
+			'spreadconnect/sync_catalog',
+			[ SyncCatalogJob::class, 'handleStatic' ],
 			10,
 			1
 		);
