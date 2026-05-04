@@ -25,6 +25,7 @@ use SpreadconnectPod\Hub\View\Settings as HubSettingsView;
 use SpreadconnectPod\Order\OrderHandler;
 use SpreadconnectPod\Order\OrderStateMachine;
 use SpreadconnectPod\Order\OrderSubmitJob;
+use SpreadconnectPod\Subscription\SubscriptionManager;
 
 /**
  * Central bootstrap for the Spreadconnect POD plugin.
@@ -110,6 +111,17 @@ final class Plugin
 		// The static-property guard above ensures this hook is registered
 		// exactly once per `init()` run, preserving slice-02 AC-5 idempotency.
 		register_activation_hook( $plugin_file, [ AttributeProvisioner::class, 'ensure' ] );
+
+		// slice-18: Schedule the weekly drift-check Action-Scheduler job
+		// on plugin activation. `scheduleRecurringDriftCheck()` is
+		// idempotent — it pre-checks `as_next_scheduled_action()` so a
+		// re-activate never produces a duplicate schedule (slice-18 AC-9).
+		// The handler binds inside `bootListeners()` below — both halves
+		// must be wired for the recurring sweep to do anything useful.
+		register_activation_hook(
+			$plugin_file,
+			[ SubscriptionManager::class, 'scheduleRecurringDriftCheck' ]
+		);
 
 		// slice-06: Load the `spreadconnect-pod` text-domain on
 		// `plugins_loaded` (WP-default priority 10). The hook fires once per
@@ -200,6 +212,18 @@ final class Plugin
 		// and the `self::$initialized` guard above keeps the registration
 		// count at exactly 1 per request.
 		HubAjaxRegenerateSecret::register();
+
+		// slice-18: Wire the subscription-lifecycle listeners. Three hooks:
+		//   - `spreadconnect/webhook_secret_rotated` (slice-14 producer) →
+		//     DELETE-then-POST sweep with the freshly rotated secret.
+		//   - `updated_option_spreadconnect_api_key` (WP core after the
+		//     settings form persists the API key) → authenticate →
+		//     generate-secret-if-empty → register sweep.
+		//   - `spreadconnect/auto_subscription_check` (Action-Scheduler
+		//     weekly recurring) → drift-check + self-heal.
+		// All three handlers are idempotent and stateless (slice-18 AC-9 /
+		// AC-4); the static-method/priority pairs are de-duplicated by WP.
+		SubscriptionManager::bootListeners();
 
 		// slice-28: Wire the WC processing-hook listener and the
 		// `spreadconnect/create_order` Action-Scheduler job handler.

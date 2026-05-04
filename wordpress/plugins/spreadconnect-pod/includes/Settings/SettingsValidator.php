@@ -12,6 +12,15 @@
  * `spreadconnect_auto_confirm` is forced to `'off'` regardless of UI input
  * (slice-11 AC-3 / `architecture.md` Z. 326 Auto-Confirm-Gating).
  *
+ * Slice-18 post-save side-effect note: the auto-subscribe pipeline
+ * (authenticate → generate-secret-if-empty → register) is wired
+ * **outside** this validator, via the WP-core
+ * `updated_option_spreadconnect_api_key` action handled by
+ * {@see \SpreadconnectPod\Subscription\SubscriptionManager::onApiKeySaved()}.
+ * The validator stays focused on per-field sanitisation; the side-effect
+ * fires AFTER `update_option()` has persisted the validated value, so
+ * `SubscriptionManager` always sees the latest key (slice-18 AC-7).
+ *
  * @package SpreadconnectPod\Settings
  */
 
