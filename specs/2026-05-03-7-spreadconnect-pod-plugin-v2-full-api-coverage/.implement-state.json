@@ -1,0 +1,22 @@
+{
+  "spec_path": "specs/2026-05-03-7-spreadconnect-pod-plugin-v2-full-api-coverage",
+  "feature_name": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
+  "scope": "Add WordPress-admin-conformant CSS layout to all Spreadconnect Hub plugin pages, using wireframes.md as the visual blueprint.",
+  "status": "in_progress",
+  "current_state": "final_validation",
+  "current_slice_id": "slice-css-hub-layout",
+  "retry_count": 0,
+  "lint_retry_count": 0,
+  "completed_slices": ["slice-css-hub-layout"],
+  "slim_spec_written": true,
+  "stack": {
+    "stack_name": "PHP",
+    "indicator_file": "composer.json",
+    "lint_autofix_cmd": null,
+    "lint_check_cmd": null,
+    "typecheck_cmd": null,
+    "test_cmd": "docker run --rm -v /home/dev/pod-shop/.claude/worktrees/7-spreadconnect-pod-plugin-v2-full-api-coverage:/app -w /app php:8.2-cli vendor/bin/phpunit"
+  },
+  "branch": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
+  "worktree_path": "/home/dev/pod-shop/.claude/worktrees/7-spreadconnect-pod-plugin-v2-full-api-coverage"
+}
