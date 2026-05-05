@@ -1,0 +1,14 @@
+{
+    "name": "pod-shop/spreadconnect-pod",
+    "description": "Print-on-demand fulfillment integration for WooCommerce via the Spreadconnect Fulfillment API v2.3.9.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": ">=8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "SpreadconnectPod\\": "includes/"
+        }
+    }
+}

@@ -1,0 +1,53 @@
+{
+  "feature": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
+  "wave": 5,
+  "timestamp": "2026-05-04T16:30:00+00:00",
+  "status": "completed",
+  "slices": ["slice-11", "slice-23"],
+  "test_suite_status": {
+    "total_tests": 322,
+    "total_assertions": 1832,
+    "failures": 0,
+    "errors": 0,
+    "new_tests_this_wave": 46
+  },
+  "slice_11": {
+    "implementation_commits": ["2bc70af", "4206346", "47bc006"],
+    "test_commit": "c7f8dfd",
+    "code_review": {
+      "attempts": 3,
+      "verdicts": ["REJECTED", "REJECTED", "APPROVED"],
+      "key_issue": "Per-option register_setting incompatible with array-based sanitize signature; updated_option ordering bug",
+      "resolution": "sanitize(array) for tests + slice-45 import; sanitizeOne(mixed,?string) for per-option WP dispatch; pre_update_option_spreadconnect_auto_confirm filter for cross-field gating; registration order invariant: default_shipping_type before auto_confirm"
+    },
+    "files_changed": [
+      "wordpress/plugins/spreadconnect-pod/includes/Hub/View/Settings.php",
+      "wordpress/plugins/spreadconnect-pod/includes/Settings/SettingsValidator.php",
+      "tests/slices/pod-shop-mvp/Slice11SettingsFormTest.php"
+    ],
+    "test_count": 32,
+    "ac_coverage": {"total": 10, "covered": 10}
+  },
+  "slice_23": {
+    "implementation_commit": "111f1ef",
+    "test_commit": "wave-5-test-commit",
+    "code_review": {
+      "attempts": 1,
+      "verdict": "APPROVED"
+    },
+    "files_changed": [
+      "wordpress/plugins/spreadconnect-pod/includes/Catalog/SyncArticleJob.php",
+      "wordpress/plugins/spreadconnect-pod/includes/Catalog/SyncHistoryRepo.php",
+      "wordpress/plugins/spreadconnect-pod/includes/Bootstrap/Plugin.php",
+      "wordpress/plugins/spreadconnect-pod/includes/Api/Dto/ArticleDetail.php",
+      "tests/slices/pod-shop-mvp/Slice23SyncArticleJobTest.php"
+    ],
+    "test_count": 14,
+    "ac_coverage": {"total": 10, "covered": 10},
+    "infrastructure_notes": [
+      "ArticleDetail extended with optional hotspotId + viewIds (gap-fill, backwards-compatible)",
+      "Mockery overload pattern for final classes (ImageSideloader, ProductMapper, SyncHistoryRepo)",
+      "ProductMapperException stub via eval for non-loaded autoload guard"
+    ]
+  }
+}

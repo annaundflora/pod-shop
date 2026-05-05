@@ -1,0 +1,1172 @@
+/*!
+ * Spreadconnect Hub — admin layout stylesheet
+ *
+ * Realises wireframes.md Screens 1-8 against the BEM-prefixed markup that
+ * Hub\View\* + Hub\Controller emit.
+ *
+ * Design contract: align with WordPress wp-admin's own visual language —
+ * cards mimic `.postbox`, sidebar mimics `.nav-tab-wrapper` (vertical
+ * variant), tables mimic `.widefat`, badges mimic `.notice` with
+ * border-left accent. Brand-accent uses
+ * `var(--wp-admin-theme-color, #2271b1)` so the user's chosen WP color
+ * scheme (Modern, Blue, Coffee, …) automatically tints active states.
+ *
+ * Body text colors are limited to WP's standardised grayscale that passes
+ * WCAG AA on both `#fff` and `#f0f0f1`:
+ *   #1d2327  (primary text / numeric values)
+ *   #50575e  (secondary body text)
+ *   #c3c4c7  (borders)
+ *   #f0f0f1  (admin body bg)
+ *   #f6f7f7  (postbox header bg / striped rows)
+ *
+ * All rules are scoped under `.spreadconnect-hub` so WP-Admin core
+ * selectors (`.notice`, `.button`, `.form-table`, `.wrap`,
+ * `.wp-list-table`) keep their native appearance.
+ *
+ * Loaded by Hub\Assets::enqueue() exclusively on the
+ * `woocommerce_page_spreadconnect` admin screen.
+ */
+
+/* ==========================================================================
+   1. Hub root + header (shared chrome)
+   ========================================================================== */
+
+.spreadconnect-hub {
+	display: grid;
+	grid-template-columns: 200px minmax(0, 1fr);
+	gap: 20px;
+	align-items: start;
+	padding-top: 16px;
+	color: #1d2327;
+}
+
+.spreadconnect-hub__title {
+	margin: 0 0 16px;
+	padding: 0;
+	font-size: 1.5rem;
+	line-height: 1.3;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.spreadconnect-hub__content {
+	min-width: 0;
+}
+
+/* Body-text inheritance — every text element inside the content column
+   inherits the WCAG-AA secondary color so child overrides are NOT needed
+   for the common case. Numeric / emphasis values opt back into #1d2327
+   via .spreadconnect-card__count. */
+.spreadconnect-hub__content,
+.spreadconnect-hub__content p,
+.spreadconnect-hub__content li,
+.spreadconnect-hub__content dd,
+.spreadconnect-hub__content dt,
+.spreadconnect-hub__content small,
+.spreadconnect-hub__content span {
+	color: #50575e;
+}
+
+/* Headings inside the content column stay near-black for visual
+   hierarchy. */
+.spreadconnect-hub__content h1,
+.spreadconnect-hub__content h2,
+.spreadconnect-hub__content h3,
+.spreadconnect-hub__content h4 {
+	color: #1d2327;
+}
+
+/* Scoped notice tweak — adds spacing only when WP renders a .notice
+   inside the hub. WP's own .notice background/border/colors are NOT
+   redefined; only margin is adjusted. */
+.spreadconnect-hub .notice {
+	margin: 12px 0 16px;
+}
+
+/* ==========================================================================
+   2. Sidebar navigation (vertical .nav-tab-wrapper analogue)
+   ========================================================================== */
+
+.spreadconnect-hub-nav {
+	align-self: start;
+	position: sticky;
+	top: 46px; /* below WP admin bar */
+}
+
+.spreadconnect-hub-nav__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	border-right: 1px solid #c3c4c7;
+}
+
+.spreadconnect-hub-nav__item {
+	margin: 0;
+	padding: 0;
+}
+
+.spreadconnect-hub-nav__link {
+	display: block;
+	padding: 8px 12px;
+	min-height: 32px;
+	box-sizing: border-box;
+	color: #2271b1;
+	background: transparent;
+	text-decoration: none;
+	line-height: 1.4;
+	font-size: 13px;
+}
+
+.spreadconnect-hub-nav__link:hover,
+.spreadconnect-hub-nav__link:focus {
+	background: #f0f0f1;
+	color: #0a4b78;
+	box-shadow: none;
+	outline: none;
+}
+
+.spreadconnect-hub-nav__item.is-active {
+	background: #fff;
+	margin-right: -1px; /* overlap the list's right border */
+	border-right: 3px solid var(--wp-admin-theme-color, #2271b1);
+}
+
+.spreadconnect-hub-nav__item.is-active .spreadconnect-hub-nav__link {
+	color: #1d2327;
+	font-weight: 600;
+	background: transparent;
+}
+
+/* ==========================================================================
+   3. Card pattern (postbox-style: border + header bg + inner padding)
+   ========================================================================== */
+
+.spreadconnect-card {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+	margin-bottom: 20px;
+	padding: 0;
+}
+
+/* Card heading — mimics `.postbox-header .hndle`. */
+.spreadconnect-card > h2,
+.spreadconnect-card > h3,
+.spreadconnect-card__title {
+	background: #f6f7f7;
+	color: #1d2327;
+	border-bottom: 1px solid #c3c4c7;
+	padding: 8px 12px;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 1.4em;
+	margin: 0;
+}
+
+/* Card body — mimics `.postbox .inside`. */
+.spreadconnect-card-body {
+	padding: 12px;
+	color: #50575e;
+	font-size: 13px;
+	line-height: 1.4;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.spreadconnect-card-body p,
+.spreadconnect-card-body li,
+.spreadconnect-card-body dd,
+.spreadconnect-card-body dt,
+.spreadconnect-card-body small,
+.spreadconnect-card-body span {
+	color: #50575e;
+}
+
+/* Numeric / stat values opt back into emphasis-black. */
+.spreadconnect-card__count,
+.spreadconnect-card-body .spreadconnect-card__count {
+	font-size: 1.6rem;
+	font-weight: 600;
+	margin: 4px 0;
+	color: #1d2327;
+	line-height: 1.2;
+}
+
+.spreadconnect-card__counts {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.spreadconnect-card__counts li {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	font-size: 13px;
+}
+
+.spreadconnect-card__counts li .spreadconnect-card__count {
+	font-size: 13px;
+	font-weight: 600;
+	margin: 0;
+	color: #1d2327;
+}
+
+.spreadconnect-card__label {
+	color: #50575e;
+}
+
+.spreadconnect-card__meta {
+	margin: 0;
+	color: #50575e;
+	font-size: 12px;
+}
+
+.spreadconnect-card__action {
+	margin: 8px 0 0;
+}
+
+.spreadconnect-card__empty {
+	margin: 0;
+	color: #50575e;
+	font-style: italic;
+	font-size: 13px;
+}
+
+/* Inline error / banner panels — mimic `.notice` with border-left. */
+.spreadconnect-card__error {
+	margin: 0;
+	padding: 8px 12px;
+	background: #fcf0f0;
+	border-left: 3px solid #cc1818;
+	color: #1d2327;
+	font-size: 13px;
+}
+
+.spreadconnect-card__banner {
+	margin: 0 0 8px;
+	padding: 8px 12px;
+	border-left: 3px solid var(--wp-admin-theme-color, #2271b1);
+	background: #fff;
+	color: #1d2327;
+	font-size: 13px;
+}
+
+.spreadconnect-card__banner--error {
+	border-left-color: #cc1818;
+	background: #fcf0f0;
+}
+
+/* Status pill — uses border-left accent in WP-notice tradition. */
+.spreadconnect-card__status {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin: 0;
+	padding: 2px 8px;
+	font-size: 12px;
+	font-weight: 600;
+	background: #dcdcde;
+	color: #50575e;
+	border-left: 3px solid #c3c4c7;
+	width: fit-content;
+}
+
+.spreadconnect-card__status--ok,
+.spreadconnect-card__status--connected,
+.spreadconnect-card__status--success {
+	background: #eff9f1;
+	color: #1d2327;
+	border-left-color: #4ab866;
+}
+
+.spreadconnect-card__status--warning,
+.spreadconnect-card__status--warn {
+	background: #fef8ee;
+	color: #1d2327;
+	border-left-color: #f0b849;
+}
+
+.spreadconnect-card__status--error,
+.spreadconnect-card__status--failed {
+	background: #fcf0f0;
+	color: #1d2327;
+	border-left-color: #cc1818;
+}
+
+/* ==========================================================================
+   4. Dashboard cards grid
+   ========================================================================== */
+
+.spreadconnect-dashboard__cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: 20px;
+	margin-top: 16px;
+}
+
+.spreadconnect-card--failed-ops,
+.spreadconnect-card--connection-detail {
+	grid-column: 1 / -1;
+}
+
+/* ==========================================================================
+   5. Catalog Sync (Screen 2)
+   ========================================================================== */
+
+.spreadconnect-catalog__controls,
+.spreadconnect-catalog__during-sync {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+	padding: 12px;
+	margin-bottom: 20px;
+}
+
+.spreadconnect-catalog__controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
+}
+
+.spreadconnect-catalog__sync-now-form {
+	margin: 0;
+}
+
+.spreadconnect-catalog__sync-settings-stub {
+	color: #50575e;
+	font-size: 12px;
+}
+
+.spreadconnect-catalog__progress-bar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 8px 0;
+}
+
+.spreadconnect-catalog__progress-label {
+	font-weight: 600;
+	min-width: 110px;
+	color: #1d2327;
+}
+
+.spreadconnect-catalog__progress-meter {
+	flex: 1 1 auto;
+	height: 14px;
+	background: #f0f0f1;
+	overflow: hidden;
+	position: relative;
+}
+
+.spreadconnect-catalog__progress-meter::-webkit-progress-bar {
+	background: #f0f0f1;
+}
+
+.spreadconnect-catalog__progress-meter::-webkit-progress-value {
+	background: var(--wp-admin-theme-color, #2271b1);
+}
+
+.spreadconnect-catalog__progress-meter::-moz-progress-bar {
+	background: var(--wp-admin-theme-color, #2271b1);
+}
+
+.spreadconnect-catalog__progress-fraction {
+	font-variant-numeric: tabular-nums;
+	min-width: 110px;
+	text-align: right;
+	color: #50575e;
+}
+
+.spreadconnect-catalog__counters {
+	display: flex;
+	gap: 18px;
+	flex-wrap: wrap;
+	margin: 12px 0;
+	font-size: 13px;
+	color: #50575e;
+}
+
+.spreadconnect-catalog__counter {
+	display: inline-flex;
+	gap: 4px;
+	align-items: baseline;
+}
+
+.spreadconnect-catalog__counter--created { color: #1d2327; }
+.spreadconnect-catalog__counter--updated { color: #1d2327; }
+.spreadconnect-catalog__counter--skipped { color: #50575e; }
+.spreadconnect-catalog__counter--errors  { color: #cc1818; }
+
+.spreadconnect-catalog__log-tail {
+	margin-top: 12px;
+	background: #1d2327;
+	color: #f0f0f1;
+	padding: 10px 12px;
+	font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+	font-size: 12px;
+	max-height: 240px;
+	overflow: auto;
+}
+
+.spreadconnect-catalog__log-tail-title {
+	margin: 0 0 6px;
+	color: #c3c4c7;
+	font-size: 12px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.spreadconnect-catalog__log-tail-body {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.spreadconnect-catalog__cancel-stub {
+	margin-left: auto;
+}
+
+.spreadconnect-catalog__history-title {
+	margin: 24px 0 8px;
+	font-size: 1.1rem;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.spreadconnect-catalog__history-empty {
+	color: #50575e;
+	font-style: italic;
+}
+
+/* ==========================================================================
+   6. Custom .widefat-style tables (catalog-history, webhook-log,
+      failed-ops, subscriptions)
+   ========================================================================== */
+
+.spreadconnect-catalog__history-table,
+.spreadconnect-webhook-log__table,
+.spreadconnect-failed-ops__table,
+.spreadconnect-subscriptions__table {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: 0;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+}
+
+.spreadconnect-catalog__history-table th,
+.spreadconnect-catalog__history-table td,
+.spreadconnect-webhook-log__table th,
+.spreadconnect-webhook-log__table td,
+.spreadconnect-failed-ops__table th,
+.spreadconnect-failed-ops__table td,
+.spreadconnect-subscriptions__table th,
+.spreadconnect-subscriptions__table td {
+	padding: 8px 10px;
+	border-bottom: 1px solid #c3c4c7;
+	text-align: left;
+	font-size: 13px;
+	vertical-align: top;
+	color: #50575e;
+}
+
+.spreadconnect-catalog__history-table th,
+.spreadconnect-webhook-log__table th,
+.spreadconnect-failed-ops__table th,
+.spreadconnect-subscriptions__table th {
+	background: #f6f7f7;
+	color: #1d2327;
+	font-weight: 600;
+}
+
+.spreadconnect-catalog__history-table tr:nth-child(odd) td,
+.spreadconnect-webhook-log__table tr:nth-child(odd) td,
+.spreadconnect-failed-ops__table tr:nth-child(odd) td,
+.spreadconnect-subscriptions__table tr:nth-child(odd) td {
+	background: #f6f7f7;
+}
+
+/* ==========================================================================
+   7. Webhook Event Log (Screen 4)
+   ========================================================================== */
+
+.spreadconnect-webhook-log__filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+	padding: 12px;
+	margin-bottom: 12px;
+	align-items: end;
+}
+
+.spreadconnect-webhook-log__filter-label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: 12px;
+	color: #50575e;
+	font-weight: 600;
+}
+
+.spreadconnect-webhook-log__filter-select {
+	min-width: 140px;
+}
+
+.spreadconnect-webhook-log__retention {
+	color: #50575e;
+	font-size: 12px;
+	margin: 0 0 8px;
+}
+
+.spreadconnect-webhook-log__col-toggle,
+.spreadconnect-webhook-log__cell-toggle {
+	width: 28px;
+	text-align: center;
+}
+
+.spreadconnect-webhook-log__row + .spreadconnect-webhook-log__detail-row td {
+	background: #f6f7f7;
+	padding: 14px;
+}
+
+.spreadconnect-webhook-log__detail {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	padding: 12px;
+}
+
+.spreadconnect-webhook-log__detail-title {
+	margin: 0 0 6px;
+	font-size: 13px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.spreadconnect-webhook-log__detail-payload-hidden {
+	color: #cc1818;
+	font-style: italic;
+	font-size: 12px;
+}
+
+.spreadconnect-webhook-log__detail-processing {
+	margin: 8px 0 0;
+	padding: 0 0 0 18px;
+	font-size: 12px;
+	color: #50575e;
+}
+
+.spreadconnect-webhook-log__detail-ip {
+	margin-top: 8px;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 11px;
+	color: #50575e;
+}
+
+.spreadconnect-webhook-log__entity-empty {
+	color: #50575e;
+}
+
+.spreadconnect-webhook-log__entity-link {
+	text-decoration: none;
+}
+
+.spreadconnect-webhook-log__entity-text {
+	color: #1d2327;
+}
+
+/* HMAC badge — border-left accent in WP-notice tradition. */
+.spreadconnect-webhook-log__hmac {
+	display: inline-block;
+	padding: 2px 8px;
+	font-size: 11px;
+	font-weight: 600;
+	color: #1d2327;
+	border-left: 3px solid #c3c4c7;
+	background: #dcdcde;
+}
+
+.spreadconnect-webhook-log__hmac.is-valid {
+	background: #eff9f1;
+	border-left-color: #4ab866;
+}
+
+.spreadconnect-webhook-log__hmac.is-invalid {
+	background: #fcf0f0;
+	border-left-color: #cc1818;
+}
+
+.spreadconnect-webhook-log__proc {
+	display: inline-block;
+	padding: 2px 8px;
+	font-size: 11px;
+	font-weight: 600;
+	background: #dcdcde;
+	color: #50575e;
+	border-left: 3px solid #c3c4c7;
+}
+
+.spreadconnect-webhook-log__pager {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-top: 12px;
+	font-size: 13px;
+	color: #50575e;
+}
+
+.spreadconnect-webhook-log__pager-counter {
+	color: #50575e;
+}
+
+.spreadconnect-webhook-log__empty {
+	padding: 16px;
+	color: #50575e;
+	background: #fff;
+	border: 1px dashed #c3c4c7;
+	text-align: center;
+}
+
+/* ==========================================================================
+   8. Failed Operations (Screen 5)
+   ========================================================================== */
+
+.spreadconnect-failed-ops__bulk-bar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	align-items: center;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+	padding: 10px 12px;
+	margin-bottom: 12px;
+}
+
+.spreadconnect-failed-ops__bulk-outcome {
+	margin: 0 0 12px;
+	padding: 8px 12px;
+	border-left: 3px solid var(--wp-admin-theme-color, #2271b1);
+	background: #fff;
+	color: #1d2327;
+	font-size: 13px;
+}
+
+.spreadconnect-failed-ops__empty {
+	padding: 12px;
+	background: #eff9f1;
+	color: #1d2327;
+	border-left: 3px solid #4ab866;
+	font-weight: 600;
+}
+
+.spreadconnect-failed-ops__col-bulk,
+.spreadconnect-failed-ops__cell-bulk {
+	width: 32px;
+	text-align: center;
+}
+
+.spreadconnect-failed-ops__cell-time,
+.spreadconnect-failed-ops__cell-op-type,
+.spreadconnect-failed-ops__cell-entity,
+.spreadconnect-failed-ops__cell-retries {
+	white-space: nowrap;
+}
+
+.spreadconnect-failed-ops__cell-error {
+	max-width: 360px;
+	word-break: break-word;
+}
+
+.spreadconnect-failed-ops__cell-actions {
+	white-space: nowrap;
+	text-align: right;
+}
+
+.spreadconnect-failed-ops__action {
+	margin-left: 4px;
+}
+
+.spreadconnect-failed-ops__detail-row td {
+	background: #f6f7f7;
+	padding: 14px;
+}
+
+.spreadconnect-failed-ops__payload {
+	background: #1d2327;
+	color: #f0f0f1;
+	padding: 10px 12px;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	overflow: auto;
+	max-height: 240px;
+}
+
+/* Modal — Resolve Order */
+.spreadconnect-failed-ops__modal {
+	position: fixed;
+	inset: 0;
+	z-index: 100100; /* above WP admin bar */
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.spreadconnect-failed-ops__modal-backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.5);
+}
+
+.spreadconnect-failed-ops__modal-dialog {
+	position: relative;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	max-width: 560px;
+	width: calc(100% - 32px);
+	padding: 24px;
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+	z-index: 1;
+}
+
+.spreadconnect-failed-ops__modal-title {
+	margin: 0 0 12px;
+	font-size: 1.1rem;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.spreadconnect-failed-ops__modal-help {
+	margin: 0 0 16px;
+	color: #50575e;
+	font-size: 13px;
+}
+
+.spreadconnect-failed-ops__modal-form {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.spreadconnect-failed-ops__modal-choices {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+}
+
+.spreadconnect-failed-ops__modal-choice {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 10px 12px;
+	border: 1px solid #c3c4c7;
+}
+
+.spreadconnect-failed-ops__modal-external-id {
+	margin-top: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: 13px;
+}
+
+.spreadconnect-failed-ops__modal-actions {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+	margin-top: 8px;
+}
+
+/* ==========================================================================
+   9. Logs (Screen 6) — dark terminal-style log viewer
+   ========================================================================== */
+
+.spreadconnect-logs__filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+	padding: 12px;
+	margin-bottom: 12px;
+	align-items: end;
+}
+
+.spreadconnect-logs__filter-form {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	align-items: end;
+	margin: 0;
+}
+
+.spreadconnect-logs__filter-label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: 12px;
+	color: #50575e;
+	font-weight: 600;
+}
+
+.spreadconnect-logs__csv-button {
+	margin-left: auto;
+}
+
+.spreadconnect-logs__tail {
+	background: #1d2327;
+	color: #f0f0f1;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	padding: 0;
+	overflow: auto;
+	max-height: 540px;
+}
+
+.spreadconnect-logs__table {
+	width: 100%;
+	border-collapse: collapse;
+	color: inherit;
+}
+
+.spreadconnect-logs__table th,
+.spreadconnect-logs__table td {
+	padding: 6px 10px;
+	border-bottom: 1px solid #2c3338;
+	text-align: left;
+	vertical-align: top;
+	font-size: 12px;
+}
+
+.spreadconnect-logs__table th {
+	background: #2c3338;
+	color: #c3c4c7;
+	position: sticky;
+	top: 0;
+	font-weight: 600;
+}
+
+.spreadconnect-logs__row {
+	color: #f0f0f1;
+}
+
+.spreadconnect-logs__row--error    { color: #ff8a8e; }
+.spreadconnect-logs__row--warning  { color: #ffd166; }
+.spreadconnect-logs__row--info     { color: #c1d8ff; }
+.spreadconnect-logs__row--debug    { color: #a7aaad; }
+
+.spreadconnect-logs__message {
+	white-space: pre-wrap;
+	word-break: break-word;
+	font-family: inherit;
+}
+
+.spreadconnect-logs__empty {
+	padding: 16px;
+	color: #50575e;
+	background: #fff;
+	border: 1px dashed #c3c4c7;
+	text-align: center;
+}
+
+/* ==========================================================================
+   10. Subscriptions Manager (Screen 8)
+   ========================================================================== */
+
+.spreadconnect-subscriptions__actions {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	flex-wrap: wrap;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+	padding: 10px 12px;
+	margin-bottom: 12px;
+}
+
+.spreadconnect-subscriptions__last-check {
+	margin-left: auto;
+	color: #50575e;
+	font-size: 12px;
+}
+
+.spreadconnect-subscriptions__error-banner {
+	margin: 0 0 12px;
+	padding: 8px 12px;
+	border-left: 3px solid #cc1818;
+	background: #fcf0f0;
+	color: #1d2327;
+	font-size: 13px;
+}
+
+.spreadconnect-subscriptions__result-banner {
+	margin: 0 0 12px;
+	padding: 8px 12px;
+	border-left: 3px solid #4ab866;
+	background: #eff9f1;
+	color: #1d2327;
+	font-size: 13px;
+}
+
+.spreadconnect-subscriptions__cell-event,
+.spreadconnect-subscriptions__cell-status,
+.spreadconnect-subscriptions__cell-action {
+	white-space: nowrap;
+}
+
+.spreadconnect-subscriptions__cell-id,
+.spreadconnect-subscriptions__cell-url {
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	color: #50575e;
+	word-break: break-all;
+}
+
+.spreadconnect-subscriptions__legend {
+	margin: 12px 0 4px;
+	color: #50575e;
+	font-size: 12px;
+}
+
+.spreadconnect-subscriptions__hint {
+	margin: 8px 0 0;
+	color: #50575e;
+	font-size: 12px;
+	font-style: italic;
+}
+
+.spreadconnect-subscriptions__repair-row {
+	margin-top: 4px;
+}
+
+/* ==========================================================================
+   11. Settings (Screen 7) — secret reveal panel + status pills
+   ========================================================================== */
+
+/* Scoped form-table: only the spacing inside the hub gets a tighter rhythm.
+   WP core .form-table styling (label widths / padding) is NOT overridden. */
+.spreadconnect-hub .form-table {
+	margin-top: 0;
+}
+
+.spreadconnect-hub .form-table th {
+	width: 220px;
+}
+
+.spreadconnect-secret-mask {
+	font-family: Consolas, Monaco, monospace;
+	letter-spacing: 0.05em;
+}
+
+.spreadconnect-secret-generated-at {
+	color: #50575e;
+	font-size: 12px;
+}
+
+.spreadconnect-secret-generated-at--never {
+	color: #1d2327;
+}
+
+/* Status pills next to Settings buttons — same border-left pattern. */
+.spreadconnect-test-status,
+.spreadconnect-regenerate-status,
+.spreadconnect-export-import-status,
+.spreadconnect-dev-tools-status {
+	display: inline-block;
+	margin-left: 8px;
+	padding: 2px 8px;
+	font-size: 12px;
+	font-weight: 600;
+	background: #dcdcde;
+	color: #50575e;
+	border-left: 3px solid #c3c4c7;
+}
+
+.spreadconnect-test-status--ok,
+.spreadconnect-dev-tools-status--ok {
+	background: #eff9f1;
+	color: #1d2327;
+	border-left-color: #4ab866;
+}
+
+.spreadconnect-test-status--error,
+.spreadconnect-dev-tools-status--error {
+	background: #fcf0f0;
+	color: #1d2327;
+	border-left-color: #cc1818;
+}
+
+.spreadconnect-test-status--pending,
+.spreadconnect-dev-tools-status--pending {
+	background: #fef8ee;
+	color: #1d2327;
+	border-left-color: #f0b849;
+}
+
+/* Reveal panel — first-time HMAC secret display */
+.spreadconnect-reveal-panel {
+	margin: 16px 0;
+	padding: 12px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-left: 3px solid var(--wp-admin-theme-color, #2271b1);
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.spreadconnect-reveal-panel--initial {
+	border-left-color: #4ab866;
+	background: #eff9f1;
+}
+
+.spreadconnect-reveal-panel__secret {
+	display: block;
+	margin: 8px 0;
+	padding: 10px 12px;
+	background: #1d2327;
+	color: #f0f0f1;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 13px;
+	word-break: break-all;
+	user-select: all;
+}
+
+/* ==========================================================================
+   12. Settings save-result step panel (Screen 7 save_success_panel)
+   ========================================================================== */
+
+.spreadconnect-step-result {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 4px 0;
+	padding: 6px 10px;
+	font-size: 13px;
+	border-left: 3px solid #c3c4c7;
+	background: #dcdcde;
+	color: #1d2327;
+}
+
+.spreadconnect-step-result--success {
+	background: #eff9f1;
+	border-left-color: #4ab866;
+}
+
+.spreadconnect-step-result--partial {
+	background: #fef8ee;
+	border-left-color: #f0b849;
+}
+
+.spreadconnect-step-result__marker {
+	font-weight: 700;
+}
+
+.spreadconnect-step-result__label {
+	flex: 1 1 auto;
+}
+
+.spreadconnect-step-result__link {
+	margin-left: auto;
+}
+
+/* ==========================================================================
+   13. Misc utility hooks emitted by the views
+   ========================================================================== */
+
+.spreadconnect-row-toggle {
+	background: none;
+	border: 0;
+	color: #2271b1;
+	cursor: pointer;
+	padding: 2px 4px;
+	font-size: 14px;
+	min-height: 28px;
+}
+
+.spreadconnect-row-toggle:hover,
+.spreadconnect-row-toggle:focus {
+	color: #0a4b78;
+	text-decoration: underline;
+	outline: none;
+}
+
+.spreadconnect-payload-json {
+	background: #1d2327;
+	color: #f0f0f1;
+	padding: 10px 12px;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	overflow: auto;
+	max-height: 240px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.spreadconnect-slot {
+	display: block;
+}
+
+/* ==========================================================================
+   14. Responsive — collapse sidebar above content at WP-Admin mobile cutoff
+   ========================================================================== */
+
+@media (max-width: 782px) {
+	.spreadconnect-hub {
+		grid-template-columns: 1fr;
+		gap: 12px;
+		padding-top: 12px;
+	}
+
+	.spreadconnect-hub-nav {
+		position: static;
+		top: auto;
+	}
+
+	.spreadconnect-hub-nav__list {
+		display: flex;
+		flex-wrap: wrap;
+		border-right: 0;
+		border-bottom: 1px solid #c3c4c7;
+	}
+
+	.spreadconnect-hub-nav__item {
+		flex: 1 1 auto;
+	}
+
+	.spreadconnect-hub-nav__link {
+		min-height: 44px; /* mobile-touch-target */
+	}
+
+	.spreadconnect-hub-nav__item.is-active {
+		margin-right: 0;
+		margin-bottom: -1px;
+		border-right: 0;
+		border-bottom: 3px solid var(--wp-admin-theme-color, #2271b1);
+	}
+
+	.spreadconnect-dashboard__cards {
+		grid-template-columns: 1fr;
+	}
+
+	.spreadconnect-card--failed-ops,
+	.spreadconnect-card--connection-detail {
+		grid-column: auto;
+	}
+
+	.spreadconnect-hub .form-table th {
+		width: auto;
+		display: block;
+		padding-bottom: 0;
+	}
+}

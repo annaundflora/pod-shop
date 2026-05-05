@@ -1,0 +1,1399 @@
+<?php
+/**
+ * Settings sub-page renderer (Hub Section "Settings").
+ *
+ * Mounts the WP Settings API for the 17 user-editable `spreadconnect_*`
+ * options. Sections ① API Connection, ⑥ Order Behavior, ⑦ Catalog Sync and
+ * ⑧ Failure Notifications are wired here. Sections ② Test-Connection
+ * (slice-12), ③ Webhook Security (slice-14), ⑨ Footer Export/Import
+ * (slice-45) and the conditional Dev-Tools section (slice-44) are reserved
+ * via clearly marked extension slots in {@see self::render()} — those
+ * follow-up slices append non-overlapping output blocks at the marked
+ * positions. They do NOT register their own settings fields against the
+ * `spreadconnect_settings` group from slice-11.
+ *
+ * @package SpreadconnectPod\Hub\View
+ */
+
+declare(strict_types=1);
+
+namespace SpreadconnectPod\Hub\View;
+
+use SpreadconnectPod\Bootstrap\OptionsDefaults;
+use SpreadconnectPod\Hub\Ajax\ExportImportSettings;
+use SpreadconnectPod\Settings\SettingsValidator;
+use SpreadconnectPod\Subscription\WebhookSecretManager;
+
+/**
+ * Stateless renderer + Settings-API registrar for the Settings sub-page.
+ *
+ * Two static entry-points:
+ *   - {@see self::registerSettings()} — call on `admin_init`. Registers the
+ *     `spreadconnect_settings` group, four sections and 17 fields with
+ *     {@see SettingsValidator::sanitize()} as the sanitiser for each.
+ *   - {@see self::render()} — call from the Hub Controller (slice-13)
+ *     when `?section=settings`. Capability-gated on `manage_woocommerce`.
+ *
+ * Final + only static methods because the page is stateless: every call
+ * reads fresh from the options table and writes back through the Settings
+ * API. The `cb*` callbacks are public so WP can invoke them through the
+ * `[ self::class, 'cbName' ]` array-callable form.
+ */
+final class Settings
+{
+	/**
+	 * Slug of the Settings group / page registered with the WP Settings API.
+	 *
+	 * Used as the first argument to `register_setting()`,
+	 * `add_settings_section()`, `add_settings_field()` and
+	 * `settings_fields()` so all four call sites share a single source of
+	 * truth.
+	 */
+	public const OPTION_GROUP = 'spreadconnect_settings';
+
+	/**
+	 * Text-domain for translation wrappers.
+	 *
+	 * Centralised so a future rename (slice-46+) only edits one constant
+	 * rather than ~40 inlined string literals.
+	 */
+	private const TEXT_DOMAIN = 'spreadconnect-pod';
+
+	/**
+	 * Section IDs for the four sections this slice owns.
+	 *
+	 * Out-of-scope sections (`section_test_connection` from slice-12,
+	 * `section_webhook_security` from slice-14, `section_dev_tools` from
+	 * slice-44, `section_footer` from slice-45) are NOT registered via
+	 * {@see add_settings_section()} here — they are inline output slots
+	 * inside {@see self::render()}.
+	 */
+	private const SECTION_API           = 'spreadconnect_section_api';
+	private const SECTION_ORDER         = 'spreadconnect_section_order';
+	private const SECTION_CATALOG       = 'spreadconnect_section_catalog';
+	private const SECTION_NOTIFICATIONS = 'spreadconnect_section_notifications';
+
+	/**
+	 * Render the Settings page.
+	 *
+	 * Wired via the Hub Controller in slice-13 (`?page=spreadconnect&section=settings`).
+	 * Capability-gated on `manage_woocommerce` — users without that cap are
+	 * rejected with `wp_die()` per slice-11 AC-9 (the WC-canonical
+	 * permission for the SC POD admin surface).
+	 *
+	 * Layout follows wireframes.md "Screen 7: Settings (Hub Sub-Page)":
+	 *   ① API Connection (WP fields + slice-12 Test-Connection slot)
+	 *   ③ Webhook Security (slice-14 slot — empty here)
+	 *   ⑥ Order Behavior (WP fields)
+	 *   ⑦ Catalog Sync (WP fields)
+	 *   ⑧ Failure Notifications (WP fields)
+	 *   Dev-Tools (slice-44 slot, only when staging — empty here)
+	 *   ⑨ Footer (WP submit + slice-45 export/import slot)
+	 *
+	 * @return void
+	 */
+	public static function render(): void
+	{
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die(
+				esc_html__( 'You do not have permission to access this page.', self::TEXT_DOMAIN )
+			);
+		}
+
+		echo '<div class="wrap spreadconnect-settings">';
+		echo '<h1>' . esc_html__( 'Spreadconnect Settings', self::TEXT_DOMAIN ) . '</h1>';
+
+		echo '<form method="post" action="options.php" class="spreadconnect-settings-form">';
+		settings_fields( self::OPTION_GROUP );
+
+		// WP renders all four registered sections + their fields here.
+		// Sections appear in registration order: API > Order > Catalog >
+		// Notifications. The slot blocks below interleave with this output
+		// in slice-12/14/44/45 via dedicated `do_action()` extension points.
+		do_settings_sections( 'spreadconnect-settings' );
+
+		// ---- Extension slot: section ② Test Connection (slice-12) ----
+		// Slice-12 hooks into this action to render the [Test This Key]
+		// button + status pane next to the API-Connection section. Slice-11
+		// fires the action with no listeners attached.
+		do_action( 'spreadconnect_settings_section_test_connection' );
+
+		// ---- Extension slot: section ③ Webhook Security (slice-14) ----
+		// Slice-14 hooks here to render the Webhook URL + masked HMAC
+		// secret + [Regenerate Secret] panel.
+		do_action( 'spreadconnect_settings_section_webhook_security' );
+
+		// ---- Extension slot: Dev-Tools (slice-44) ----
+		// Slice-44 hooks here and conditionally renders the Simulate-* test
+		// buttons when `spreadconnect_use_staging` is true.
+		do_action( 'spreadconnect_settings_section_dev_tools' );
+
+		// ---- Footer ⑨ : core Save button + slice-45 Export/Import slot.
+		echo '<p class="submit">';
+		submit_button(
+			esc_html__( 'Save Changes', self::TEXT_DOMAIN ),
+			'primary',
+			'submit',
+			false
+		);
+		// Slice-45 hooks here to append [Export Settings JSON] +
+		// [Import Settings JSON] buttons.
+		do_action( 'spreadconnect_settings_section_footer' );
+		echo '</p>';
+
+		echo '</form>';
+		echo '</div>';
+	}
+
+	/**
+	 * Register the Settings group, sections and fields.
+	 *
+	 * Hooked from `Bootstrap\Plugin` (slice-13) on `admin_init`. One
+	 * `register_setting()` call per managed option keeps the storage layout
+	 * 1:1 with the architecture-spec table (`architecture.md` Z. 323-340)
+	 * and lets slice-45 export/import each key independently.
+	 *
+	 * Capability gate is enforced upstream — `admin_init` only fires for
+	 * authenticated admin requests, and slice-11 AC-9 places the
+	 * `manage_woocommerce` check at {@see self::render()}.
+	 *
+	 * @return void
+	 */
+	public static function registerSettings(): void
+	{
+		// --- Cross-field gating hook -------------------------------------.
+		// `pre_update_option_spreadconnect_auto_confirm` fires during
+		// `update_option()` AFTER the per-option `sanitize_callback` has
+		// produced a per-field-valid value but BEFORE the value is written
+		// to `wp_options`. That ordering is the authoritative correction
+		// for the Auto-Confirm-Gating rule (slice-11 AC-3,
+		// architecture.md Z. 326): a previous `updated_option`-based fix
+		// was order-dependent and got overwritten by WP's own
+		// `options.php`-iteration. Because this slice registers
+		// `spreadconnect_default_shipping_type` BEFORE
+		// `spreadconnect_auto_confirm` (see registration order below) and
+		// `wp-admin/options.php` iterates options in registration order,
+		// the just-updated shipping type is already persisted by the time
+		// this filter runs — so {@see SettingsValidator::gateAutoConfirmOnPreUpdate()}
+		// can read it with a plain `get_option()` and override `$value`
+		// with `'off'` when it collapsed to `''` (= None).
+		// WP de-duplicates identical callable/priority pairs, so re-running
+		// `registerSettings()` (e.g. twice on the same `admin_init`) leaves
+		// the filter count at 1.
+		add_filter(
+			'pre_update_option_spreadconnect_auto_confirm',
+			array( SettingsValidator::class, 'gateAutoConfirmOnPreUpdate' )
+		);
+
+		// --- Slice-12 section ② Test-Connection markup hook --------------.
+		// The slice-11 Settings::render() emits a
+		// `do_action('spreadconnect_settings_section_test_connection')`
+		// extension slot. Slice 12 fills the slot here so the markup lives
+		// next to the rest of the Settings-view code (single source of
+		// truth for the field IDs, label strings and nonce contract).
+		// `add_action` de-duplicates identical callable/priority pairs, so
+		// re-running `registerSettings()` keeps the listener count at 1.
+		add_action(
+			'spreadconnect_settings_section_test_connection',
+			array( self::class, 'renderTestConnectionSection' )
+		);
+
+		// --- Slice-14 section ③ Webhook-Security markup hook -------------.
+		// The slice-11 Settings::render() emits a
+		// `do_action('spreadconnect_settings_section_webhook_security')`
+		// extension slot. Slice 14 fills the slot here so the regenerate-
+		// button + masked secret + last-regenerated timestamp + (conditional)
+		// initial-reveal panel all live next to the rest of the Settings
+		// view code. Bestehende Form-Felder + Sanitizer-Wiring bleiben
+		// unveraendert. `add_action` de-duplicates identical callable/
+		// priority pairs, so re-running `registerSettings()` keeps the
+		// listener count at 1.
+		add_action(
+			'spreadconnect_settings_section_webhook_security',
+			array( self::class, 'renderWebhookSecuritySection' )
+		);
+
+		// --- Slice-44 Dev-Tools section markup hook ----------------------.
+		// The slice-11 Settings::render() emits a
+		// `do_action('spreadconnect_settings_section_dev_tools')` extension
+		// slot above the ⑨ Footer section. Slice 44 fills the slot here so
+		// the Simulate-* buttons + Test-Order-ID input + status pane render
+		// in the canonical Dev-Tools position (wireframes.md Z. 647). The
+		// `SettingsDevTools::render()` method self-gates on
+		// `spreadconnect_use_staging` + `manage_woocommerce` and emits
+		// nothing in production — the empty render keeps the production DOM
+		// clean. `add_action` de-duplicates identical callable/priority
+		// pairs, so re-running `registerSettings()` keeps the listener
+		// count at 1.
+		add_action(
+			'spreadconnect_settings_section_dev_tools',
+			array( SettingsDevTools::class, 'render' )
+		);
+
+		// --- Slice-45 Export/Import footer markup hook -------------------.
+		// The slice-11 Settings::render() emits a
+		// `do_action('spreadconnect_settings_section_footer')` extension
+		// slot inside the Footer `<p class="submit">` block. Slice 45 fills
+		// the slot here so the [Export Settings JSON] + [Import Settings JSON]
+		// buttons + the inline JS click-handlers render right next to the
+		// canonical [Save Changes] button (wireframes.md Z. 614). Slice 11
+		// Constraints reserved this position explicitly. `add_action`
+		// de-duplicates identical callable/priority pairs, so re-running
+		// `registerSettings()` keeps the listener count at 1.
+		add_action(
+			'spreadconnect_settings_section_footer',
+			array( self::class, 'renderExportImportSection' )
+		);
+
+		// --- Sections ----------------------------------------------------.
+		add_settings_section(
+			self::SECTION_API,
+			esc_html__( 'API Connection', self::TEXT_DOMAIN ),
+			array( self::class, 'cbSectionApiIntro' ),
+			'spreadconnect-settings'
+		);
+
+		add_settings_section(
+			self::SECTION_ORDER,
+			esc_html__( 'Order Behavior', self::TEXT_DOMAIN ),
+			array( self::class, 'cbSectionOrderIntro' ),
+			'spreadconnect-settings'
+		);
+
+		add_settings_section(
+			self::SECTION_CATALOG,
+			esc_html__( 'Catalog Sync', self::TEXT_DOMAIN ),
+			array( self::class, 'cbSectionCatalogIntro' ),
+			'spreadconnect-settings'
+		);
+
+		add_settings_section(
+			self::SECTION_NOTIFICATIONS,
+			esc_html__( 'Failure Notifications', self::TEXT_DOMAIN ),
+			array( self::class, 'cbSectionNotificationsIntro' ),
+			'spreadconnect-settings'
+		);
+
+		// --- Per-option `register_setting()` + field rows ----------------.
+		// One sanitize_callback per option, all pointing to the SAME
+		// per-option dispatcher `SettingsValidator::sanitizeOne` (slice-11
+		// AC-1). WP invokes per-option sanitisers with the *scalar* value
+		// of one option via `sanitize_option_{$name}`, so the dispatcher
+		// resolves the option name from its 2nd argument or
+		// `current_filter()` and runs only the per-field validation.
+		// Cross-field auto-confirm gating runs separately via the
+		// `pre_update_option_spreadconnect_auto_confirm` filter registered
+		// above — a per-option `sanitize_callback` alone cannot enforce it
+		// because each callback sees only one key.
+		$sanitize = array( SettingsValidator::class, 'sanitizeOne' );
+
+		// ① API Connection.
+		self::registerOption( 'spreadconnect_api_key', $sanitize, 'string' );
+		self::addField(
+			'spreadconnect_api_key',
+			esc_html__( 'API Key', self::TEXT_DOMAIN ),
+			array( self::class, 'cbApiKey' ),
+			self::SECTION_API
+		);
+
+		self::registerOption( 'spreadconnect_use_staging', $sanitize, 'boolean' );
+		self::addField(
+			'spreadconnect_use_staging',
+			esc_html__( 'Use Staging API', self::TEXT_DOMAIN ),
+			array( self::class, 'cbUseStaging' ),
+			self::SECTION_API
+		);
+
+		// ⑥ Order Behavior.
+		// IMPORTANT: `spreadconnect_default_shipping_type` MUST be registered
+		// BEFORE `spreadconnect_auto_confirm`. `wp-admin/options.php` iterates
+		// options in registration order, and the cross-field gating filter
+		// {@see SettingsValidator::gateAutoConfirmOnPreUpdate()} relies on the
+		// new shipping-type value being persisted before the auto-confirm
+		// option is written. Reordering these two calls breaks slice-11 AC-3.
+		self::registerOption( 'spreadconnect_default_shipping_type', $sanitize, 'string' );
+		self::addField(
+			'spreadconnect_default_shipping_type',
+			esc_html__( 'Default Shipping Type', self::TEXT_DOMAIN ),
+			array( self::class, 'cbDefaultShippingType' ),
+			self::SECTION_ORDER
+		);
+
+		self::registerOption( 'spreadconnect_auto_confirm', $sanitize, 'string' );
+		self::addField(
+			'spreadconnect_auto_confirm',
+			esc_html__( 'Auto-Confirm', self::TEXT_DOMAIN ),
+			array( self::class, 'cbAutoConfirm' ),
+			self::SECTION_ORDER
+		);
+
+		self::registerOption( 'spreadconnect_auto_confirm_minutes', $sanitize, 'integer' );
+		self::addField(
+			'spreadconnect_auto_confirm_minutes',
+			esc_html__( 'Auto-Confirm Minutes', self::TEXT_DOMAIN ),
+			array( self::class, 'cbAutoConfirmMinutes' ),
+			self::SECTION_ORDER
+		);
+
+		self::registerOption( 'spreadconnect_auto_cancel_mirror', $sanitize, 'boolean' );
+		self::addField(
+			'spreadconnect_auto_cancel_mirror',
+			esc_html__( 'Auto-Cancel Mirror', self::TEXT_DOMAIN ),
+			array( self::class, 'cbAutoCancelMirror' ),
+			self::SECTION_ORDER
+		);
+
+		// ⑦ Catalog Sync.
+		self::registerOption( 'spreadconnect_pull_images', $sanitize, 'boolean' );
+		self::addField(
+			'spreadconnect_pull_images',
+			esc_html__( 'Pull Images on Sync', self::TEXT_DOMAIN ),
+			array( self::class, 'cbPullImages' ),
+			self::SECTION_CATALOG
+		);
+
+		self::registerOption( 'spreadconnect_force_repull_images', $sanitize, 'boolean' );
+		self::addField(
+			'spreadconnect_force_repull_images',
+			esc_html__( 'Force Re-Pull Images on Next Run', self::TEXT_DOMAIN ),
+			array( self::class, 'cbForceRepullImages' ),
+			self::SECTION_CATALOG
+		);
+
+		self::registerOption( 'spreadconnect_stock_sync_interval', $sanitize, 'string' );
+		self::addField(
+			'spreadconnect_stock_sync_interval',
+			esc_html__( 'Periodic Stock-Sync Interval', self::TEXT_DOMAIN ),
+			array( self::class, 'cbStockSyncInterval' ),
+			self::SECTION_CATALOG
+		);
+
+		self::registerOption( 'spreadconnect_low_stock_threshold', $sanitize, 'integer' );
+		self::addField(
+			'spreadconnect_low_stock_threshold',
+			esc_html__( 'Low-Stock Threshold', self::TEXT_DOMAIN ),
+			array( self::class, 'cbLowStockThreshold' ),
+			self::SECTION_CATALOG
+		);
+
+		self::registerOption( 'spreadconnect_live_cache_ttl_seconds', $sanitize, 'integer' );
+		self::addField(
+			'spreadconnect_live_cache_ttl_seconds',
+			esc_html__( 'Live-Cache TTL (seconds)', self::TEXT_DOMAIN ),
+			array( self::class, 'cbLiveCacheTtl' ),
+			self::SECTION_CATALOG
+		);
+
+		// ⑧ Failure Notifications.
+		self::registerOption( 'spreadconnect_notify_emails', $sanitize, 'string' );
+		self::addField(
+			'spreadconnect_notify_emails',
+			esc_html__( 'Recipients (comma-separated)', self::TEXT_DOMAIN ),
+			array( self::class, 'cbNotifyEmails' ),
+			self::SECTION_NOTIFICATIONS
+		);
+
+		self::registerOption( 'spreadconnect_notify_on_order_failure', $sanitize, 'boolean' );
+		self::addField(
+			'spreadconnect_notify_on_order_failure',
+			esc_html__( 'Notify on Order Failure', self::TEXT_DOMAIN ),
+			array( self::class, 'cbNotifyOnOrderFailure' ),
+			self::SECTION_NOTIFICATIONS
+		);
+
+		self::registerOption( 'spreadconnect_notify_on_sync_failure', $sanitize, 'boolean' );
+		self::addField(
+			'spreadconnect_notify_on_sync_failure',
+			esc_html__( 'Notify on Sync Failure', self::TEXT_DOMAIN ),
+			array( self::class, 'cbNotifyOnSyncFailure' ),
+			self::SECTION_NOTIFICATIONS
+		);
+
+		self::registerOption( 'spreadconnect_notify_on_webhook_failure', $sanitize, 'boolean' );
+		self::addField(
+			'spreadconnect_notify_on_webhook_failure',
+			esc_html__( 'Notify on Webhook Failure', self::TEXT_DOMAIN ),
+			array( self::class, 'cbNotifyOnWebhookFailure' ),
+			self::SECTION_NOTIFICATIONS
+		);
+
+		self::registerOption( 'spreadconnect_failed_ops_retention_days', $sanitize, 'integer' );
+		self::addField(
+			'spreadconnect_failed_ops_retention_days',
+			esc_html__( 'Failed-Ops Retention (days)', self::TEXT_DOMAIN ),
+			array( self::class, 'cbFailedOpsRetentionDays' ),
+			self::SECTION_NOTIFICATIONS
+		);
+
+		self::registerOption( 'spreadconnect_webhook_log_retention_days', $sanitize, 'integer' );
+		self::addField(
+			'spreadconnect_webhook_log_retention_days',
+			esc_html__( 'Webhook-Log Retention (days)', self::TEXT_DOMAIN ),
+			array( self::class, 'cbWebhookLogRetentionDays' ),
+			self::SECTION_NOTIFICATIONS
+		);
+	}
+
+	/**
+	 * Convenience wrapper around `register_setting()`.
+	 *
+	 * Centralises the `option_group`, `sanitize_callback` and `type`
+	 * arguments so each call site reads as a single line. Slice-11 AC-1
+	 * mandates that EVERY option uses the SAME sanitiser
+	 * ({@see SettingsValidator::sanitize}).
+	 *
+	 * @param string                $option_name Full `spreadconnect_*` key.
+	 * @param array{0:string,1:string} $sanitize  `[ class, method ]` callable.
+	 * @param string                $type        Hint for WP REST: `'string'`,
+	 *                                           `'boolean'` or `'integer'`.
+	 */
+	private static function registerOption( string $option_name, array $sanitize, string $type ): void
+	{
+		register_setting(
+			self::OPTION_GROUP,
+			$option_name,
+			array(
+				'type'              => $type,
+				'sanitize_callback' => $sanitize,
+				'show_in_rest'      => false,
+			)
+		);
+	}
+
+	/**
+	 * Convenience wrapper around `add_settings_field()`.
+	 *
+	 * @param string                  $option_name Field id (= option key).
+	 * @param string                  $label       Translated field label.
+	 * @param array{0:string,1:string} $callback   Render callback.
+	 * @param string                  $section     Section id.
+	 */
+	private static function addField( string $option_name, string $label, array $callback, string $section ): void
+	{
+		add_settings_field(
+			$option_name,
+			$label,
+			$callback,
+			'spreadconnect-settings',
+			$section,
+			array( 'label_for' => $option_name )
+		);
+	}
+
+	/**
+	 * Look up an option, falling back to the defaults table on miss.
+	 *
+	 * Centralises the `get_option( $key, OptionsDefaults::DEFAULTS[ $key ] )`
+	 * pattern from slice-11 Integration Contract so the field renderers stay
+	 * single-line.
+	 *
+	 * @return string|int|bool
+	 */
+	private static function getOption( string $key ): string|int|bool
+	{
+		return get_option( $key, OptionsDefaults::DEFAULTS[ $key ] );
+	}
+
+	// =====================================================================
+	// Section intro callbacks
+	// =====================================================================
+
+	/**
+	 * Render the API Connection section intro paragraph.
+	 *
+	 * @return void
+	 */
+	public static function cbSectionApiIntro(): void
+	{
+		echo '<p>' . esc_html__(
+			'Configure the credentials used for outbound calls to Spreadconnect. The API key is stored masked; click [Show] to reveal it.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+	}
+
+	/**
+	 * Render the Order Behavior section intro paragraph.
+	 *
+	 * @return void
+	 */
+	public static function cbSectionOrderIntro(): void
+	{
+		echo '<p>' . esc_html__(
+			'Choose how WooCommerce orders are pre-filled before submission to Spreadconnect. Auto-Confirm requires a default shipping type to be set.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+	}
+
+	/**
+	 * Render the Catalog Sync section intro paragraph.
+	 *
+	 * @return void
+	 */
+	public static function cbSectionCatalogIntro(): void
+	{
+		echo '<p>' . esc_html__(
+			'Control how often stock is pulled from Spreadconnect and how images are synchronised on catalog sync runs.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+	}
+
+	/**
+	 * Render the Failure Notifications section intro paragraph.
+	 *
+	 * @return void
+	 */
+	public static function cbSectionNotificationsIntro(): void
+	{
+		echo '<p>' . esc_html__(
+			'Configure email recipients and retention windows for permanently failed operations.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+	}
+
+	// =====================================================================
+	// Field render callbacks (① API Connection)
+	// =====================================================================
+
+	/**
+	 * Render the API-Key text input (masked).
+	 *
+	 * @return void
+	 */
+	public static function cbApiKey(): void
+	{
+		$value = (string) self::getOption( 'spreadconnect_api_key' );
+		printf(
+			'<input type="password" id="%1$s" name="%1$s" value="%2$s" class="regular-text" autocomplete="off" />',
+			esc_attr( 'spreadconnect_api_key' ),
+			esc_attr( $value )
+		);
+		echo '<p class="description">' . esc_html__(
+			'Bearer token issued in the Spreadconnect partner dashboard. Stored as plaintext in `wp_options`; rotate via the partner dashboard if leaked.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+	}
+
+	/**
+	 * Render the Use-Staging checkbox.
+	 *
+	 * @return void
+	 */
+	public static function cbUseStaging(): void
+	{
+		$checked = (bool) self::getOption( 'spreadconnect_use_staging' );
+		printf(
+			'<label><input type="checkbox" id="%1$s" name="%1$s" value="1"%2$s /> %3$s</label>',
+			esc_attr( 'spreadconnect_use_staging' ),
+			$checked ? ' checked="checked"' : '',
+			esc_html__( 'Route requests to the Spreadconnect staging environment.', self::TEXT_DOMAIN )
+		);
+	}
+
+	// =====================================================================
+	// Slice-12: Section ② "Test This Key" markup
+	// =====================================================================
+
+	/**
+	 * Render the Test-Connection control block (slice-12).
+	 *
+	 * Hooked from {@see self::registerSettings()} onto the
+	 * `spreadconnect_settings_section_test_connection` action that
+	 * {@see self::render()} fires after the API-Connection section. The
+	 * block emits three pieces:
+	 *   - a `<button type="button">` that triggers the AJAX call from JS
+	 *     (NEVER `<input type="submit">` — that would submit the Settings
+	 *     form prematurely);
+	 *   - an empty status `<span>` the JS fills with the localised result
+	 *     message via `textContent`;
+	 *   - an inline `<script>` that wires the click handler against the
+	 *     globally-available `ajaxurl`, posting `action`, `_ajax_nonce`
+	 *     (created via `wp_create_nonce`) and the *current* (unsaved) value
+	 *     of the API-Key input.
+	 *
+	 * The nonce is re-generated on every page load (no leak from previous
+	 * sessions). The API-Key field value is read via `document.getElementById`
+	 * at click-time so the user can type a new key, click Test, get a
+	 * verdict, and only then save — exactly the slice-12 UX contract
+	 * (architecture.md Z. 141). Server-supplied messages are inserted via
+	 * `textContent` (NEVER `innerHTML`) so a translation file containing
+	 * `<` / `&` cannot become an XSS vector.
+	 *
+	 * @return void
+	 */
+	public static function renderTestConnectionSection(): void
+	{
+		$nonce = wp_create_nonce( 'spreadconnect_test_connection' );
+
+		echo '<h2 class="title">' . esc_html__( 'Test Connection', self::TEXT_DOMAIN ) . '</h2>';
+		echo '<p>' . esc_html__(
+			'Verify the API key currently entered above without saving it. The key is sent only over HTTPS to Spreadconnect.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+
+		echo '<p>';
+		printf(
+			'<button type="button" class="button" id="%1$s" data-nonce="%2$s">%3$s</button> ',
+			esc_attr( 'spreadconnect-test-connection' ),
+			esc_attr( $nonce ),
+			esc_html__( 'Test This Key', self::TEXT_DOMAIN )
+		);
+		printf(
+			'<span id="%1$s" class="spreadconnect-test-status" role="status" aria-live="polite"></span>',
+			esc_attr( 'spreadconnect-test-status' )
+		);
+		echo '</p>';
+
+		// Inline script — kept inline (rather than enqueued) because the
+		// payload is tiny and self-contained. The `ajaxurl` global is
+		// always defined by WP core in admin pages. We read the API-Key
+		// value at click-time (NOT at script-eval-time) so freshly-typed
+		// values are picked up. `textContent` (never `innerHTML`) is used
+		// to render the server-supplied message — the message is
+		// translatable (`__()`) and could in theory contain HTML-special
+		// characters; insertion via `textContent` makes that safe by
+		// construction.
+		$inlineJs = <<<'JS'
+(function () {
+	var btn = document.getElementById('spreadconnect-test-connection');
+	if (!btn) { return; }
+	var status = document.getElementById('spreadconnect-test-status');
+	var keyInput = document.getElementById('spreadconnect_api_key');
+	btn.addEventListener('click', function () {
+		if (btn.disabled) { return; }
+		btn.disabled = true;
+		if (status) {
+			status.textContent = '';
+			status.className = 'spreadconnect-test-status spreadconnect-test-status--pending';
+		}
+		var body = new URLSearchParams();
+		body.append('action', 'spreadconnect_test_connection');
+		body.append('_ajax_nonce', btn.getAttribute('data-nonce') || '');
+		body.append('api_key', keyInput ? keyInput.value : '');
+		fetch(window.ajaxurl, {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+			body: body.toString()
+		}).then(function (resp) {
+			return resp.json().catch(function () { return null; });
+		}).then(function (json) {
+			var data = json && json.data ? json.data : { ok: false, message: '' };
+			if (status) {
+				status.textContent = data.message || '';
+				status.className = 'spreadconnect-test-status ' + (data.ok ? 'spreadconnect-test-status--ok' : 'spreadconnect-test-status--error');
+			}
+		}).catch(function () {
+			if (status) {
+				status.textContent = '';
+				status.className = 'spreadconnect-test-status spreadconnect-test-status--error';
+			}
+		}).finally(function () {
+			btn.disabled = false;
+		});
+	});
+})();
+JS;
+
+		// `wp_print_inline_script_tag()` (WP 5.7+) emits a `<script>` block
+		// with proper CSP nonce support when present. Falls back to a
+		// hand-rolled tag for environments that lack the helper (very old
+		// WP, isolated unit-test bootstraps).
+		if ( function_exists( 'wp_print_inline_script_tag' ) ) {
+			wp_print_inline_script_tag( $inlineJs );
+		} else {
+			echo '<script>' . $inlineJs . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		}
+	}
+
+	// =====================================================================
+	// Slice-14: Section ③ "Webhook Security" markup
+	// =====================================================================
+
+	/**
+	 * Render the Webhook-Security control block (slice-14).
+	 *
+	 * Hooked from {@see self::registerSettings()} onto the
+	 * `spreadconnect_settings_section_webhook_security` extension action
+	 * that {@see self::render()} fires after the slice-12 Test-Connection
+	 * slot. The block emits four pieces (slice-14 AC-7):
+	 *   - a static `••••…` mask — the plaintext is NEVER written into the
+	 *     server-rendered markup (slice-14 AC-7-(b));
+	 *   - the human-readable last-regenerated timestamp from the companion
+	 *     option `spreadconnect_webhook_secret_generated_at` (lazy default `0`);
+	 *   - a `<button type="button">` carrying the AJAX nonce as a
+	 *     `data-nonce` attribute. Click-handler JS lives in a follow-up
+	 *     polish slice (or a global Settings JS module); slice-14 ships only
+	 *     the markup hooks (`data-`-attributes + CSS classes) per the
+	 *     deliverable's "JS in spaeterer Slice" note;
+	 *   - the inline localized hint copy from wireframes.md Z. 624.
+	 *
+	 * Below the four pieces, the conditional `initial_secret_reveal_panel`
+	 * is emitted when (a) the user has never acknowledged a reveal yet
+	 * (`spreadconnect_webhook_secret_revealed_at == 0`) AND (b) the
+	 * short-lived transient `spreadconnect_initial_secret_reveal` carries
+	 * a freshly-generated plaintext from the most recent post-save hook.
+	 * That panel is the ONLY place the plaintext appears in the rendered
+	 * HTML, and it auto-hides forever once `[Done]` writes the
+	 * `revealed_at` timestamp via the slice-14 acknowledge AJAX action.
+	 *
+	 * @return void
+	 */
+	public static function renderWebhookSecuritySection(): void
+	{
+		// Shared nonce for both sub-actions (regenerate + acknowledge) —
+		// single source of truth, matches `RegenerateSecret::NONCE_ACTION`.
+		$nonce = wp_create_nonce( 'spreadconnect_secret_action' );
+
+		// Lazy defaults — slice-05 OptionsDefaults intentionally does NOT
+		// seed the two companion options to keep its scope clean
+		// (slice-14 spec "Option-Defaults"). `0` is a stable sentinel
+		// meaning "never set".
+		$generatedAt = (int) get_option( WebhookSecretManager::OPTION_GENERATED_AT, 0 );
+		$revealedAt  = (int) get_option( WebhookSecretManager::OPTION_REVEALED_AT, 0 );
+
+		echo '<h2 class="title">' . esc_html__( 'Webhook Security', self::TEXT_DOMAIN ) . '</h2>';
+		echo '<p>' . esc_html__(
+			'The HMAC secret signs every inbound Spreadconnect webhook. Regenerating the secret invalidates the old value and automatically re-subscribes all event handlers.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+
+		echo '<table class="form-table" role="presentation"><tbody>';
+
+		// Row 1: masked secret display. The 20 bullets are a STATIC mask;
+		// the plaintext is never embedded in this markup (slice-14 AC-7-(b),
+		// AC-9). Output uses `esc_html` for defense-in-depth even though
+		// the literal contains no HTML-special chars.
+		echo '<tr>';
+		echo '<th scope="row">' . esc_html__( 'Current Secret', self::TEXT_DOMAIN ) . '</th>';
+		echo '<td>';
+		echo '<code class="spreadconnect-secret-mask">' . esc_html( str_repeat( "\xE2\x80\xA2", 20 ) ) . '</code>';
+		echo '</td>';
+		echo '</tr>';
+
+		// Row 2: last-regenerated timestamp. `0` (= never generated)
+		// renders the neutral "never" string instead of the Unix epoch.
+		echo '<tr>';
+		echo '<th scope="row">' . esc_html__( 'Last Regenerated', self::TEXT_DOMAIN ) . '</th>';
+		echo '<td>';
+		if ( $generatedAt > 0 ) {
+			$formatted = self::formatTimestamp( $generatedAt );
+			echo '<span class="spreadconnect-secret-generated-at">' . esc_html( $formatted ) . '</span>';
+		} else {
+			echo '<span class="spreadconnect-secret-generated-at spreadconnect-secret-generated-at--never">'
+				. esc_html__( 'never', self::TEXT_DOMAIN )
+				. '</span>';
+		}
+		echo '</td>';
+		echo '</tr>';
+
+		echo '</tbody></table>';
+
+		// Row 3: regenerate button + inline hint. The `data-confirm`
+		// attribute is the markup-side hook for the wireframe's
+		// `regenerate_dialog_open` confirmation modal (JS is out-of-scope
+		// for this slice — see deliverable note "JS in spaeterer Slice").
+		echo '<p>';
+		printf(
+			'<button type="button" class="button" id="%1$s" data-nonce="%2$s" data-confirm="%3$s">%4$s</button> ',
+			esc_attr( 'spreadconnect-regenerate-secret' ),
+			esc_attr( $nonce ),
+			esc_attr__( 'Regenerating the secret will immediately re-subscribe all webhook handlers. Continue?', self::TEXT_DOMAIN ),
+			esc_html__( 'Regenerate Secret', self::TEXT_DOMAIN )
+		);
+		printf(
+			'<span id="%1$s" class="spreadconnect-regenerate-status" role="status" aria-live="polite"></span>',
+			esc_attr( 'spreadconnect-regenerate-status' )
+		);
+		echo '</p>';
+
+		// Inline hint copy (wireframes.md Z. 624 annotation ⑤).
+		echo '<p class="description">' . esc_html__(
+			'Regenerate only when you suspect the current secret has been compromised. The new value is shown exactly once.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+
+		// Conditional initial-reveal panel. Two-condition gate:
+		//   1. revealed_at == 0     — user has never acknowledged a panel.
+		//   2. transient is non-empty — a fresh plaintext is queued for one display.
+		// Both must hold; either alone is insufficient. The transient is
+		// deleted by the acknowledge AJAX handler, so a page-reload after
+		// `[Done]` finds an empty transient and the panel never re-renders.
+		if ( 0 === $revealedAt ) {
+			$queuedSecret = get_transient( 'spreadconnect_initial_secret_reveal' );
+			if ( is_string( $queuedSecret ) && '' !== $queuedSecret ) {
+				self::renderInitialRevealPanel( $queuedSecret, $nonce );
+			}
+		}
+	}
+
+	/**
+	 * Render the one-time-reveal panel for the initial secret.
+	 *
+	 * Wireframes.md Screen 7 Z. 642-672 (`save_success_panel` -> nested
+	 * `initial_secret_reveal_panel`). Layout: a monospace block carrying
+	 * the plaintext, a `[⎘ Copy]` button (markup hook only — JS in a
+	 * follow-up slice), and a `[Done]` button that triggers the
+	 * acknowledge AJAX action. After acknowledge, the panel is permanently
+	 * UI-locked because the one-way `revealed_at` flag is non-zero
+	 * thereafter (slice-14 Constraints).
+	 *
+	 * The plaintext is escaped via `esc_html` even though base64 contains
+	 * no HTML-special chars — defense in depth, identical to the API-key
+	 * field in `cbApiKey`.
+	 *
+	 * @param string $plaintext The freshly-generated base64 secret.
+	 * @param string $nonce     The shared `spreadconnect_secret_action` nonce.
+	 * @return void
+	 */
+	private static function renderInitialRevealPanel( string $plaintext, string $nonce ): void
+	{
+		echo '<div class="spreadconnect-reveal-panel spreadconnect-reveal-panel--initial" role="region" aria-label="'
+			. esc_attr__( 'Initial Webhook Secret Reveal', self::TEXT_DOMAIN )
+			. '">';
+
+		echo '<h3>' . esc_html__( 'Your Webhook Secret (shown once)', self::TEXT_DOMAIN ) . '</h3>';
+		echo '<p>' . esc_html__(
+			'Copy this value now and store it securely. Once you click [Done], it cannot be displayed again — you will have to regenerate it instead.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+
+		// Monospace block carrying the plaintext. `esc_html` for
+		// defense-in-depth; `data-secret` mirrors the value for the
+		// follow-up Copy-to-Clipboard JS (markup hook only).
+		printf(
+			'<pre class="spreadconnect-reveal-panel__secret"><code data-secret="%1$s">%2$s</code></pre>',
+			esc_attr( $plaintext ),
+			esc_html( $plaintext )
+		);
+
+		echo '<p>';
+		printf(
+			'<button type="button" class="button" data-action="copy" data-target="spreadconnect-reveal-panel__secret">%1$s</button> ',
+			esc_html__( 'Copy', self::TEXT_DOMAIN )
+		);
+		printf(
+			'<button type="button" class="button button-primary" id="%1$s" data-nonce="%2$s">%3$s</button>',
+			esc_attr( 'spreadconnect-acknowledge-reveal' ),
+			esc_attr( $nonce ),
+			esc_html__( 'Done', self::TEXT_DOMAIN )
+		);
+		echo '</p>';
+
+		echo '</div>';
+	}
+
+	/**
+	 * Format a unix timestamp using WP's site-locale conventions.
+	 *
+	 * Wraps `wp_date()` when available (WP 5.3+) and falls back to a
+	 * deterministic ISO-8601 string for old-WP / unit-test bootstraps that
+	 * lack the helper. The fallback uses `gmdate()` to avoid a server-
+	 * timezone dependency in tests.
+	 *
+	 * @param int $timestamp Unix timestamp (`> 0`).
+	 * @return string Localised date/time string.
+	 */
+	private static function formatTimestamp( int $timestamp ): string
+	{
+		if ( function_exists( 'wp_date' ) ) {
+			$format = function_exists( 'get_option' )
+				? (string) get_option( 'date_format', 'Y-m-d' ) . ' ' . (string) get_option( 'time_format', 'H:i' )
+				: 'Y-m-d H:i';
+			$out    = wp_date( $format, $timestamp );
+			if ( is_string( $out ) ) {
+				return $out;
+			}
+		}
+
+		return gmdate( 'Y-m-d H:i', $timestamp );
+	}
+
+	// =====================================================================
+	// Slice-45: Section ⑨ Footer "Export / Import Settings" markup
+	// =====================================================================
+
+	/**
+	 * Render the Export + Import buttons in the Settings footer (slice-45).
+	 *
+	 * Hooked from {@see self::registerSettings()} onto the
+	 * `spreadconnect_settings_section_footer` extension action that
+	 * {@see self::render()} fires inside the Footer `<p class="submit">`
+	 * block (right after the canonical [Save Changes] button). The block
+	 * emits three pieces:
+	 *
+	 *   - a `<button type="button">` that triggers a navigation to
+	 *     `admin-ajax.php?action=spreadconnect_export_settings` so the
+	 *     browser presents the response as a `.json` download;
+	 *   - a `<button type="button">` that delegates a click to a hidden
+	 *     `<input type="file" accept="application/json">`. Once the user
+	 *     picks a file, JS reads it via `FileReader.readAsText()` and POSTs
+	 *     the contents under the `payload` field;
+	 *   - a status `<span>` filled via `textContent` with the localised
+	 *     server response.
+	 *
+	 * Each button carries its own `data-nonce` attribute (separate nonces
+	 * per action — slice-45 AC-9). The nonces are minted via
+	 * `wp_create_nonce()` against the canonical action constants
+	 * {@see ExportImportSettings::ACTION_EXPORT} /
+	 * {@see ExportImportSettings::ACTION_IMPORT} so a future rename only
+	 * touches the AJAX handler class and never drifts.
+	 *
+	 * Server-supplied messages are inserted via `textContent` (NEVER
+	 * `innerHTML`) so a translation file containing `<` / `&` cannot become
+	 * an XSS vector — same rule as slice-12 / slice-14.
+	 *
+	 * @return void
+	 */
+	public static function renderExportImportSection(): void
+	{
+		$exportNonce = wp_create_nonce( ExportImportSettings::ACTION_EXPORT );
+		$importNonce = wp_create_nonce( ExportImportSettings::ACTION_IMPORT );
+
+		// AC-9: the two buttons sit beside the [Save Changes] submit. We
+		// emit them inside the same `<p class="submit">` block — the slot
+		// from `Settings::render()` already opens the paragraph, so we just
+		// append the controls.
+		printf(
+			' <button type="button" class="button" id="%1$s" data-nonce="%2$s" title="%3$s">%4$s</button>',
+			esc_attr( 'spreadconnect-export-settings' ),
+			esc_attr( $exportNonce ),
+			esc_attr__( 'Contains operational settings; transfer over a secure channel.', self::TEXT_DOMAIN ),
+			esc_html__( 'Export Settings JSON', self::TEXT_DOMAIN )
+		);
+
+		printf(
+			' <button type="button" class="button" id="%1$s" data-nonce="%2$s">%3$s</button>',
+			esc_attr( 'spreadconnect-import-settings' ),
+			esc_attr( $importNonce ),
+			esc_html__( 'Import Settings JSON', self::TEXT_DOMAIN )
+		);
+
+		// Hidden file picker — clicked by the [Import Settings JSON] button
+		// via JS. `accept="application/json"` is a soft filter (browsers do
+		// not enforce it) but improves the file-picker UX. The element is
+		// `aria-hidden` because keyboard users interact with the visible
+		// button instead.
+		printf(
+			'<input type="file" id="%1$s" accept="application/json" style="display:none" aria-hidden="true" />',
+			esc_attr( 'spreadconnect-import-settings-file' )
+		);
+
+		// Status pane mirrors the slice-12 / slice-14 convention.
+		printf(
+			' <span id="%1$s" class="spreadconnect-export-import-status" role="status" aria-live="polite"></span>',
+			esc_attr( 'spreadconnect-export-import-status' )
+		);
+
+		// Inline script — kept inline (rather than enqueued) because the
+		// payload is tiny and self-contained. The `ajaxurl` global is
+		// always defined by WP core in admin pages.
+		//
+		// Export-flow: build a hidden `<form method="POST" action="ajaxurl">`
+		// carrying `action` + `_wpnonce`, append it to `<body>`, submit it,
+		// and remove it. The browser reacts to the
+		// `Content-Disposition: attachment` header by streaming the
+		// response into a download — a `fetch()` call would receive the
+		// body as a JSON string, which is not what we want here.
+		//
+		// Import-flow: delegate the click to the hidden file picker, read
+		// the chosen file via `FileReader.readAsText`, then POST it via
+		// `fetch` with `payload` + `action` + `_wpnonce` form-encoded.
+		// `textContent` is used to render the server-supplied message so
+		// translations containing HTML-special chars are safe.
+		$inlineJs = <<<'JS'
+(function () {
+	var exportBtn = document.getElementById('spreadconnect-export-settings');
+	var importBtn = document.getElementById('spreadconnect-import-settings');
+	var fileInput = document.getElementById('spreadconnect-import-settings-file');
+	var status    = document.getElementById('spreadconnect-export-import-status');
+
+	function setStatus(message, kind) {
+		if (!status) { return; }
+		status.textContent = message || '';
+		status.className   = 'spreadconnect-export-import-status spreadconnect-export-import-status--' + (kind || 'idle');
+	}
+
+	if (exportBtn) {
+		exportBtn.addEventListener('click', function () {
+			if (exportBtn.disabled) { return; }
+			setStatus('', 'pending');
+			var form = document.createElement('form');
+			form.method = 'POST';
+			form.action = window.ajaxurl;
+			form.style.display = 'none';
+			var actionField = document.createElement('input');
+			actionField.type = 'hidden';
+			actionField.name = 'action';
+			actionField.value = 'spreadconnect_export_settings';
+			form.appendChild(actionField);
+			var nonceField = document.createElement('input');
+			nonceField.type = 'hidden';
+			nonceField.name = '_wpnonce';
+			nonceField.value = exportBtn.getAttribute('data-nonce') || '';
+			form.appendChild(nonceField);
+			document.body.appendChild(form);
+			form.submit();
+			document.body.removeChild(form);
+		});
+	}
+
+	if (importBtn && fileInput) {
+		importBtn.addEventListener('click', function () {
+			if (importBtn.disabled) { return; }
+			fileInput.value = '';
+			fileInput.click();
+		});
+		fileInput.addEventListener('change', function () {
+			if (!fileInput.files || !fileInput.files[0]) { return; }
+			var file   = fileInput.files[0];
+			var reader = new FileReader();
+			setStatus('', 'pending');
+			importBtn.disabled = true;
+			reader.onload = function () {
+				var payload = (reader.result || '').toString();
+				var body    = new URLSearchParams();
+				body.append('action', 'spreadconnect_import_settings');
+				body.append('_wpnonce', importBtn.getAttribute('data-nonce') || '');
+				body.append('payload', payload);
+				fetch(window.ajaxurl, {
+					method: 'POST',
+					credentials: 'same-origin',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+					body: body.toString()
+				}).then(function (resp) {
+					return resp.json().catch(function () { return null; });
+				}).then(function (json) {
+					var data = json && json.data ? json.data : {};
+					if (json && json.success) {
+						setStatus('Imported ' + (data.imported || 0) + ' option(s).', 'ok');
+					} else {
+						setStatus(data.message || 'Import failed.', 'error');
+					}
+				}).catch(function () {
+					setStatus('Import failed.', 'error');
+				}).finally(function () {
+					importBtn.disabled = false;
+				});
+			};
+			reader.onerror = function () {
+				setStatus('Could not read file.', 'error');
+				importBtn.disabled = false;
+			};
+			reader.readAsText(file);
+		});
+	}
+})();
+JS;
+
+		if ( function_exists( 'wp_print_inline_script_tag' ) ) {
+			wp_print_inline_script_tag( $inlineJs );
+		} else {
+			echo '<script>' . $inlineJs . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		}
+	}
+
+	// =====================================================================
+	// Field render callbacks (⑥ Order Behavior)
+	// =====================================================================
+
+	/**
+	 * Render the Default-Shipping-Type input.
+	 *
+	 * Slice-11 accepts any non-empty string here; slice-12/29 will replace
+	 * this with a populated dropdown based on `GET /shippingTypes`.
+	 *
+	 * @return void
+	 */
+	public static function cbDefaultShippingType(): void
+	{
+		$value = (string) self::getOption( 'spreadconnect_default_shipping_type' );
+		printf(
+			'<input type="text" id="%1$s" name="%1$s" value="%2$s" class="regular-text" />',
+			esc_attr( 'spreadconnect_default_shipping_type' ),
+			esc_attr( $value )
+		);
+		echo '<p class="description">' . esc_html__(
+			'Spreadconnect shippingType.id (e.g. STANDARD, PREMIUM, EXPRESS). Leave empty to require per-order selection; required to enable Auto-Confirm.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+	}
+
+	/**
+	 * Render the Auto-Confirm radio group.
+	 *
+	 * @return void
+	 */
+	public static function cbAutoConfirm(): void
+	{
+		$value = (string) self::getOption( 'spreadconnect_auto_confirm' );
+
+		$options = array(
+			'off'           => __( 'Off (recommended)', self::TEXT_DOMAIN ),
+			'immediate'     => __( 'Immediately after submit', self::TEXT_DOMAIN ),
+			'after_minutes' => __( 'After N minutes (see below)', self::TEXT_DOMAIN ),
+		);
+
+		echo '<fieldset>';
+		foreach ( $options as $option_value => $label ) {
+			printf(
+				'<label><input type="radio" name="%1$s" value="%2$s"%3$s /> %4$s</label><br />',
+				esc_attr( 'spreadconnect_auto_confirm' ),
+				esc_attr( $option_value ),
+				$value === $option_value ? ' checked="checked"' : '',
+				esc_html( $label )
+			);
+		}
+		echo '</fieldset>';
+		echo '<p class="description">' . esc_html__(
+			'Forced to "Off" while Default Shipping Type is empty.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+	}
+
+	/**
+	 * Render the Auto-Confirm-Minutes integer input.
+	 *
+	 * @return void
+	 */
+	public static function cbAutoConfirmMinutes(): void
+	{
+		$value = (int) self::getOption( 'spreadconnect_auto_confirm_minutes' );
+		printf(
+			'<input type="number" id="%1$s" name="%1$s" value="%2$d" min="0" step="1" class="small-text" />',
+			esc_attr( 'spreadconnect_auto_confirm_minutes' ),
+			$value
+		);
+		echo '<p class="description">' . esc_html__(
+			'Only relevant when Auto-Confirm is set to "After N minutes".',
+			self::TEXT_DOMAIN
+		) . '</p>';
+	}
+
+	/**
+	 * Render the Auto-Cancel-Mirror checkbox.
+	 *
+	 * @return void
+	 */
+	public static function cbAutoCancelMirror(): void
+	{
+		$checked = (bool) self::getOption( 'spreadconnect_auto_cancel_mirror' );
+		printf(
+			'<label><input type="checkbox" id="%1$s" name="%1$s" value="1"%2$s /> %3$s</label>',
+			esc_attr( 'spreadconnect_auto_cancel_mirror' ),
+			$checked ? ' checked="checked"' : '',
+			esc_html__( 'Cancel the Spreadconnect order automatically when the WooCommerce order is cancelled (only while SC state = NEW).', self::TEXT_DOMAIN )
+		);
+	}
+
+	// =====================================================================
+	// Field render callbacks (⑦ Catalog Sync)
+	// =====================================================================
+
+	/**
+	 * Render the Pull-Images checkbox.
+	 *
+	 * @return void
+	 */
+	public static function cbPullImages(): void
+	{
+		$checked = (bool) self::getOption( 'spreadconnect_pull_images' );
+		printf(
+			'<label><input type="checkbox" id="%1$s" name="%1$s" value="1"%2$s /> %3$s</label>',
+			esc_attr( 'spreadconnect_pull_images' ),
+			$checked ? ' checked="checked"' : '',
+			esc_html__( 'Pull product images during catalog sync.', self::TEXT_DOMAIN )
+		);
+	}
+
+	/**
+	 * Render the Force-Repull-Images checkbox.
+	 *
+	 * @return void
+	 */
+	public static function cbForceRepullImages(): void
+	{
+		$checked = (bool) self::getOption( 'spreadconnect_force_repull_images' );
+		printf(
+			'<label><input type="checkbox" id="%1$s" name="%1$s" value="1"%2$s /> %3$s</label>',
+			esc_attr( 'spreadconnect_force_repull_images' ),
+			$checked ? ' checked="checked"' : '',
+			esc_html__( 'On the next catalog sync, re-pull all images even when the local copy is up-to-date.', self::TEXT_DOMAIN )
+		);
+	}
+
+	/**
+	 * Render the Stock-Sync-Interval dropdown.
+	 *
+	 * @return void
+	 */
+	public static function cbStockSyncInterval(): void
+	{
+		$value = (string) self::getOption( 'spreadconnect_stock_sync_interval' );
+
+		$options = array(
+			'1h'  => __( 'Every hour', self::TEXT_DOMAIN ),
+			'4h'  => __( 'Every 4 hours', self::TEXT_DOMAIN ),
+			'6h'  => __( 'Every 6 hours (recommended)', self::TEXT_DOMAIN ),
+			'12h' => __( 'Every 12 hours', self::TEXT_DOMAIN ),
+			'24h' => __( 'Every 24 hours', self::TEXT_DOMAIN ),
+		);
+
+		echo '<select id="' . esc_attr( 'spreadconnect_stock_sync_interval' ) . '" name="' . esc_attr( 'spreadconnect_stock_sync_interval' ) . '">';
+		foreach ( $options as $option_value => $label ) {
+			printf(
+				'<option value="%1$s"%2$s>%3$s</option>',
+				esc_attr( $option_value ),
+				$value === $option_value ? ' selected="selected"' : '',
+				esc_html( $label )
+			);
+		}
+		echo '</select>';
+	}
+
+	/**
+	 * Render the Low-Stock-Threshold integer input.
+	 *
+	 * @return void
+	 */
+	public static function cbLowStockThreshold(): void
+	{
+		$value = (int) self::getOption( 'spreadconnect_low_stock_threshold' );
+		printf(
+			'<input type="number" id="%1$s" name="%1$s" value="%2$d" min="0" step="1" class="small-text" />',
+			esc_attr( 'spreadconnect_low_stock_threshold' ),
+			$value
+		);
+		echo '<p class="description">' . esc_html__(
+			'Stock units below this number are flagged in the WooCommerce admin.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+	}
+
+	/**
+	 * Render the Live-Cache-TTL integer input (60..900 seconds).
+	 *
+	 * @return void
+	 */
+	public static function cbLiveCacheTtl(): void
+	{
+		$value = (int) self::getOption( 'spreadconnect_live_cache_ttl_seconds' );
+		printf(
+			'<input type="number" id="%1$s" name="%1$s" value="%2$d" min="60" max="900" step="1" class="small-text" />',
+			esc_attr( 'spreadconnect_live_cache_ttl_seconds' ),
+			$value
+		);
+		echo '<p class="description">' . esc_html__(
+			'Time-to-live for the per-SKU live-stock transient cache. Allowed range: 60–900 seconds.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+	}
+
+	// =====================================================================
+	// Field render callbacks (⑧ Failure Notifications)
+	// =====================================================================
+
+	/**
+	 * Render the Notify-Emails text input (comma-separated).
+	 *
+	 * @return void
+	 */
+	public static function cbNotifyEmails(): void
+	{
+		$value = (string) self::getOption( 'spreadconnect_notify_emails' );
+		printf(
+			'<input type="text" id="%1$s" name="%1$s" value="%2$s" class="regular-text" />',
+			esc_attr( 'spreadconnect_notify_emails' ),
+			esc_attr( $value )
+		);
+		echo '<p class="description">' . esc_html__(
+			'Comma-separated list of recipients. Invalid tokens are dropped on save.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+	}
+
+	/**
+	 * Render the Notify-On-Order-Failure checkbox.
+	 *
+	 * @return void
+	 */
+	public static function cbNotifyOnOrderFailure(): void
+	{
+		$checked = (bool) self::getOption( 'spreadconnect_notify_on_order_failure' );
+		printf(
+			'<label><input type="checkbox" id="%1$s" name="%1$s" value="1"%2$s /> %3$s</label>',
+			esc_attr( 'spreadconnect_notify_on_order_failure' ),
+			$checked ? ' checked="checked"' : '',
+			esc_html__( 'Send an email when an order submission permanently fails.', self::TEXT_DOMAIN )
+		);
+	}
+
+	/**
+	 * Render the Notify-On-Sync-Failure checkbox.
+	 *
+	 * @return void
+	 */
+	public static function cbNotifyOnSyncFailure(): void
+	{
+		$checked = (bool) self::getOption( 'spreadconnect_notify_on_sync_failure' );
+		printf(
+			'<label><input type="checkbox" id="%1$s" name="%1$s" value="1"%2$s /> %3$s</label>',
+			esc_attr( 'spreadconnect_notify_on_sync_failure' ),
+			$checked ? ' checked="checked"' : '',
+			esc_html__( 'Send an email when a catalog or stock sync run permanently fails.', self::TEXT_DOMAIN )
+		);
+	}
+
+	/**
+	 * Render the Notify-On-Webhook-Failure checkbox.
+	 *
+	 * @return void
+	 */
+	public static function cbNotifyOnWebhookFailure(): void
+	{
+		$checked = (bool) self::getOption( 'spreadconnect_notify_on_webhook_failure' );
+		printf(
+			'<label><input type="checkbox" id="%1$s" name="%1$s" value="1"%2$s /> %3$s</label>',
+			esc_attr( 'spreadconnect_notify_on_webhook_failure' ),
+			$checked ? ' checked="checked"' : '',
+			esc_html__( 'Send an email when an inbound webhook permanently fails.', self::TEXT_DOMAIN )
+		);
+	}
+
+	/**
+	 * Render the Failed-Ops-Retention-Days integer input (7..365).
+	 *
+	 * @return void
+	 */
+	public static function cbFailedOpsRetentionDays(): void
+	{
+		$value = (int) self::getOption( 'spreadconnect_failed_ops_retention_days' );
+		printf(
+			'<input type="number" id="%1$s" name="%1$s" value="%2$d" min="7" max="365" step="1" class="small-text" />',
+			esc_attr( 'spreadconnect_failed_ops_retention_days' ),
+			$value
+		);
+		echo '<p class="description">' . esc_html__(
+			'Days to retain rows in `wp_spreadconnect_failed_ops` before purging. Allowed range: 7–365 days.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+	}
+
+	/**
+	 * Render the Webhook-Log-Retention-Days integer input (7..365).
+	 *
+	 * @return void
+	 */
+	public static function cbWebhookLogRetentionDays(): void
+	{
+		$value = (int) self::getOption( 'spreadconnect_webhook_log_retention_days' );
+		printf(
+			'<input type="number" id="%1$s" name="%1$s" value="%2$d" min="7" max="365" step="1" class="small-text" />',
+			esc_attr( 'spreadconnect_webhook_log_retention_days' ),
+			$value
+		);
+		echo '<p class="description">' . esc_html__(
+			'Days to retain rows in `wp_spreadconnect_webhook_log` before purging. Allowed range: 7–365 days.',
+			self::TEXT_DOMAIN
+		) . '</p>';
+	}
+}

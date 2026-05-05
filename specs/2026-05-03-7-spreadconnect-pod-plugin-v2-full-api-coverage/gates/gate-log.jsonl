@@ -1,0 +1,85 @@
+{"ts":"2026-05-04T06:35:02+00:00","slice":"slice-01","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T07:15:00+00:00","slice":"slice-01","gate":"tests","result":"FAILED","retries":1,"reason":"PHPUnit 11.5.55 TestSuiteLoader filename suffix heuristic"}
+{"ts":"2026-05-04T07:55:00+00:00","slice":"slice-01","gate":"tests","result":"PASSED","retries":1,"resolution":"renamed file/class to Slice01CleanupV1Test"}
+{"ts":"2026-05-04T08:00:00+00:00","slice":"slice-02","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T08:10:00+00:00","slice":"slice-02","gate":"tests","result":"PASSED","retries":1,"resolution":"fixed slice-01 obsolete assertion"}
+{"ts":"2026-05-04T08:30:00+00:00","slice":"slice-09","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T08:30:00+00:00","slice":"slice-21","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T08:50:00+00:00","slice":"slice-09","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T08:50:00+00:00","slice":"slice-21","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T09:30:00+00:00","slice":"slice-03","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T09:30:00+00:00","slice":"slice-03","gate":"tests","result":"PASSED","retries":1,"resolution":"add Brain Monkey stubs in slice-02 idempotency test"}
+{"ts":"2026-05-04T10:30:00+00:00","slice":"slice-04","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":2,"resolution":"backtick-escaped trigger column"}
+{"ts":"2026-05-04T10:30:00+00:00","slice":"slice-04","gate":"tests","result":"PASSED","retries":1,"resolution":"shared tests/bootstrap.php with WP function stubs"}
+{"ts":"2026-05-04T11:00:00+00:00","slice":"slice-05","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T11:00:00+00:00","slice":"slice-05","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T11:30:00+00:00","slice":"slice-06","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T11:30:00+00:00","slice":"slice-06","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T12:30:00+00:00","slice":"slice-07","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T12:30:00+00:00","slice":"slice-07","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T12:30:00+00:00","slice":"slice-20","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T12:30:00+00:00","slice":"slice-20","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T12:30:00+00:00","slice":"slice-27","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T12:30:00+00:00","slice":"slice-27","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T13:00:00+00:00","slice":"slice-08","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T13:00:00+00:00","slice":"slice-08","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T14:00:00+00:00","slice":"slice-10","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T14:00:00+00:00","slice":"slice-10","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T14:00:00+00:00","slice":"slice-22","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1,"note":"DTO gap-fill (ProductTypeDetail/Size/Color) approved"}
+{"ts":"2026-05-04T14:00:00+00:00","slice":"slice-22","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T15:00:00+00:00","slice":"slice-23","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T15:30:00+00:00","slice":"slice-11","gate":"code_review","verdict":"REJECTED","findings_count":2,"attempt":1,"reason":"per-option register_setting incompatible with array-based sanitize"}
+{"ts":"2026-05-04T15:45:00+00:00","slice":"slice-11","gate":"code_review","verdict":"REJECTED","findings_count":1,"attempt":2,"reason":"updated_option hook order-dependent; auto_confirm overwrite"}
+{"ts":"2026-05-04T16:00:00+00:00","slice":"slice-11","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":3,"resolution":"pre_update_option filter + registration order invariant"}
+{"ts":"2026-05-04T16:30:00+00:00","slice":"slice-11","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T16:30:00+00:00","slice":"slice-23","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T17:00:00+00:00","slice":"slice-13","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T17:00:00+00:00","slice":"slice-12","gate":"code_review","verdict":"REJECTED","findings_count":1,"attempt":1,"reason":"em-dash i18n string mismatch"}
+{"ts":"2026-05-04T17:10:00+00:00","slice":"slice-12","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":2,"resolution":"replaced -- with em-dash U+2014"}
+{"ts":"2026-05-04T17:00:00+00:00","slice":"slice-24","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T17:00:00+00:00","slice":"slice-28","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T18:00:00+00:00","slice":"slice-12","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T18:00:00+00:00","slice":"slice-13","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T18:00:00+00:00","slice":"slice-24","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T18:00:00+00:00","slice":"slice-28","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T18:30:00+00:00","slice":"slice-14","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T19:00:00+00:00","slice":"slice-18","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T19:00:00+00:00","slice":"slice-26","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T19:00:00+00:00","slice":"slice-29","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T19:00:00+00:00","slice":"slice-34","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T20:00:00+00:00","slice":"slice-14","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T20:00:00+00:00","slice":"slice-18","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T20:00:00+00:00","slice":"slice-26","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T20:00:00+00:00","slice":"slice-29","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T20:00:00+00:00","slice":"slice-34","gate":"tests","result":"PASSED","retries":1,"resolution":"test isolation fix: Catalog stub removal + WC_Product_Variable get_children()"}
+{"ts":"2026-05-04T20:30:00+00:00","slice":"slice-15","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T20:30:00+00:00","slice":"slice-19","gate":"code_review","verdict":"REJECTED","findings_count":1,"attempt":1,"reason":"duplicate sidebar render"}
+{"ts":"2026-05-04T20:45:00+00:00","slice":"slice-19","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":2}
+{"ts":"2026-05-04T20:30:00+00:00","slice":"slice-32","gate":"code_review","verdict":"REJECTED","findings_count":2,"attempt":1,"reason":"WebhookLogRepo slice-16 contract drift"}
+{"ts":"2026-05-04T20:45:00+00:00","slice":"slice-32","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":2}
+{"ts":"2026-05-04T20:30:00+00:00","slice":"slice-35","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T21:30:00+00:00","slice":"slice-15","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T21:30:00+00:00","slice":"slice-19","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T21:30:00+00:00","slice":"slice-32","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T21:30:00+00:00","slice":"slice-35","gate":"tests","result":"PASSED","retries":1,"resolution":"Slice13 isolation fix for slice-19 Subscriptions class promotion"}
+{"ts":"2026-05-04T22:00:00+00:00","slice":"slice-16","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T22:15:00+00:00","slice":"slice-17","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T22:30:00+00:00","slice":"slice-25","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T22:45:00+00:00","slice":"slice-16","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T22:45:00+00:00","slice":"slice-17","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T22:45:00+00:00","slice":"slice-25","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T22:50:00+00:00","slice":"slice-37","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T23:15:00+00:00","slice":"slice-37","gate":"tests","result":"PASSED","retries":1,"resolution":"lazy-bind retry-policy listener via closure to defer wpdb resolution"}
+{"ts":"2026-05-04T23:30:00+00:00","slice":"slice-38","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T23:30:00+00:00","slice":"slice-39","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T23:30:00+00:00","slice":"slice-43","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-04T23:50:00+00:00","slice":"slice-38","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T23:50:00+00:00","slice":"slice-39","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-04T23:50:00+00:00","slice":"slice-43","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-05T00:10:00+00:00","slice":"slice-40","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":1}
+{"ts":"2026-05-05T00:25:00+00:00","slice":"slice-40","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-05T00:40:00+00:00","slice":"slice-46","gate":"code_review","verdict":"REJECTED","findings_count":4,"attempt":1,"reason":"Orders N+1 query, dynamic __() for titles+labels, wrong webhook empty-state wording"}
+{"ts":"2026-05-05T00:55:00+00:00","slice":"slice-46","gate":"code_review","verdict":"APPROVED","blocking":0,"attempt":2}
+{"ts":"2026-05-05T01:05:00+00:00","slice":"slice-46","gate":"tests","result":"PASSED","retries":0}
+{"ts":"2026-05-05T01:10:00+00:00","slice":"feature","gate":"final_validation","verdict":"PASSED","tests":879,"assertions":4684,"errors":0,"failures":0,"skipped":2}
+{"ts":"2026-05-05T01:30:00+00:00","slice":"feature","gate":"systemic_review","verdict":"FAILED","findings":7,"non_blocking":true,"note":"PM review required (see gates/systemic-review.md)"}
