@@ -178,7 +178,7 @@
 
 .spreadconnect-card__meta {
 	margin: 0;
-	color: #646970;
+	color: #50575e;
 	font-size: 12px;
 }
 
@@ -188,7 +188,7 @@
 
 .spreadconnect-card__empty {
 	margin: 0;
-	color: #646970;
+	color: #50575e;
 	font-style: italic;
 	font-size: 13px;
 }
@@ -270,7 +270,7 @@
 }
 
 .spreadconnect-catalog__sync-settings-stub {
-	color: #646970;
+	color: #50575e;
 	font-size: 12px;
 }
 
@@ -342,7 +342,7 @@
 
 .spreadconnect-catalog__counter--created { color: #1f7a39; }
 .spreadconnect-catalog__counter--updated { color: #2271b1; }
-.spreadconnect-catalog__counter--skipped { color: #646970; }
+.spreadconnect-catalog__counter--skipped { color: #50575e; }
 .spreadconnect-catalog__counter--errors  { color: #b32d2e; }
 
 .spreadconnect-catalog__log-tail {
@@ -382,7 +382,7 @@
 }
 
 .spreadconnect-catalog__history-empty {
-	color: #646970;
+	color: #50575e;
 	font-style: italic;
 }
 
@@ -437,7 +437,7 @@
 }
 
 .spreadconnect-webhook-log__retention {
-	color: #646970;
+	color: #50575e;
 	font-size: 12px;
 	margin: 0 0 8px;
 }
@@ -505,11 +505,11 @@
 	margin-top: 8px;
 	font-family: Consolas, Monaco, monospace;
 	font-size: 11px;
-	color: #646970;
+	color: #50575e;
 }
 
 .spreadconnect-webhook-log__entity-empty {
-	color: #646970;
+	color: #50575e;
 }
 
 .spreadconnect-webhook-log__entity-link {
@@ -558,12 +558,12 @@
 }
 
 .spreadconnect-webhook-log__pager-counter {
-	color: #646970;
+	color: #50575e;
 }
 
 .spreadconnect-webhook-log__empty {
 	padding: 16px;
-	color: #646970;
+	color: #50575e;
 	background: #fff;
 	border: 1px dashed #c3c4c7;
 	border-radius: 4px;
@@ -833,7 +833,7 @@
 
 .spreadconnect-logs__empty {
 	padding: 18px;
-	color: #646970;
+	color: #50575e;
 	background: #fff;
 	border: 1px dashed #c3c4c7;
 	border-radius: 4px;
@@ -858,7 +858,7 @@
 
 .spreadconnect-subscriptions__last-check {
 	margin-left: auto;
-	color: #646970;
+	color: #50575e;
 	font-size: 12px;
 }
 
@@ -923,7 +923,7 @@
 
 .spreadconnect-subscriptions__hint {
 	margin: 8px 0 0;
-	color: #646970;
+	color: #50575e;
 	font-size: 12px;
 	font-style: italic;
 }
@@ -952,7 +952,7 @@
 }
 
 .spreadconnect-secret-generated-at {
-	color: #646970;
+	color: #50575e;
 	font-size: 12px;
 }
 
@@ -1201,7 +1201,7 @@
 	.spreadconnect-subscriptions__hint,
 	.spreadconnect-secret-generated-at,
 	.spreadconnect-catalog__sync-settings-stub {
-		color: #a7aaad;
+		color: #c3c4c7;
 	}
 
 	.spreadconnect-catalog__history-table th,
