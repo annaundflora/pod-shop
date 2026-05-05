@@ -120,9 +120,10 @@ final class SliceCssHubLayoutTest extends TestCase
             $prop->setValue(null, '');
         }
 
-        // Reset auch Hub\Assets — der Adapter speichert den Plugin-File-Pfad
-        // statisch (setPluginFile()), und die AC-4-Tests verlassen sich
-        // darauf, dass der Pfad pro Test definiert injiziert ist.
+        // Hub\Assets is now stateless — the plugin-file path is resolved
+        // internally via dirname(__DIR__, 2). The hasProperty() guard below
+        // gracefully no-ops if a future refactor reintroduces a static
+        // property of the same name.
         $assetsFqcn = Assets::class;
         if (class_exists($assetsFqcn)) {
             $assetsRefl = new ReflectionClass($assetsFqcn);
@@ -329,10 +330,8 @@ final class SliceCssHubLayoutTest extends TestCase
         self::stubPluginsUrl();
         self::stubPluginDirPath();
 
-        // Plugin-File-Pfad injizieren — Bootstrap macht das im Production-Code.
-        Assets::setPluginFile(self::pluginMainFile());
-
-        // Adapter mit dem korrekten Hook-Suffix aufrufen.
+        // Adapter resolves its own plugin-file path via
+        // dirname(__DIR__, 2) — no injector required.
         Assets::enqueue('woocommerce_page_spreadconnect');
 
         $this->assertCount(
@@ -379,9 +378,9 @@ final class SliceCssHubLayoutTest extends TestCase
         self::stubPluginsUrl();
         self::stubPluginDirPath();
 
-        // Plugin-File-Pfad ist injiziert — falls der Adapter NICHT screen-gating
-        // wuerde, wuerde er somit fuer JEDEN Hook-Suffix wp_enqueue_style aufrufen.
-        Assets::setPluginFile(self::pluginMainFile());
+        // Adapter resolves its own plugin-file path internally — if it
+        // failed to screen-gate it would call wp_enqueue_style for every
+        // foreign hook suffix below.
 
         $foreignHookSuffixes = [
             'index.php',
@@ -430,7 +429,6 @@ final class SliceCssHubLayoutTest extends TestCase
         self::stubPluginsUrl();
         self::stubPluginDirPath();
 
-        Assets::setPluginFile(self::pluginMainFile());
         Assets::enqueue('woocommerce_page_spreadconnect');
 
         $this->assertCount(

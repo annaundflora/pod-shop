@@ -22,16 +22,18 @@ namespace SpreadconnectPod\Hub;
  * Enqueue adapter for the Hub stylesheet.
  *
  * Lifecycle:
- *   1. `Bootstrap\Plugin::init( $plugin_file )` calls
- *      {@see self::setPluginFile()} with the absolute path to
- *      `spreadconnect-pod.php`.
- *   2. `Bootstrap\Plugin::init()` registers
+ *   1. `Bootstrap\Plugin::init()` registers
  *      `add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue' ] )`.
- *   3. WP fires `admin_enqueue_scripts` on every admin page-load and
+ *   2. WP fires `admin_enqueue_scripts` on every admin page-load and
  *      passes the current screen's `$hook_suffix`. {@see self::enqueue()}
  *      early-returns on every value other than the Hub page slug
  *      `woocommerce_page_spreadconnect`, so the stylesheet is loaded
  *      exclusively on the page that needs it.
+ *
+ * The plugin-file path is resolved from THIS file's location via
+ * `dirname(__DIR__, 2) . '/spreadconnect-pod.php'` — the same pattern used
+ * by sibling adapters (see {@see \SpreadconnectPod\Inline\ProductMetaBox::enqueueAssets()}).
+ * No bootstrap-side injector is needed.
  */
 final class Assets
 {
@@ -65,30 +67,6 @@ final class Assets
 	private const CSS_REL_PATH = 'assets/css/spreadconnect-hub.css';
 
 	/**
-	 * Absolute path to the main plugin file (`spreadconnect-pod.php`).
-	 *
-	 * Populated by {@see self::setPluginFile()} during
-	 * `Bootstrap\Plugin::init()`. The static-only adapter pattern can't
-	 * resolve this from a constructor, so the bootstrap injects it.
-	 */
-	private static string $pluginFile = '';
-
-	/**
-	 * Inject the absolute path to the main plugin file.
-	 *
-	 * Invoked by {@see \SpreadconnectPod\Bootstrap\Plugin::init()} BEFORE
-	 * the `admin_enqueue_scripts` action is registered, so by the time
-	 * {@see self::enqueue()} fires the value is always set. Idempotent —
-	 * re-calling with the same path is a no-op.
-	 *
-	 * @param string $plugin_file Absolute path to `spreadconnect-pod.php`.
-	 */
-	public static function setPluginFile( string $plugin_file ): void
-	{
-		self::$pluginFile = $plugin_file;
-	}
-
-	/**
 	 * Enqueue the Hub stylesheet — but ONLY on the Hub admin page.
 	 *
 	 * Screen-gating: the stylesheet is only relevant inside the
@@ -113,14 +91,12 @@ final class Assets
 			return;
 		}
 
-		// Defensive: if Bootstrap forgot to inject the plugin-file path
-		// the asset can't be located; silently skip rather than emit a
-		// broken `<link>` tag pointing at the WP root.
-		if ( '' === self::$pluginFile ) {
-			return;
-		}
-
-		$pluginFile = self::$pluginFile;
+		// Resolve the plugin-file path from THIS file's location. The
+		// pattern mirrors `Inline\ProductMetaBox::enqueueAssets()` and
+		// avoids the previous bootstrap-side injector entirely.
+		// `dirname(__DIR__, 2)` walks up from `includes/Hub/Assets.php`
+		// to the plugin root `wordpress/plugins/spreadconnect-pod/`.
+		$pluginFile = dirname( __DIR__, 2 ) . '/spreadconnect-pod.php';
 
 		// `plugins_url( $css_rel_path, $plugin_file )` resolves to
 		// `<plugins_root>/spreadconnect-pod/assets/css/spreadconnect-hub.css`
@@ -130,12 +106,17 @@ final class Assets
 
 		// AC-5: cache-buster derived from the on-disk mtime so a CSS
 		// edit immediately invalidates browser caches without bumping
-		// the plugin-version constant. `filemtime()` returns false on
-		// missing files; coerce to a stable string ('0') to keep
-		// `$ver` non-empty (never `false`/`null`/`''`).
+		// the plugin-version constant. Guard with `is_readable()` first
+		// so `filemtime()` runs un-suppressed (zero `@`-operator usage
+		// is a codebase-wide convention).
 		$cssPath = plugin_dir_path( $pluginFile ) . self::CSS_REL_PATH;
-		$mtime   = @filemtime( $cssPath );
-		$ver     = ( false === $mtime ) ? '0' : (string) $mtime;
+		$ver     = '0';
+		if ( is_readable( $cssPath ) ) {
+			$mtime = filemtime( $cssPath );
+			if ( false !== $mtime ) {
+				$ver = (string) $mtime;
+			}
+		}
 
 		wp_enqueue_style(
 			self::HANDLE,
