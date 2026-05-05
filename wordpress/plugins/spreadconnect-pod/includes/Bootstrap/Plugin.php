@@ -33,6 +33,7 @@ use SpreadconnectPod\Hub\Ajax\RepairSubscriptions as HubAjaxRepairSubscriptions;
 use SpreadconnectPod\Hub\Ajax\SimulateEvent as HubAjaxSimulateEvent;
 use SpreadconnectPod\Hub\Ajax\SyncNow as HubAjaxSyncNow;
 use SpreadconnectPod\Hub\Ajax\TestConnection as HubAjaxTestConnection;
+use SpreadconnectPod\Hub\Assets as HubAssets;
 use SpreadconnectPod\Hub\Controller as HubController;
 use SpreadconnectPod\Hub\Rest\SyncProgress as HubRestSyncProgress;
 use SpreadconnectPod\Hub\View\Logs as HubLogsView;
@@ -298,6 +299,21 @@ final class Plugin
 		// admin chrome. The dispatcher inside the controller handles
 		// capability gating + section routing.
 		add_action( 'admin_menu', [ HubController::class, 'registerMenu' ] );
+
+		// slice-css-hub-layout: enqueue the Hub stylesheet exclusively on
+		// the `woocommerce_page_spreadconnect` admin screen. The static
+		// `Hub\Assets` adapter early-returns on every other hook suffix
+		// (slice-css-hub-layout AC-4) so no asset is shipped on unrelated
+		// admin pages. `setPluginFile()` MUST run BEFORE the action is
+		// registered so that by the time `admin_enqueue_scripts` fires,
+		// `Hub\Assets::enqueue()` can resolve the on-disk CSS path for
+		// both `plugins_url()` and the `filemtime()` cache-buster
+		// (slice-css-hub-layout AC-3 + AC-5). Idempotency of this `init()`
+		// body keeps the registration count at exactly one per request,
+		// matching slice-13's `add_action( 'admin_menu', … )` discipline
+		// directly above.
+		HubAssets::setPluginFile( $plugin_file );
+		add_action( 'admin_enqueue_scripts', [ HubAssets::class, 'enqueue' ] );
 
 		// slice-13: Wire the slice-11 Settings registrar to `admin_init`.
 		// Slice 11 deferred this hook explicitly to slice-13 (see Settings

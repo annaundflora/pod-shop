@@ -1,0 +1,1236 @@
+/*!
+ * Spreadconnect Hub — admin layout stylesheet
+ *
+ * Realises wireframes.md Screens 1-8 against the BEM-prefixed markup that
+ * Hub\View\* + Hub\Controller emit. All rules are scoped under
+ * `.spreadconnect-hub` so WP-Admin core selectors (`.notice`, `.button`,
+ * `.form-table`, `.wrap`) keep their native appearance.
+ *
+ * Loaded by Hub\Assets::enqueue() exclusively on the
+ * `woocommerce_page_spreadconnect` admin screen.
+ */
+
+/* ==========================================================================
+   1. Hub root + header (Screen 1 ② / shared chrome)
+   ========================================================================== */
+
+.spreadconnect-hub {
+	display: grid;
+	grid-template-columns: 220px minmax(0, 1fr);
+	gap: 24px;
+	margin-top: 16px;
+	max-width: 1400px;
+	color: #1d2327;
+}
+
+.spreadconnect-hub__title {
+	margin: 0 0 16px;
+	padding: 0;
+	font-size: 1.5rem;
+	line-height: 1.3;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.spreadconnect-hub__content {
+	min-width: 0;
+	padding: 0;
+}
+
+/* WP-Admin .wrap baseline correction inside the hub.
+   This SCOPED rule only applies INSIDE .spreadconnect-hub so it never
+   re-paints WP core .wrap usage elsewhere. */
+.spreadconnect-hub.wrap {
+	margin: 16px 20px 0 2px;
+}
+
+/* Scoped notice tweak — adds spacing only when WP renders a .notice
+   inside the hub. WP's own .notice background/border/colors are NOT
+   redefined; only margin is adjusted. */
+.spreadconnect-hub .notice {
+	margin: 12px 0 16px;
+}
+
+/* ==========================================================================
+   2. Sidebar navigation (Screen 1 ④ / shared chrome)
+   ========================================================================== */
+
+.spreadconnect-hub-nav {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 8px 0;
+	align-self: start;
+	position: sticky;
+	top: 46px; /* below WP admin bar */
+}
+
+.spreadconnect-hub-nav__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.spreadconnect-hub-nav__item {
+	margin: 0;
+	padding: 0;
+	border-left: 3px solid transparent;
+}
+
+.spreadconnect-hub-nav__item.is-active {
+	border-left-color: #2271b1;
+	background: #f0f6fc;
+}
+
+.spreadconnect-hub-nav__link {
+	display: block;
+	padding: 10px 14px;
+	min-height: 44px; /* WP mobile-touch-target compliance */
+	box-sizing: border-box;
+	color: #2c3338;
+	text-decoration: none;
+	line-height: 1.4;
+	font-size: 14px;
+}
+
+.spreadconnect-hub-nav__link:hover,
+.spreadconnect-hub-nav__link:focus {
+	background: #f6f7f7;
+	color: #135e96;
+	box-shadow: none;
+	outline: none;
+}
+
+.spreadconnect-hub-nav__item.is-active .spreadconnect-hub-nav__link {
+	color: #135e96;
+	font-weight: 600;
+}
+
+/* ==========================================================================
+   3. Dashboard cards grid (Screen 1 ⑤-⑩)
+   ========================================================================== */
+
+.spreadconnect-dashboard__cards {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16px;
+	margin-top: 16px;
+}
+
+.spreadconnect-card {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 16px 18px;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+}
+
+.spreadconnect-card--failed-ops,
+.spreadconnect-card--connection-detail {
+	grid-column: span 2;
+}
+
+.spreadconnect-card__title {
+	margin: 0 0 8px;
+	font-size: 1rem;
+	font-weight: 600;
+	color: #1d2327;
+	line-height: 1.3;
+}
+
+.spreadconnect-card-body {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.spreadconnect-card__count {
+	font-size: 1.6rem;
+	font-weight: 600;
+	margin: 4px 0;
+	color: #1d2327;
+	line-height: 1.2;
+}
+
+.spreadconnect-card__counts {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.spreadconnect-card__counts li {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	font-size: 13px;
+}
+
+.spreadconnect-card__label {
+	color: #50575e;
+}
+
+.spreadconnect-card__meta {
+	margin: 0;
+	color: #646970;
+	font-size: 12px;
+}
+
+.spreadconnect-card__action {
+	margin: 8px 0 0;
+}
+
+.spreadconnect-card__empty {
+	margin: 0;
+	color: #646970;
+	font-style: italic;
+	font-size: 13px;
+}
+
+.spreadconnect-card__error {
+	margin: 0;
+	padding: 8px 10px;
+	background: #fcf0f1;
+	border-left: 4px solid #d63638;
+	color: #8a1f23;
+	font-size: 13px;
+}
+
+.spreadconnect-card__banner {
+	margin: 0 0 8px;
+	padding: 8px 10px;
+	border-left: 4px solid #2271b1;
+	background: #f0f6fc;
+	font-size: 13px;
+}
+
+.spreadconnect-card__banner--error {
+	border-left-color: #d63638;
+	background: #fcf0f1;
+	color: #8a1f23;
+}
+
+.spreadconnect-card__status {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin: 0;
+	padding: 2px 10px;
+	border-radius: 12px;
+	font-size: 12px;
+	font-weight: 600;
+	background: #f0f0f1;
+	color: #50575e;
+	width: fit-content;
+}
+
+.spreadconnect-card__status--ok,
+.spreadconnect-card__status--connected,
+.spreadconnect-card__status--success {
+	background: #edfaef;
+	color: #1f7a39;
+}
+
+.spreadconnect-card__status--warning,
+.spreadconnect-card__status--warn {
+	background: #fcf9e8;
+	color: #8a6d1a;
+}
+
+.spreadconnect-card__status--error,
+.spreadconnect-card__status--failed {
+	background: #fcf0f1;
+	color: #b32d2e;
+}
+
+/* ==========================================================================
+   4. Catalog Sync (Screen 2)
+   ========================================================================== */
+
+.spreadconnect-catalog__controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 12px 16px;
+	margin-bottom: 16px;
+}
+
+.spreadconnect-catalog__sync-now-form {
+	margin: 0;
+}
+
+.spreadconnect-catalog__sync-settings-stub {
+	color: #646970;
+	font-size: 12px;
+}
+
+.spreadconnect-catalog__during-sync {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 16px;
+	margin-bottom: 16px;
+}
+
+.spreadconnect-catalog__progress-bar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 8px 0;
+}
+
+.spreadconnect-catalog__progress-label {
+	font-weight: 600;
+	min-width: 110px;
+}
+
+.spreadconnect-catalog__progress-meter {
+	flex: 1 1 auto;
+	height: 14px;
+	background: #f0f0f1;
+	border-radius: 7px;
+	overflow: hidden;
+	position: relative;
+}
+
+.spreadconnect-catalog__progress-meter::-webkit-progress-bar {
+	background: #f0f0f1;
+	border-radius: 7px;
+}
+
+.spreadconnect-catalog__progress-meter::-webkit-progress-value {
+	background: #2271b1;
+	border-radius: 7px;
+}
+
+.spreadconnect-catalog__progress-meter::-moz-progress-bar {
+	background: #2271b1;
+	border-radius: 7px;
+}
+
+.spreadconnect-catalog__progress-fraction {
+	font-variant-numeric: tabular-nums;
+	min-width: 110px;
+	text-align: right;
+	color: #50575e;
+}
+
+.spreadconnect-catalog__counters {
+	display: flex;
+	gap: 18px;
+	flex-wrap: wrap;
+	margin: 12px 0;
+	font-size: 13px;
+	color: #50575e;
+}
+
+.spreadconnect-catalog__counter {
+	display: inline-flex;
+	gap: 4px;
+	align-items: baseline;
+}
+
+.spreadconnect-catalog__counter--created { color: #1f7a39; }
+.spreadconnect-catalog__counter--updated { color: #2271b1; }
+.spreadconnect-catalog__counter--skipped { color: #646970; }
+.spreadconnect-catalog__counter--errors  { color: #b32d2e; }
+
+.spreadconnect-catalog__log-tail {
+	margin-top: 12px;
+	background: #1d2327;
+	border-radius: 4px;
+	color: #f0f0f1;
+	padding: 10px 12px;
+	font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+	font-size: 12px;
+	max-height: 240px;
+	overflow: auto;
+}
+
+.spreadconnect-catalog__log-tail-title {
+	margin: 0 0 6px;
+	color: #c3c4c7;
+	font-size: 12px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.spreadconnect-catalog__log-tail-body {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.spreadconnect-catalog__cancel-stub {
+	margin-left: auto;
+}
+
+.spreadconnect-catalog__history-title {
+	margin: 24px 0 8px;
+	font-size: 1.1rem;
+	font-weight: 600;
+}
+
+.spreadconnect-catalog__history-empty {
+	color: #646970;
+	font-style: italic;
+}
+
+.spreadconnect-catalog__history-table {
+	width: 100%;
+	border-collapse: collapse;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+}
+
+.spreadconnect-catalog__history-table th,
+.spreadconnect-catalog__history-table td {
+	padding: 8px 12px;
+	border-bottom: 1px solid #f0f0f1;
+	text-align: left;
+	font-size: 13px;
+}
+
+.spreadconnect-catalog__history-table th {
+	background: #f6f7f7;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+/* ==========================================================================
+   5. Webhook Event Log (Screen 4)
+   ========================================================================== */
+
+.spreadconnect-webhook-log__filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 12px 16px;
+	margin-bottom: 12px;
+	align-items: end;
+}
+
+.spreadconnect-webhook-log__filter-label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: 12px;
+	color: #50575e;
+	font-weight: 600;
+}
+
+.spreadconnect-webhook-log__filter-select {
+	min-width: 140px;
+}
+
+.spreadconnect-webhook-log__retention {
+	color: #646970;
+	font-size: 12px;
+	margin: 0 0 8px;
+}
+
+.spreadconnect-webhook-log__table {
+	width: 100%;
+	border-collapse: collapse;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+}
+
+.spreadconnect-webhook-log__table th,
+.spreadconnect-webhook-log__table td {
+	padding: 8px 12px;
+	border-bottom: 1px solid #f0f0f1;
+	text-align: left;
+	font-size: 13px;
+	vertical-align: top;
+}
+
+.spreadconnect-webhook-log__table th {
+	background: #f6f7f7;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.spreadconnect-webhook-log__col-toggle,
+.spreadconnect-webhook-log__cell-toggle {
+	width: 28px;
+	text-align: center;
+}
+
+.spreadconnect-webhook-log__row + .spreadconnect-webhook-log__detail-row td {
+	background: #f6f7f7;
+	padding: 14px;
+}
+
+.spreadconnect-webhook-log__detail {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	padding: 12px;
+}
+
+.spreadconnect-webhook-log__detail-title {
+	margin: 0 0 6px;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.spreadconnect-webhook-log__detail-payload-hidden {
+	color: #b32d2e;
+	font-style: italic;
+	font-size: 12px;
+}
+
+.spreadconnect-webhook-log__detail-processing {
+	margin: 8px 0 0;
+	padding: 0 0 0 18px;
+	font-size: 12px;
+	color: #50575e;
+}
+
+.spreadconnect-webhook-log__detail-ip {
+	margin-top: 8px;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 11px;
+	color: #646970;
+}
+
+.spreadconnect-webhook-log__entity-empty {
+	color: #646970;
+}
+
+.spreadconnect-webhook-log__entity-link {
+	text-decoration: none;
+}
+
+.spreadconnect-webhook-log__entity-text {
+	color: #1d2327;
+}
+
+.spreadconnect-webhook-log__hmac {
+	display: inline-block;
+	padding: 1px 8px;
+	border-radius: 10px;
+	font-size: 11px;
+	font-weight: 600;
+}
+
+.spreadconnect-webhook-log__hmac.is-valid {
+	background: #edfaef;
+	color: #1f7a39;
+}
+
+.spreadconnect-webhook-log__hmac.is-invalid {
+	background: #fcf0f1;
+	color: #b32d2e;
+}
+
+.spreadconnect-webhook-log__proc {
+	display: inline-block;
+	padding: 1px 8px;
+	border-radius: 10px;
+	font-size: 11px;
+	font-weight: 600;
+	background: #f0f0f1;
+	color: #50575e;
+}
+
+.spreadconnect-webhook-log__pager {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-top: 12px;
+	font-size: 13px;
+	color: #50575e;
+}
+
+.spreadconnect-webhook-log__pager-counter {
+	color: #646970;
+}
+
+.spreadconnect-webhook-log__empty {
+	padding: 16px;
+	color: #646970;
+	background: #fff;
+	border: 1px dashed #c3c4c7;
+	border-radius: 4px;
+	text-align: center;
+}
+
+/* ==========================================================================
+   6. Failed Operations (Screen 5)
+   ========================================================================== */
+
+.spreadconnect-failed-ops__bulk-bar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	align-items: center;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 10px 14px;
+	margin-bottom: 12px;
+}
+
+.spreadconnect-failed-ops__bulk-outcome {
+	margin: 0 0 12px;
+	padding: 8px 12px;
+	border-left: 4px solid #2271b1;
+	background: #f0f6fc;
+	font-size: 13px;
+}
+
+.spreadconnect-failed-ops__empty {
+	padding: 18px;
+	background: #edfaef;
+	color: #1f7a39;
+	border: 1px solid #b8e0c2;
+	border-radius: 4px;
+	text-align: center;
+	font-weight: 600;
+}
+
+.spreadconnect-failed-ops__table {
+	width: 100%;
+	border-collapse: collapse;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+}
+
+.spreadconnect-failed-ops__table th,
+.spreadconnect-failed-ops__table td {
+	padding: 8px 10px;
+	border-bottom: 1px solid #f0f0f1;
+	text-align: left;
+	font-size: 13px;
+	vertical-align: top;
+}
+
+.spreadconnect-failed-ops__table th {
+	background: #f6f7f7;
+	font-weight: 600;
+}
+
+.spreadconnect-failed-ops__col-bulk,
+.spreadconnect-failed-ops__cell-bulk {
+	width: 32px;
+	text-align: center;
+}
+
+.spreadconnect-failed-ops__cell-time,
+.spreadconnect-failed-ops__cell-op-type,
+.spreadconnect-failed-ops__cell-entity,
+.spreadconnect-failed-ops__cell-retries {
+	white-space: nowrap;
+}
+
+.spreadconnect-failed-ops__cell-error {
+	max-width: 360px;
+	word-break: break-word;
+}
+
+.spreadconnect-failed-ops__cell-actions {
+	white-space: nowrap;
+	text-align: right;
+}
+
+.spreadconnect-failed-ops__action {
+	margin-left: 4px;
+}
+
+.spreadconnect-failed-ops__detail-row td {
+	background: #f6f7f7;
+	padding: 14px;
+}
+
+.spreadconnect-failed-ops__payload {
+	background: #1d2327;
+	color: #f0f0f1;
+	padding: 10px 12px;
+	border-radius: 4px;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	overflow: auto;
+	max-height: 240px;
+}
+
+/* Modal — Resolve Order */
+.spreadconnect-failed-ops__modal {
+	position: fixed;
+	inset: 0;
+	z-index: 100100; /* above WP admin bar */
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.spreadconnect-failed-ops__modal-backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.5);
+}
+
+.spreadconnect-failed-ops__modal-dialog {
+	position: relative;
+	background: #fff;
+	border-radius: 6px;
+	max-width: 560px;
+	width: calc(100% - 32px);
+	padding: 24px;
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+	z-index: 1;
+}
+
+.spreadconnect-failed-ops__modal-title {
+	margin: 0 0 12px;
+	font-size: 1.1rem;
+	font-weight: 600;
+}
+
+.spreadconnect-failed-ops__modal-help {
+	margin: 0 0 16px;
+	color: #50575e;
+	font-size: 13px;
+}
+
+.spreadconnect-failed-ops__modal-form {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.spreadconnect-failed-ops__modal-choices {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+}
+
+.spreadconnect-failed-ops__modal-choice {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 10px 12px;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+
+.spreadconnect-failed-ops__modal-external-id {
+	margin-top: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: 13px;
+}
+
+.spreadconnect-failed-ops__modal-actions {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+	margin-top: 8px;
+}
+
+/* ==========================================================================
+   7. Logs (Screen 6)
+   ========================================================================== */
+
+.spreadconnect-logs__filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 12px 16px;
+	margin-bottom: 12px;
+	align-items: end;
+}
+
+.spreadconnect-logs__filter-form {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	align-items: end;
+	margin: 0;
+}
+
+.spreadconnect-logs__filter-label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: 12px;
+	color: #50575e;
+	font-weight: 600;
+}
+
+.spreadconnect-logs__csv-button {
+	margin-left: auto;
+}
+
+.spreadconnect-logs__tail {
+	background: #1d2327;
+	color: #f0f0f1;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	border-radius: 4px;
+	padding: 0;
+	overflow: auto;
+	max-height: 540px;
+}
+
+.spreadconnect-logs__table {
+	width: 100%;
+	border-collapse: collapse;
+	color: inherit;
+}
+
+.spreadconnect-logs__table th,
+.spreadconnect-logs__table td {
+	padding: 6px 10px;
+	border-bottom: 1px solid #2c3338;
+	text-align: left;
+	vertical-align: top;
+	font-size: 12px;
+}
+
+.spreadconnect-logs__table th {
+	background: #2c3338;
+	color: #c3c4c7;
+	position: sticky;
+	top: 0;
+	font-weight: 600;
+}
+
+.spreadconnect-logs__row {
+	color: #f0f0f1;
+}
+
+.spreadconnect-logs__row--error    { color: #ff8a8e; }
+.spreadconnect-logs__row--warning  { color: #ffd166; }
+.spreadconnect-logs__row--info     { color: #c1d8ff; }
+.spreadconnect-logs__row--debug    { color: #8c95a3; }
+
+.spreadconnect-logs__message {
+	white-space: pre-wrap;
+	word-break: break-word;
+	font-family: inherit;
+}
+
+.spreadconnect-logs__empty {
+	padding: 18px;
+	color: #646970;
+	background: #fff;
+	border: 1px dashed #c3c4c7;
+	border-radius: 4px;
+	text-align: center;
+}
+
+/* ==========================================================================
+   8. Subscriptions Manager (Screen 8)
+   ========================================================================== */
+
+.spreadconnect-subscriptions__actions {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	flex-wrap: wrap;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 10px 14px;
+	margin-bottom: 12px;
+}
+
+.spreadconnect-subscriptions__last-check {
+	margin-left: auto;
+	color: #646970;
+	font-size: 12px;
+}
+
+.spreadconnect-subscriptions__error-banner {
+	margin: 0 0 12px;
+	padding: 10px 14px;
+	border-left: 4px solid #d63638;
+	background: #fcf0f1;
+	color: #8a1f23;
+	font-size: 13px;
+}
+
+.spreadconnect-subscriptions__result-banner {
+	margin: 0 0 12px;
+	padding: 10px 14px;
+	border-left: 4px solid #1f7a39;
+	background: #edfaef;
+	color: #1f7a39;
+	font-size: 13px;
+}
+
+.spreadconnect-subscriptions__table {
+	width: 100%;
+	border-collapse: collapse;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+}
+
+.spreadconnect-subscriptions__table th,
+.spreadconnect-subscriptions__table td {
+	padding: 8px 12px;
+	border-bottom: 1px solid #f0f0f1;
+	text-align: left;
+	font-size: 13px;
+	vertical-align: top;
+}
+
+.spreadconnect-subscriptions__table th {
+	background: #f6f7f7;
+	font-weight: 600;
+}
+
+.spreadconnect-subscriptions__cell-event,
+.spreadconnect-subscriptions__cell-status,
+.spreadconnect-subscriptions__cell-action {
+	white-space: nowrap;
+}
+
+.spreadconnect-subscriptions__cell-id,
+.spreadconnect-subscriptions__cell-url {
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	color: #50575e;
+	word-break: break-all;
+}
+
+.spreadconnect-subscriptions__legend {
+	margin: 12px 0 4px;
+	color: #50575e;
+	font-size: 12px;
+}
+
+.spreadconnect-subscriptions__hint {
+	margin: 8px 0 0;
+	color: #646970;
+	font-size: 12px;
+	font-style: italic;
+}
+
+.spreadconnect-subscriptions__repair-row {
+	margin-top: 4px;
+}
+
+/* ==========================================================================
+   9. Settings (Screen 7) — polish + secret reveal panel
+   ========================================================================== */
+
+/* Scoped form-table: only the spacing inside the hub gets a tighter rhythm.
+   WP core .form-table styling (label widths / padding) is NOT overridden. */
+.spreadconnect-hub .form-table {
+	margin-top: 0;
+}
+
+.spreadconnect-hub .form-table th {
+	width: 220px;
+}
+
+.spreadconnect-secret-mask {
+	font-family: Consolas, Monaco, monospace;
+	letter-spacing: 0.05em;
+}
+
+.spreadconnect-secret-generated-at {
+	color: #646970;
+	font-size: 12px;
+}
+
+.spreadconnect-secret-generated-at--never {
+	color: #8a6d1a;
+}
+
+.spreadconnect-test-status,
+.spreadconnect-regenerate-status,
+.spreadconnect-export-import-status,
+.spreadconnect-dev-tools-status {
+	display: inline-block;
+	margin-left: 8px;
+	padding: 2px 10px;
+	border-radius: 10px;
+	font-size: 12px;
+	font-weight: 600;
+	background: #f0f0f1;
+	color: #50575e;
+}
+
+.spreadconnect-test-status--ok,
+.spreadconnect-dev-tools-status--ok {
+	background: #edfaef;
+	color: #1f7a39;
+}
+
+.spreadconnect-test-status--error,
+.spreadconnect-dev-tools-status--error {
+	background: #fcf0f1;
+	color: #b32d2e;
+}
+
+.spreadconnect-test-status--pending,
+.spreadconnect-dev-tools-status--pending {
+	background: #fcf9e8;
+	color: #8a6d1a;
+}
+
+/* Reveal panel — first-time HMAC secret display */
+.spreadconnect-reveal-panel {
+	margin: 16px 0;
+	padding: 16px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-left: 4px solid #2271b1;
+	border-radius: 4px;
+}
+
+.spreadconnect-reveal-panel--initial {
+	border-left-color: #1f7a39;
+	background: #f6fbf7;
+}
+
+.spreadconnect-reveal-panel__secret {
+	display: block;
+	margin: 8px 0;
+	padding: 10px 12px;
+	background: #1d2327;
+	color: #f0f0f1;
+	border-radius: 4px;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 13px;
+	word-break: break-all;
+	user-select: all;
+}
+
+/* ==========================================================================
+   10. Settings save-result step panel (Screen 7 save_success_panel)
+   ========================================================================== */
+
+.spreadconnect-step-result {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 4px 0;
+	padding: 6px 10px;
+	border-radius: 4px;
+	font-size: 13px;
+}
+
+.spreadconnect-step-result--success {
+	background: #edfaef;
+	color: #1f7a39;
+}
+
+.spreadconnect-step-result--partial {
+	background: #fcf9e8;
+	color: #8a6d1a;
+}
+
+.spreadconnect-step-result__marker {
+	font-weight: 700;
+}
+
+.spreadconnect-step-result__label {
+	flex: 1 1 auto;
+}
+
+.spreadconnect-step-result__link {
+	margin-left: auto;
+}
+
+/* ==========================================================================
+   11. Misc utility hooks emitted by the views
+   ========================================================================== */
+
+.spreadconnect-row-toggle {
+	background: none;
+	border: 0;
+	color: #2271b1;
+	cursor: pointer;
+	padding: 2px 4px;
+	font-size: 14px;
+	min-height: 28px;
+}
+
+.spreadconnect-row-toggle:hover,
+.spreadconnect-row-toggle:focus {
+	color: #135e96;
+	text-decoration: underline;
+	outline: none;
+}
+
+.spreadconnect-payload-json {
+	background: #1d2327;
+	color: #f0f0f1;
+	padding: 10px 12px;
+	border-radius: 4px;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	overflow: auto;
+	max-height: 240px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.spreadconnect-slot {
+	display: block;
+}
+
+/* ==========================================================================
+   12. Responsive — collapse sidebar above content at WP-Admin mobile cutoff
+   ========================================================================== */
+
+@media (max-width: 782px) {
+	.spreadconnect-hub {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 12px;
+		margin-top: 12px;
+	}
+
+	.spreadconnect-hub-nav {
+		position: static;
+		top: auto;
+	}
+
+	.spreadconnect-hub-nav__list {
+		display: flex;
+		flex-wrap: wrap;
+	}
+
+	.spreadconnect-hub-nav__item {
+		flex: 1 1 auto;
+		border-left: none;
+		border-bottom: 3px solid transparent;
+	}
+
+	.spreadconnect-hub-nav__item.is-active {
+		border-bottom-color: #2271b1;
+	}
+
+	.spreadconnect-dashboard__cards {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.spreadconnect-card--failed-ops,
+	.spreadconnect-card--connection-detail {
+		grid-column: auto;
+	}
+
+	.spreadconnect-hub .form-table th {
+		width: auto;
+		display: block;
+		padding-bottom: 0;
+	}
+}
+
+/* ==========================================================================
+   13. Dark-mode resilience (basic — match WP's dark scheme contrast)
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+	.spreadconnect-hub {
+		color: #e6e6e6;
+	}
+
+	.spreadconnect-hub__title,
+	.spreadconnect-card__title,
+	.spreadconnect-card__count {
+		color: #f0f0f1;
+	}
+
+	.spreadconnect-hub-nav,
+	.spreadconnect-card,
+	.spreadconnect-catalog__controls,
+	.spreadconnect-catalog__during-sync,
+	.spreadconnect-catalog__history-table,
+	.spreadconnect-webhook-log__filters,
+	.spreadconnect-webhook-log__table,
+	.spreadconnect-webhook-log__empty,
+	.spreadconnect-failed-ops__bulk-bar,
+	.spreadconnect-failed-ops__table,
+	.spreadconnect-logs__filters,
+	.spreadconnect-logs__empty,
+	.spreadconnect-subscriptions__actions,
+	.spreadconnect-subscriptions__table,
+	.spreadconnect-reveal-panel {
+		background: #2c3338;
+		border-color: #50575e;
+		color: #e6e6e6;
+	}
+
+	.spreadconnect-hub-nav__link {
+		color: #c3c4c7;
+	}
+
+	.spreadconnect-hub-nav__link:hover,
+	.spreadconnect-hub-nav__link:focus,
+	.spreadconnect-hub-nav__item.is-active .spreadconnect-hub-nav__link {
+		color: #72aee6;
+		background: #1d2327;
+	}
+
+	.spreadconnect-hub-nav__item.is-active {
+		background: #1d2327;
+	}
+
+	.spreadconnect-card__meta,
+	.spreadconnect-card__empty,
+	.spreadconnect-card__label,
+	.spreadconnect-webhook-log__retention,
+	.spreadconnect-webhook-log__pager-counter,
+	.spreadconnect-subscriptions__last-check,
+	.spreadconnect-subscriptions__legend,
+	.spreadconnect-subscriptions__hint,
+	.spreadconnect-secret-generated-at,
+	.spreadconnect-catalog__sync-settings-stub {
+		color: #a7aaad;
+	}
+
+	.spreadconnect-catalog__history-table th,
+	.spreadconnect-webhook-log__table th,
+	.spreadconnect-failed-ops__table th,
+	.spreadconnect-subscriptions__table th {
+		background: #1d2327;
+		color: #f0f0f1;
+	}
+
+	.spreadconnect-catalog__history-table td,
+	.spreadconnect-webhook-log__table td,
+	.spreadconnect-failed-ops__table td,
+	.spreadconnect-subscriptions__table td {
+		border-bottom-color: #3c434a;
+	}
+
+	.spreadconnect-webhook-log__row + .spreadconnect-webhook-log__detail-row td,
+	.spreadconnect-failed-ops__detail-row td {
+		background: #1d2327;
+	}
+
+	.spreadconnect-webhook-log__detail {
+		background: #2c3338;
+		border-color: #3c434a;
+	}
+
+	.spreadconnect-failed-ops__modal-dialog {
+		background: #2c3338;
+		color: #f0f0f1;
+	}
+}
