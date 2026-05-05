@@ -22,4 +22,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+if ( ! file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
+	add_action( 'admin_notices', static function (): void {
+		echo '<div class="notice notice-error"><p><strong>Spreadconnect POD:</strong> Composer-Abhängigkeiten fehlen. Bitte <code>composer install</code> im Plugin-Verzeichnis ausführen.</p></div>';
+	} );
+	return;
+}
+
+require_once __DIR__ . '/vendor/autoload.php';
+
 \SpreadconnectPod\Bootstrap\Plugin::init( __FILE__ );
