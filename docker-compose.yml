@@ -35,6 +35,7 @@ services:
       WORDPRESS_DB_USER: ${MYSQL_USER}
       WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
       WORDPRESS_TABLE_PREFIX: wp_
+      NEXT_PUBLIC_SHOP_URL: ${WP_HOME_FRONTEND:-http://localhost:3000}
     volumes:
       - wordpress_data:/var/www/html
       - ./wordpress/plugins:/var/www/html/wp-content/plugins
@@ -44,12 +45,28 @@ services:
       - ./wordpress/php/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro
     networks:
       - pod-shop
+      - web
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost/ > /dev/null || exit 1"]
       interval: 20s
       timeout: 10s
       retries: 10
       start_period: 60s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pod-shop-frontend
+    restart: unless-stopped
+    depends_on:
+      wordpress:
+        condition: service_healthy
+    expose:
+      - "3000"
+    networks:
+      - pod-shop
+      - web
 
   wpcli:
     image: wordpress:cli-php8.2
@@ -98,3 +115,5 @@ volumes:
 networks:
   pod-shop:
     driver: bridge
+  web:
+    external: true

@@ -56,3 +56,6 @@ wordpress/cache/
 
 # Claude Code project settings (local only)
 .claude/settings.local.json
+
+# misc
+.screenshots/

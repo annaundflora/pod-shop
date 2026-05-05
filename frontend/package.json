@@ -6,9 +6,9 @@
     "generate-theme": "node scripts/generate-theme.mjs",
     "prebuild": "node scripts/generate-theme.mjs",
     "predev": "node scripts/generate-theme.mjs",
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 127.0.0.1",
     "test": "vitest run",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"

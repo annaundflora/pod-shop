@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   images: {
     dangerouslyAllowLocalIP: true,
     remotePatterns: [
@@ -8,6 +9,11 @@ const nextConfig: NextConfig = {
         protocol: 'http',
         hostname: 'localhost',
         port: '8080',
+        pathname: '/wp-content/uploads/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'wp.kleinstadtpflanze.de',
         pathname: '/wp-content/uploads/**',
       },
     ],
