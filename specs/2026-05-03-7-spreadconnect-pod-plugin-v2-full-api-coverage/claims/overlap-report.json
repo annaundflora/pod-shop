@@ -1,0 +1,15 @@
+{
+  "session_id": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
+  "feature": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
+  "branch": "7-spreadconnect-pod-plugin-v2-full-api-coverage",
+  "scan_timestamp": "2026-05-04T18:33:48Z",
+  "entities_changed": [],
+  "overlaps": [],
+  "summary": {
+    "files_changed": 156,
+    "entities_changed": 0,
+    "overlapping_files": 0,
+    "overlapping_entities": 0,
+    "max_severity": "none"
+  }
+}
